@@ -39,9 +39,17 @@ For Linux users, ensure that `gcc` and `make` are already installed on your syst
    ```bash
    sudo pacman -S ncurses
    ```
+   *Note: Typically, you can skip this step on Arch, as ncurses is already included in the base installation package.*
+
 - Fedora:
    ```bash
    sudo dnf install ncurses-devel
+   ```
+
+- openSUSE:
+   ```bash
+   sudo zypper install ncurses-devel
+   [ -e /usr/include/ncursesw/curses.h ] && sudo ln -fs ncursesw/curses.h /usr/include/curses.h
    ```
 
 2. Download or clone the source code repository.

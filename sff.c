@@ -41,6 +41,7 @@
 #include <stdalign.h>
 #include <ctype.h>
 #include <locale.h>
+#include <wchar.h>
 #include <grp.h>
 #include <pwd.h>
 #include <signal.h>
