@@ -1,10 +1,10 @@
 /* Default settings */
 #define OPENER    "xdg-open"  // Default opener
-#define EDITOR    "nano"        // Default editor
-#define SUDOER    "doas"      // Default sudo utility
+#define EDITOR    "vi"        // Default editor
+#define SUDOER    "sudo"      // Default sudo utility
 
 static Settings gcfg = {
-	.showhidden = 1,  // Show hidden files
+	.showhidden = 0,  // Show hidden files
 	.dirontop   = 1,  // Sort directories on the top
 	.sortby     = 0,  // (0: name, 1: size, 2: time, 3: extension)
 	.casesens   = 0,  // Case sensitive
