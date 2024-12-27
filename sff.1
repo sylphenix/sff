@@ -1,0 +1,78 @@
+.Dd 2024-11-22
+.Dt SFF 1
+.Os
+.Sh NAME
+.Nm sff
+.Nd simple and fast terminal file manager
+.Sh SYNOPSIS
+.Nm
+.Op Fl bcHmvh
+.Op Fl d Ar keys
+.Op Ar path
+.Sh DESCRIPTION
+.Nm
+(simple file finder) is a fast terminal file manager. It is inspired by Nnn. Following
+the suckless philosophy,
+.Nm
+is designed as a pure file browser and picker with minimal built-in
+functionality. All file operations are implemented by external functions
+provided by a shell script named sff-extfunc.
+.Sh OPTIONS
+The following options are available:
+.Bl -tag -width indent
+.It Fl b
+Run in permanent browse mode. For more details, see the \fIRUNNING MODE\fR section.
+.It Fl c
+Enable case sensitivity when sorting by filename.
+.It Fl d Ar keys
+Specify the details to show by default.
+.br
+Keys: 't'(time), 'o'(owner&group), 'p'(permissions), 's'(size), 'n'(none)
+.It Fl H
+Show hidden files.
+.It Fl h
+Display program help and exit.
+.It Fl m
+Mix directories and files when sorting.
+.It Fl v
+Print version and exit.
+.Sh KEYBINDS
+Press '?' in
+.Nm
+to see the list of keybinds for built-in functions.
+.br
+Press Alt+'/' in
+.Nm
+to see the list of keybinds for external functions.
+.Sh CONFIGURATION
+There is no configuration file. To customize
+.Nm sff,
+you need to edit \fBconfig.h\fR and recompile the program. \fBconfig.h\fR is a
+source code file which is included by sff.c(the main source code module). It
+is a C language header file, and serves as the configuration file for default
+settings, keybinds and colours. 
+.Sh RUNNING MODE
+.Pp
+\fBNormal mode:\fR
+.br
+This is the defaul mode. In this mode, you can temporarily switch to browse
+mode or sudo mode.
+.Pp
+\fBBrowse mode:\fR
+.br
+This mode can be considered a safe mode. In this mode, external functions
+are not available, and
+.Nm
+does not make any changes to the file system. A green reverse 'B' will be displayed
+as an indicator in the bottom left corner of the screen. When some non-fatal error
+occurs during sff initialization (such as not finding the sff-extfunc file), the
+program will be forced to run in permanent browsing mode. In this case, it will not
+be able to switch to normal mode or sudo mode.
+.Pp
+\fBSudo mode:\fR
+.br
+In this mode, A red reverse 'S' will be displayed as an indicator in the bottom left corner of the screen. When you temporarily switch from normal mode to sudo mode, external functions and editing files will be performed as the superuser, but opening file will still be performed as current user. When you run sff as superuser, the program will run in permanent sudo mode, any operation will be performed as the superuser, and it is not be able to switch to normal mode. However, you can still switch to browse mode.
+.Sh AUTHORS
+.An Shi Yanling Aq Mt sylphenix@126.com
+.Sh HOMEPAGE
+.Em https://codeberg.org/sylphenix/sff
