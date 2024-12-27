@@ -49,7 +49,7 @@ For Linux users, ensure that `gcc` and `make` are already installed on your syst
 - openSUSE:
    ```bash
    sudo zypper install ncurses-devel
-   [ -e "/usr/include/ncursesw/curses.h" ] && sudo ln -fs ncursesw/curses.h /usr/include/curses.h
+   [ -e /usr/include/ncursesw/curses.h ] && sudo ln -fs ncursesw/curses.h /usr/include/curses.h
    ```
 
 2. Download or clone the source code repository.
