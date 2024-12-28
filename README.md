@@ -69,7 +69,7 @@ Run `sff -h` to see command line options.
 
 While sff is running:
 - Press `?` or `F1` to see the list of keybinds for built-in functions.
-- Press `Alt`+`/` to see the list of keybinds for external functions.
+- Press `Alt`+`/` to see the list of keybinds for extended functions.
 - Press `Q` to quit sff.
 
 For more details, run `man sff` to see the documentation.
