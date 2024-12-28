@@ -1338,7 +1338,7 @@ static int showhelp(int n __attribute__((unused)))
 	for (i = 0; i < klines; ++i)
 		wprintw(help, "  %s\n", keys[i].cmnt);
 
-	waddstr(help, "\nNote: All file operations are implemented by external functions,\n"
+	waddstr(help, "\nNote: All file operations are implemented by extended functions,\n"
 			"which can be accessed via Alt-key. (Alt-/ for help) \n"
 			"Press 'q' or Esc to close");
 

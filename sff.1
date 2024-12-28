@@ -15,7 +15,7 @@
 the suckless philosophy,
 .Nm
 is designed as a pure file browser and picker with minimal built-in
-functionality. All file operations are implemented by external functions
+functionality. All file operations are implemented by extended functions
 provided by a shell script named sff-extfunc.
 .Sh OPTIONS
 The following options are available:
@@ -43,7 +43,7 @@ to see the list of keybinds for built-in functions.
 .br
 Press Alt+'/' in
 .Nm
-to see the list of keybinds for external functions.
+to see the list of keybinds for extended functions.
 .Sh CONFIGURATION
 There is no configuration file. To customize
 .Nm sff,
@@ -60,7 +60,7 @@ mode or sudo mode.
 .Pp
 \fBBrowse mode:\fR
 .br
-This mode can be considered a safe mode. In this mode, external functions
+This mode can be considered a safe mode. In this mode, extended functions
 are not available, and
 .Nm
 does not make any changes to the file system. A green reverse 'B' will be displayed
@@ -71,7 +71,7 @@ be able to switch to normal mode or sudo mode.
 .Pp
 \fBSudo mode:\fR
 .br
-In this mode, A red reverse 'S' will be displayed as an indicator in the bottom left corner of the screen. When you temporarily switch from normal mode to sudo mode, external functions and editing files will be performed as the superuser, but opening file will still be performed as current user. When you run sff as superuser, the program will run in permanent sudo mode, any operation will be performed as the superuser, and it is not be able to switch to normal mode. However, you can still switch to browse mode.
+In this mode, A red reverse 'S' will be displayed as an indicator in the bottom left corner of the screen. When you temporarily switch from normal mode to sudo mode, extended functions and editing files will be performed as the superuser, but opening file will still be performed as current user. When you run sff as superuser, the program will run in permanent sudo mode, any operation will be performed as the superuser, and it is not be able to switch to normal mode. However, you can still switch to browse mode.
 .Sh AUTHORS
 .An Shi Yanling Aq Mt sylphenix@126.com
 .Sh HOMEPAGE
