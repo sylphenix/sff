@@ -62,7 +62,7 @@
 #define ENTRY_INCR      128 // Number of Entry structures to allocate per shot
 #define NAME_INCR       4096 // 128 entries * avg. 32 chars per name = 4KB
 #define FILT_MAX        128 // Maximum length of filter string
-#define HSTAT_INCR      16 // Number of histstat structures to allocate each time
+#define HSTAT_INCR      16 // Number of Histstat structures to allocate each time
 #ifndef EXTFNNAME
 #define EXTFNNAME       "sff-extfunc"
 #endif
@@ -1117,12 +1117,9 @@ static int qfindnext(int n)
 
 static bool inittab(char *path, int n)
 {
-	if (gtab[n].cfg.enabled == 1)
-		return TRUE;
-
 	deleteallselstat(gtab[n].ss);
-
 	gtab[n].ss = NULL;
+
 	gtab[n].hp = inithistpath(&ghpath[n * 2], path, TRUE);
 	if (!gtab[n].hp)
 		return FALSE;
@@ -1144,7 +1141,7 @@ static int switchtab(int n)
 	if (n == gcfg.ct)
 		return GO_NONE;
 
-	if (!inittab(hp->path, n))
+	if (gtab[n].cfg.enabled == 0 && !inittab(hp->path, n) && seterrornum(__LINE__, errno))
 		return GO_STATBAR;
 
 	hp->stat->cur = cursel;
@@ -1159,26 +1156,27 @@ static int closetab(int n)
 	int ac = -1;
 
 	n = gcfg.ct;
-	deleteallselstat(gtab[n].ss);
-	gtab[n].ss = NULL;
-	gtab[n].cfg.enabled = 0;
-
-	if (n == TABS_MAX)
-		findlen = 0;
-
-	for (int i = 0; i < TABS_MAX; ++i)
-		if (gtab[i].cfg.enabled == 1)
+	for (int i = 0; i <= TABS_MAX; ++i)
+		if (i != n && gtab[i].cfg.enabled == 1)
 			ac = i;
 
-	if (gtab[gcfg.lt].cfg.enabled == 1)
+	if (gcfg.lt != n && gtab[gcfg.lt].cfg.enabled == 1)
 		ac = gcfg.lt;
 
 	if (ac == -1) {
-		inittab(home ? home : "/", 0);
+		if (n != 0 && !inittab(home ? home : "/", 0) && seterrornum(__LINE__, errno))
+			return GO_STATBAR;
 		gcfg.ct = 0;
+		if (n == 0)
+			return GO_NONE;
 	} else
 		gcfg.ct = ac;
 
+	if (n == TABS_MAX)
+		findlen = 0;
+	deleteallselstat(gtab[n].ss);
+	gtab[n].ss = NULL;
+	gtab[n].cfg.enabled = 0;
 	gcfg.lt = n;
 	return GO_RELOAD;
 }
@@ -1666,12 +1664,10 @@ static int handlepipedata(int fd)
 	case 'f': // load search result
 		if (!readpipe(fd, &pfindbuf, &findlen))
 			return GO_STATBAR;
-		gtab[TABS_MAX].cfg.enabled = 0;
-		if (gcfg.ct == TABS_MAX) {
-			inittab(ptab->hp->path, TABS_MAX);
-			return GO_RELOAD;
-		} else
-			return switchtab(TABS_MAX);
+		if (!inittab(ptab->hp->path, TABS_MAX) && seterrornum(__LINE__, errno))
+			return GO_STATBAR;
+		switchtab(TABS_MAX);
+		return GO_RELOAD;
 	}
 	return GO_REDRAW;
 }

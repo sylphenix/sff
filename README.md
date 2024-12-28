@@ -32,22 +32,22 @@ For Linux users, ensure that `gcc` and `make` are already installed on your syst
 
 1. Install dependencies. (Linux only)
 - Debian/Ubuntu:
-   ```bash
+   ```
    sudo apt install libncurses-dev
    ```
 - Arch Linux:
-   ```bash
+   ```
    sudo pacman -S ncurses
    ```
    *Note: Typically, you can skip this step on Arch, as ncurses is already included in the base installation package.*
 
 - Fedora:
-   ```bash
+   ```
    sudo dnf install ncurses-devel
    ```
 
 - openSUSE:
-   ```bash
+   ```
    sudo zypper install ncurses-devel
    [ -e /usr/include/ncursesw/curses.h ] && sudo ln -fs ncursesw/curses.h /usr/include/curses.h
    ```
@@ -56,32 +56,23 @@ For Linux users, ensure that `gcc` and `make` are already installed on your syst
 
 3. Navigate to the root directory of the project.
 
-4. Run the following command:
-   ```bash
-   make
+4. Run the following command to build and install sff:
    ```
-
-5. Optionally, install it system-wide:
-   ```bash
    sudo make install
    ```
 
-## Configuration
-
-There is no configuration file. sff is customized by edit config.h and (re)compiling
-the source code. This keeps it simple and fast.
-
 ## Usage
 
-To run sff from its build directory, use the following command:
-```bash
-./sff
-```
+Simply run `sff` to start the application from the current directory.
 
-If sff is installed system-wide, you can simply run:
-```bash
-sff
-```
+Run `sff -h` to see command line options.
+
+While sff is running:
+- Press `?` or `F1` to see the list of keybinds for built-in functions.
+- Press `Alt`+`/` to see the list of keybinds for external functions.
+- Press `Q` to quit sff.
+
+For more details, run `man sff` to see the documentation.
 
 ## License
 
