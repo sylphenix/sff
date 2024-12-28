@@ -1141,7 +1141,7 @@ static int switchtab(int n)
 	if (n == gcfg.ct)
 		return GO_NONE;
 
-	if (gtab[n].cfg.enabled == 0 && !inittab(hp->path, n))
+	if (gtab[n].cfg.enabled == 0 && !inittab(hp->path, n) && seterrornum(__LINE__, errno))
 		return GO_STATBAR;
 
 	hp->stat->cur = cursel;
@@ -1164,17 +1164,11 @@ static int closetab(int n)
 		ac = gcfg.lt;
 
 	if (ac == -1) {
-		if (n != 0 && !inittab(home ? home : "/", 0))
+		if (n != 0 && !inittab(home ? home : "/", 0) && seterrornum(__LINE__, errno))
 			return GO_STATBAR;
 		gcfg.ct = 0;
-		if (n == 0) {
-			move(xlines - 1, 0);
-			clrtoeol();
-			attron(COLOR_PAIR(C_STATBAR));
-			addstr("Hint: press 'Q' to quit.");
-			attroff(COLOR_PAIR(C_STATBAR));
+		if (n == 0)
 			return GO_NONE;
-		}
 	} else
 		gcfg.ct = ac;
 
@@ -1670,7 +1664,7 @@ static int handlepipedata(int fd)
 	case 'f': // load search result
 		if (!readpipe(fd, &pfindbuf, &findlen))
 			return GO_STATBAR;
-		if (!inittab(ptab->hp->path, TABS_MAX))
+		if (!inittab(ptab->hp->path, TABS_MAX) && seterrornum(__LINE__, errno))
 			return GO_STATBAR;
 		switchtab(TABS_MAX);
 		return GO_RELOAD;
