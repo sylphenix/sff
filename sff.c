@@ -214,7 +214,7 @@ static void dbgprint(char *vn, char *str, int n)
 }
 #endif
 
-/* Convert unsigned integer to string. The maximum value it can accept is 4,294,967,295
+/* Convert unsigned integer to string. The maximum value it can handle is 4,294,967,295
    This is a modified version of xitoa() from nnn. https://github.com/jarun/nnn */
 static char *xitoa(unsigned int val)
 {
@@ -1141,7 +1141,10 @@ static int switchtab(int n)
 	if (n == gcfg.ct)
 		return GO_NONE;
 
-	if (gtab[n].cfg.enabled == 0 && !inittab(hp->path, n) && seterrornum(__LINE__, errno))
+	if (gtab[n].cfg.enabled == 0 && !inittab(hp->path, n))
+		return GO_STATBAR;
+
+	if (chdir(gtab[n].hp->path) != 0 && seterrornum(__LINE__, errno))
 		return GO_STATBAR;
 
 	hp->stat->cur = cursel;
@@ -1164,7 +1167,7 @@ static int closetab(int n)
 		ac = gcfg.lt;
 
 	if (ac == -1) {
-		if (n != 0 && !inittab(home ? home : "/", 0) && seterrornum(__LINE__, errno))
+		if (n != 0 && !inittab(home ? home : "/", 0))
 			return GO_STATBAR;
 		gcfg.ct = 0;
 		if (n == 0)
@@ -1339,7 +1342,7 @@ static int showhelp(int n __attribute__((unused)))
 		wprintw(help, "  %s\n", keys[i].cmnt);
 
 	waddstr(help, "\nNote: All file operations are implemented by extended functions,\n"
-			"which can be accessed via Alt-key. (Alt-/ for help) \n"
+			"which can be accessed using 'Alt' key combinations. (Alt-/ for help) \n"
 			"Press 'q' or Esc to close");
 
 	while (c != ESC && c != 'q') {
@@ -1664,7 +1667,7 @@ static int handlepipedata(int fd)
 	case 'f': // load search result
 		if (!readpipe(fd, &pfindbuf, &findlen))
 			return GO_STATBAR;
-		if (!inittab(ptab->hp->path, TABS_MAX) && seterrornum(__LINE__, errno))
+		if (!inittab(ptab->hp->path, TABS_MAX))
 			return GO_STATBAR;
 		switchtab(TABS_MAX);
 		return GO_RELOAD;
