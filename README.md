@@ -69,7 +69,7 @@ Run `sff -h` to see command line options.
 
 While sff is running:
 - Press `?` or `F1` to see the list of keybinds for built-in functions.
-- Press `Alt`+`/` to see the list of keybinds for extended functions.
+- Press `alt`+`/` to see the list of keybinds for extended functions.
 - Press `Q` to quit sff.
 
 For more details, run `man sff` to see the documentation.
@@ -80,4 +80,4 @@ sff is released under the 2-Clause BSD License. See the LICENSE file for more de
 
 ## Acknowledgements
 
-Thanks to [nnn](https://github.com/jarun/nnn) and [suckless.org](https://suckless.org).
+Special thanks to [nnn](https://github.com/jarun/nnn) and [suckless.org](https://suckless.org).

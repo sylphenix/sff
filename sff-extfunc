@@ -47,7 +47,7 @@ err=''
 [ ! -e "$sffdir" ] && mkdir -p "$sffdir"
 echo ""
 
-# === sff external functions ===
+# === sff extended functions ===
 
 sffpipe_refresh()
 {
@@ -634,7 +634,7 @@ sff_help()
 
 
 # === key bindings ===
-case "$1" in            #?> External functions:
+case "$1" in            #?> Extended functions:
 'n') sff_new;;          #?>     Alt-n  Create files (ends with '/' for dirs)
 'd') sff_delete;;       #?>     Alt-d  Delete
 'y') sff_copy;;         #?>     Alt-y  Copy
