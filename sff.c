@@ -1167,13 +1167,16 @@ static int closetab(int n)
 		ac = gcfg.lt;
 
 	if (ac == -1) {
-		if (n != 0 && !inittab(home ? home : "/", 0))
-			return GO_STATBAR;
-		gcfg.ct = 0;
 		if (n == 0)
 			return GO_NONE;
-	} else
+		else if (!inittab(home ? home : "/", 0))
+			return GO_STATBAR;
+		gcfg.ct = 0;
+	} else {
+		if (chdir(gtab[ac].hp->path) != 0 && seterrornum(__LINE__, errno))
+			return GO_STATBAR;
 		gcfg.ct = ac;
+	}
 
 	if (n == TABS_MAX)
 		findlen = 0;
