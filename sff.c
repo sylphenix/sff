@@ -761,15 +761,12 @@ static int gotoparent(int n __attribute__((unused)))
 	return GO_RELOAD;
 }
 
-static int gotohome(int n)
+static int gotohome(int n __attribute__((unused)))
 {
 	if (gcfg.ct == TABS_MAX)
 		return GO_NONE;
 
-	if (n == 1 && home)
-		return newhistpath(home);
-	else
-		return newhistpath("/");
+	return newhistpath(home ? home : "/");
 }
 
 static int refreshview(int n)
@@ -1141,10 +1138,10 @@ static int switchtab(int n)
 	if (n == gcfg.ct)
 		return GO_NONE;
 
-	if (gtab[n].cfg.enabled == 0 && !inittab(hp->path, n))
+	if (gtab[n].cfg.enabled == 0 && !inittab(hp->path, n) && !inittab(home ? home : "/", n))
 		return GO_STATBAR;
 
-	if (chdir(gtab[n].hp->path) != 0 && seterrornum(__LINE__, errno))
+	if (chdir(gtab[n].hp->path) != 0 && seterrornum(__LINE__, errno) && !inittab(home ? home : "/", n))
 		return GO_STATBAR;
 
 	hp->stat->cur = cursel;
@@ -1173,7 +1170,7 @@ static int closetab(int n)
 			return GO_STATBAR;
 		gcfg.ct = 0;
 	} else {
-		if (chdir(gtab[ac].hp->path) != 0 && seterrornum(__LINE__, errno))
+		if (chdir(gtab[ac].hp->path) != 0 && seterrornum(__LINE__, errno) && !inittab(home ? home : "/", ac))
 			return GO_STATBAR;
 		gcfg.ct = ac;
 	}
