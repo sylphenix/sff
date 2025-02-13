@@ -70,9 +70,8 @@ sffpipe_sel_new()
 
 sff_init_tbuf()
 {
-	[ -s "$sel" ] && tr '\n\0' '\035\n' <"$sel" >"$tsel"
-	: >"$tbuf1"; : >"$tbuf2"
-	chmod 666 "$tsel" "$tbuf1" "$tbuf2"
+	[ -s "$sel" ] && tr '\n\0' '\035\n' <"$sel" >"$tsel" && chmod 666 "$tsel"
+	: >"$tbuf1" && : >"$tbuf2" && chmod 666 "$tbuf1" "$tbuf2"
 	[ "$1" ] && : >"$1" && chmod 666 "$1"
 }
 
