@@ -69,7 +69,7 @@ static const Key keys[] = {
 	{ CTRL('T'),     0,         togglemode,       1,    "        ^T  Toggle sudo mode" },
 	{ 'o',           0,         viewoptions,      0,    "         o  View options" },
 	{ '?',          KEY_F(1),   showhelp,         0,    "     F1, ?  Show this help" },
-	{  0,            0,         NULL,             0,    "     Alt-/  Extended functions help" },
+	{  0,            0,         NULL,             0,    "     Alt-/  Extension functions help" },
 	{ 'Q',           0,         quitsff,          1,    "         Q  Quit" },
 };
 
