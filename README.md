@@ -1,24 +1,24 @@
 # sff
 
 `sff` (simple file finder) is a simple, fast, and feature-rich terminal file
-manager inspired by `nnn` and guided by the suckless philosophy. It aims to
-provide a reliable, efficient, user-friendly, and highly extensible file 
-management experience. `sff` is designed to be fully compatible with
-POSIX-compliant systems. It has been extensively tested on GNU/Linux and FreeBSD.
+manager inspired by `nnn` and guided by the suckless philosophy. It aims to 
+provide a reliable, efficient, and user-friendly file management experience with 
+high extensibility. `sff` is fully compatible with POSIX-compliant systems. It 
+has been extensively tested on GNU/Linux and FreeBSD.
 
 
 ## Features
 
 - POSIX-compliant and highly optimized
 - Fast startup and low memory footprint
-- Extendable with shell scripts
+- Extensible with shell scripts
 - Customizable detail columns
-- Quick find for navigation
-- Advanced searching with `find`
-- Rapid file search with `fzf`
-- Temporary sudo mode
+- Type-to-navigate
+- Advanced search with `find`
+- Fast file search with `fzf`
+- Convenient temporary sudo mode
 - Undo/Redo for the last file operation
-- Batch creation of files and directories
+- Batch file and directory creation
 - Batch rename
 - Multi-tab support, cross-directory selection
 - Extract, list, create archives
@@ -30,7 +30,7 @@ POSIX-compliant systems. It has been extensively tested on GNU/Linux and FreeBSD
 ### Install from source
 For Linux users, ensure that `gcc` and `make` are already installed on your system.  
 
-1. Install dependencies. (Linux only)
+1. Run the following command to install dependencies. (Linux only)
 - Debian/Ubuntu:
    ```
    sudo apt install libncurses-dev
@@ -39,7 +39,7 @@ For Linux users, ensure that `gcc` and `make` are already installed on your syst
    ```
    sudo pacman -S ncurses
    ```
-   *Note: Typically, you can skip this step on Arch, as ncurses is already included in the base installation package.*
+   *Note: On Arch Linux, this step is usually unnecessary since ncurses is part of the base installation.*
 
 - Fedora:
    ```
@@ -68,8 +68,8 @@ Simply run `sff` to start the application from the current directory.
 Run `sff -h` to see command line options.
 
 While sff is running:
-- Press `?` or `F1` to see the list of keybinds for built-in functions.
-- Press `alt`+`/` to see the list of keybinds for extended functions.
+- Press `?` or `F1` to see the list of key bindings for built-in functions.
+- Press `alt`+`/` to see the list of key bindings for extension functions.
 - Press `Q` to quit sff.
 
 For more details, run `man sff` to see the documentation.
