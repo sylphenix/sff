@@ -1341,9 +1341,9 @@ static int showhelp(int n __attribute__((unused)))
 	for (i = 0; i < klines; ++i)
 		wprintw(help, "  %s\n", keys[i].cmnt);
 
-	waddstr(help, "\nNote: All file operations are implemented by extended functions,\n"
-			"which can be accessed using 'Alt' key combinations. (Alt-/ for help) \n"
-			"Press 'q' or Esc to close");
+	waddstr(help, "\nNote: All file operations are implemented by extension functions.\n"
+			"To get help for extension functions, press Alt-/ in the main view.\n"
+			"Press 'q' or Esc to leave this page.");
 
 	while (c != ESC && c != 'q') {
 		start = MAX(0, MIN(start, plines - xlines));
