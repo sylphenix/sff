@@ -633,7 +633,7 @@ sff_help()
 
 
 # === key bindings ===
-case "$1" in            #?> Extended functions:
+case "$1" in            #?> Extension functions:
 'n') sff_new;;          #?>     Alt-n  Create files (ends with '/' for dirs)
 'd') sff_delete;;       #?>     Alt-d  Delete
 'y') sff_copy;;         #?>     Alt-y  Copy
@@ -641,11 +641,11 @@ case "$1" in            #?> Extended functions:
 'p') sff_paste 'd';;    #?>     Alt-p  Paste
 'P') sff_paste;;        #?>     Alt-P  Paste and keep copy buffer
 'v') sff_view_buffer;;  #?>     Alt-v  View copy/cut buffer
-'c') sff_clear_cpbuf;;  #?>     Alt-c  Clear copy/cut buffer
+'V') sff_clear_cpbuf;;  #?>     Alt-V  Clear copy/cut buffer
 'r') sff_rename;;       #?>     Alt-r  Rename
 'Y') sff_duplicate;;    #?>     Alt-Y  Duplicate
 'm') sff_chmod_chown;;  #?>     Alt-m  Change file mode/owner
-'f') sff_find;;         #?>     Alt-f  Find
+'f') sff_find;;         #?>     Alt-f  Advanced search
 'F') sff_fzf_find;;     #?>     Alt-F  Search with fzf
 'i') sff_file_stat;;    #?>     Alt-i  Show file status
 'I') sff_disk_usage;;   #?>     Alt-I  Show disk usage
@@ -654,4 +654,4 @@ case "$1" in            #?> Extended functions:
 'u') sff_undo;;         #?>     Alt-u  Undo last operation
 'U') sff_redo;;         #?>     Alt-U  Redu last operation
 '/') sff_help;;         #?>     Alt-/  Show this Help
-esac                    #?> Press 'q' to close
+esac                    #?> Press 'q' to leave this page.

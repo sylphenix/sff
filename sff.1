@@ -1,4 +1,4 @@
-.Dd 2024-11-22
+.Dd 2025-2-23
 .Dt SFF 1
 .Os
 .Sh NAME
@@ -11,23 +11,27 @@
 .Op Ar path
 .Sh DESCRIPTION
 .Nm
-(simple file finder) is a fast terminal file manager. It is inspired by Nnn. Following
-the suckless philosophy,
-.Nm
-is designed as a pure file browser and picker with minimal built-in
-functionality. All file operations are implemented by extended functions
-provided by a shell script named sff-extfunc.
+is a simple, fast, and feature-rich terminal file manager inspired by \fBnnn\fR and guided by the suckless philosophy. It is composed of two main parts: a core program and an extension shell script. The core program is designed as a pure file browser and picker with minimal built-in functionality. All file operations, such as copying, moving, and deleting, are implemented by the extension shell script. For more details, see the \fIEXTENSION FUNCTIONS\fR section.
+.Pp
+.Nm 
+opens the current working directory if 
+.Ar path
+is not specified.
 .Sh OPTIONS
 The following options are available:
 .Bl -tag -width indent
 .It Fl b
-Run in permanent browse mode. For more details, see the \fIRUNNING MODE\fR section.
+Force the program to run in browse mode. For more details, see the \fIRUNNING MODE\fR section.
 .It Fl c
 Enable case sensitivity when sorting by filename.
 .It Fl d Ar keys
-Specify the details to show by default.
-.br
-Keys: 't'(time), 'o'(owner&group), 'p'(permissions), 's'(size), 'n'(none)
+Specify the details to show by default. Valid keys include:
+.Pp
+    - \fBt\fR: time
+    - \fBo\fR: owner & group
+    - \fBp\fR: permissions
+    - \fBs\fR: size
+    - \fBn\fR: none
 .It Fl H
 Show hidden files.
 .It Fl h
@@ -35,43 +39,143 @@ Display program help and exit.
 .It Fl m
 Mix directories and files when sorting.
 .It Fl v
-Print version and exit.
-.Sh KEYBINDS
-Press '?' in
+Print version information and exit.
+.Sh KEY BINDINGS
+Press '?' or 'F1' in
 .Nm
-to see the list of keybinds for built-in functions.
-.br
+to see the list of key bindings for built-in functions.
+.Pp
 Press Alt+'/' in
 .Nm
-to see the list of keybinds for extended functions.
+to see the list of key bindings for extension functions.
 .Sh CONFIGURATION
-There is no configuration file. To customize
-.Nm sff,
+.Nm
+does not use a configuration file. To customize
+.Nm  ,
 you need to edit \fBconfig.h\fR and recompile the program. \fBconfig.h\fR is a
-source code file which is included by sff.c(the main source code module). It
+source code file which is included by \fBsff.c\fR(the main source code module). It
 is a C language header file, and serves as the configuration file for default
-settings, keybinds and colours. 
+settings, key bindings, and colors. 
+.Sh EXTENSION FUNCTIONS
+The extension functions are provided by a shell script named \fBsff-extfunc\fR, which is installed by default in 
+.Pa /usr/local/libexec/  .
+You can easily customize key bindings for extension functions, modify existing functions, or add your own functions by editing this file. It is generally not recommended to directly modify the system-wide \fBsff-extfunc\fR. Instead, copy it to the user's config directory and make modifications there.
+.Pp
+The user's config directory is required for executing extension functions. This directory is either 
+.Pa $XDG_CONFIG_HOME/sff/ 
+or 
+.Pa ~/.config/sff/  ,
+whichever is encountered first. If this directory does not exist, the program will attempt to create it during initialization.
+.Pp
+During initialization, 
+.Nm 
+determines the location of \fBsff-extfunc\fR by checking the following directories in order, and uses the first occurrence found:
+.Pp
+    1. The user's config directory
+    2. The directory where the 
+.Nm 
+file itself resides
+    3. /usr/local/libexec/
+.Sh TABS
+The tab status is displayed in the top-left corner of the screen. Five tab indicators are shown, with the current tab highlighted in reverse video. Tabs 1 through 4 are regular tabs and are indicated by '*' when inactive. When switching to an inactive tab, the new tab will be activated and inherit the current directory path as its initial path. The fifth tab is a special tab, indicated by '#', dedicated to handling search results.
+.Sh SELECTION
+By default, the currently pointed file is automatically selected. When a file selection operation is performed by the user, the program enters manual selection mode, and the currently pointed file will no longer be automatically selected. Clearing all selections causes the program to exit manual selection mode and return to the default state. 
+.Pp
+.Nm 
+allows file selection across directories. Each tab maintains its own independent selection state. The second set of numbers, displayed in reverse video in the bottom status bar, indicates the total number of selected files in the current tab.
+.Pp
+Each time an extension function is executed, the absolute paths of the selected files in the current tab are written to the \fB.selection\fR file in the user's config directory. The \fBsff-extfunc\fR script reads this file to obtain the paths of the selected files.
+.Sh FILTERS
+Filters are strings used to instantly list matching entries in the current directory. When a filter is enabled, it appears above the bottom status bar, and the program enters input mode. In this mode, you can:
+.Pp
+    - Enter a filter matching string (matching is case-insensitive).
+.Pp
+    - Press the Enter or Esc key to exit input mode, and the filter 
+      remains active.
+.Pp
+    - Press the '/' key to disable the filter and exit input mode.
+.Pp
+The filter only applies to the current directory. When navigating away from the current directory, the filter is automatically disabled.
+.Sh QUICK FIND
+Quick Find is used to quickly locate an entry within the current directory. When Quick Find is enabled, it appears above the bottom status bar, and the program enters input mode. In this mode, you can:
+.Pp
+    - Enter a search string for matching.
+.Pp
+    - Enter '/' as the first character to navigate to the root directory.
+.Pp
+    - Press the Tab key or the '/' key to enter the currently pointed 
+      directory and clear the entered search string.
+.Pp
+    - Press the Enter or Esc key to exit Quick Find.
+.Pp
+Matching is case-insensitive and prioritizes matches at the beginning of file names. If no file name starts with the search string, it will match file names containing the search string. Upon a successful match, the pointer will jump to the first matching entry.
+.Sh ADVANCED SEARCH
+Advanced Search is an extension function implemented using the \fBfind\fR command. It requires two inputs:
+.Pp
+    1. Filename search term: This acts as the argument for the -name 
+       option, so remember to use wildcards when necessary. For example, 
+       to search for files containing 'lib' in their name, enter '*lib*' 
+       instead of just 'lib'. If you do not want to search by filename, 
+       simply enter '*'.
+.Pp
+    2. Additional search options: Here, you can provide one or more 
+       primaries for the \fBfind\fR command, such as '-size +4k' to search 
+       for files larger than 4k. If no additional options are needed, 
+       leave this field blank and press the Enter key.
+.Pp
+After both inputs are provided, the executed command will be: 
+.Pp
+    find ./ -name "input1" input2
+.Pp
+The search results are sent back to 
+.Nm 
+and listed in the fifth tab, where you can further process them.
+.Sh UNDO AND REDO
+.Nm 
+supports undoing or redoing the last file operation. Supported operations include:
+.Pp
+    - Create new files/directories
+    - Copy-paste
+    - Cut-paste
+    - Rename
+    - Duplicate
+.Pp
+Notes: Undo/Redo actions span across different tabs and even different
+.Nm 
+instances. This means that a file operation performed in one 
+.Nm 
+instance can be undone or redone in another instance.
 .Sh RUNNING MODE
 .Pp
-\fBNormal mode:\fR
+\fBBrowse Mode:\fR
 .br
-This is the defaul mode. In this mode, you can temporarily switch to browse
-mode or sudo mode.
-.Pp
-\fBBrowse mode:\fR
-.br
-This mode can be considered a safe mode. In this mode, extended functions
-are not available, and
+In this mode, a green reversed 'B' is displayed as an indicator in the bottom-left
+corner of the screen. This mode can be considered a safe mode. In browse mode, extension 
+functions are disabled, and
 .Nm
-does not make any changes to the file system. A green reverse 'B' will be displayed
-as an indicator in the bottom left corner of the screen. When some non-fatal error
-occurs during sff initialization (such as not finding the sff-extfunc file), the
-program will be forced to run in permanent browsing mode. In this case, it will not
-be able to switch to normal mode or sudo mode.
+does not make any changes to the file system. 
 .Pp
-\fBSudo mode:\fR
+The program is forced into browse mode and cannot exit this mode until termination under the following conditions:
+.Pp
+    - When the -b option is used while running 
+.Nm 
+    - During 
+.Nm
+initialization, when certain non-fatal errors occur 
+      (e.g., the \fBsff-extfunc\fR file cannot be found)
+.Pp
+\fBSudo Mode:\fR
 .br
-In this mode, A red reverse 'S' will be displayed as an indicator in the bottom left corner of the screen. When you temporarily switch from normal mode to sudo mode, extended functions and editing files will be performed as the superuser, but opening file will still be performed as current user. When you run sff as superuser, the program will run in permanent sudo mode, any operation will be performed as the superuser, and it is not be able to switch to normal mode. However, you can still switch to browse mode.
+In this mode, a red reversed 'S' is displayed as an indicator in the bottom-left corner of the screen. When 
+.Nm 
+is run as a regular user and switched to sudo mode, the following operations will be executed with superuser privileges:
+.Pp
+    - All extension functions
+    - File editing
+.Pp
+However, all other operations are still performed by the current user. When 
+.Nm 
+is run as the superuser, the program will always run in sudo mode or can be switched to browse mode until termination. Naturally, all operations are performed by the superuser.
 .Sh AUTHORS
 .An Shi Yanling Aq Mt sylphenix@outlook.com
 .Sh HOMEPAGE
