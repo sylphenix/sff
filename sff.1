@@ -179,7 +179,7 @@ is run as a regular user and switched to sudo mode, the following operations wil
     - All extension functions
     - File editing
 .Pp
-However, all other operations are still performed by the current user. Since Undo/Redo itself is also an extension function, it only applies to the last file operation performed by the corresponding user. For example, if you switch to sudo mode and then perform an undo, it will revert the last file operation performed by the superuser, not the last operation performed before switching modes.
+However, all other operations are still performed by the current user. Since Undo/Redo itself is also an extension function, it only applies to the last file operation performed by the corresponding user. For example, if you switch to sudo mode and then perform an undo, it will revert the last file operation performed by the superuser, not the last operation performed before switching modes. Similarly, you cannot copy files and then switch to sudo mode to paste them.
 .Pp
 When 
 .Nm 
