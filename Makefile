@@ -46,7 +46,7 @@ sff: ${OBJ}
 	rm sff.o
 
 clean:
-	rm -f sff ${OBJ} sff-${VERSION}.tar.gz
+	rm -f sff ${OBJ} sff.1.gz sff-${VERSION}.tar.gz
 
 dist:
 	mkdir -p sff-${VERSION}
@@ -63,12 +63,13 @@ install: all
 	cp -f ${EXTFNNAME} ${DESTDIR}${EXTFNPREFIX}/
 	chmod 755 ${DESTDIR}${EXTFNPREFIX}/${EXTFNNAME}
 	mkdir -p ${DESTDIR}${MANPREFIX}/man1
-	cp -f sff.1 ${DESTDIR}${MANPREFIX}/man1/sff.1
-	chmod 644 ${DESTDIR}${MANPREFIX}/man1/sff.1
+	gzip -fk sff.1
+	cp -f sff.1.gz ${DESTDIR}${MANPREFIX}/man1/
+	chmod 644 ${DESTDIR}${MANPREFIX}/man1/sff.1.gz
 
 uninstall:
 	rm -f ${DESTDIR}${PREFIX}/bin/sff\
 		${DESTDIR}${EXTFNPREFIX}/${EXTFNNAME}\
-		${DESTDIR}${MANPREFIX}/man1/sff.1
+		${DESTDIR}${MANPREFIX}/man1/sff.1.gz
 
 .PHONY: all options clean dist install uninstall
