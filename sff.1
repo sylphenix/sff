@@ -79,14 +79,14 @@ file itself resides
 .Sh TABS
 The tab status is displayed in the top-left corner of the screen. Five tab indicators are shown, with the current tab highlighted in reverse video. Tabs 1 through 4 are regular tabs and are indicated by '*' when inactive. When switching to an inactive tab, the new tab will be activated and inherit the current directory path as its initial path. The fifth tab is a special tab, indicated by '#', dedicated to handling search results.
 .Sh SELECTION
-By default, the currently pointed file is automatically selected. When a file selection operation is performed by the user, the program enters manual selection mode, and the currently pointed file will no longer be automatically selected. Clearing all selections causes the program to exit manual selection mode and return to the default state. 
+The names of the selected files are highlighted in reverse. By default, the currently pointed file is automatically selected. When a file selection operation is performed by the user, the program enters manual selection mode, and the currently pointed file will no longer be automatically selected. Clearing all selections causes the program to exit manual selection mode and return to the default state. 
 .Pp
 .Nm 
 allows file selection across directories. Each tab maintains its own independent selection state. The second set of numbers, displayed in reverse video in the bottom status bar, indicates the total number of selected files in the current tab.
 .Pp
 Each time an extension function is executed, the absolute paths of the selected files in the current tab are written to the \fB.selection\fR file in the user's config directory. The \fBsff-extfunc\fR script reads this file to obtain the paths of the selected files.
 .Sh FILTERS
-Filters are strings used to instantly list matching entries in the current directory. When a filter is enabled, it appears above the bottom status bar, and the program enters input mode. In this mode, you can:
+Filters are strings used to instantly list matching files in the current directory. When a filter is enabled, it appears above the bottom status bar, and the program enters input mode. In this mode, you can:
 .Pp
     - Enter a filter matching string (matching is case-insensitive).
 .Pp
@@ -97,7 +97,7 @@ Filters are strings used to instantly list matching entries in the current direc
 .Pp
 The filter only applies to the current directory. When navigating away from the current directory, the filter is automatically disabled.
 .Sh QUICK FIND
-Quick Find is used to quickly locate an entry within the current directory. When Quick Find is enabled, it appears above the bottom status bar, and the program enters input mode. In this mode, you can:
+Quick Find is used to quickly locate file within the current directory. When Quick Find is enabled, it appears above the bottom status bar, and the program enters input mode. In this mode, you can:
 .Pp
     - Enter a search string for matching.
 .Pp
@@ -108,7 +108,7 @@ Quick Find is used to quickly locate an entry within the current directory. When
 .Pp
     - Press the Enter or Esc key to exit Quick Find.
 .Pp
-Matching is case-insensitive and prioritizes matches at the beginning of file names. If no file name starts with the search string, it will match file names containing the search string. Upon a successful match, the pointer will jump to the first matching entry.
+Matching is case-insensitive and prioritizes matches at the beginning of file names. If no file name starts with the search string, it will match file names containing the search string. Upon a successful match, the pointer will jump to the first matching file.
 .Sh ADVANCED SEARCH
 Advanced Search is an extension function implemented using the \fBfind\fR command. It requires two inputs:
 .Pp
@@ -140,18 +140,22 @@ supports undoing or redoing the last file operation. Supported operations includ
     - Rename
     - Duplicate
 .Pp
-Notes: Undo/Redo actions span across different tabs and even different
+\fBNotes\fR:
+.br
+Undo/Redo actions span across different tabs and even different
 .Nm 
 instances. This means that a file operation performed in one 
 .Nm 
 instance can be undone or redone in another instance.
+.Pp
+DO NOT undo/redo operations across different running modes. For more details, see the \fIRUNNING MODE\fR section.
 .Sh RUNNING MODE
 .Pp
 \fBBrowse Mode:\fR
 .br
-In this mode, a green reversed 'B' is displayed as an indicator in the bottom-left
-corner of the screen. This mode can be considered a safe mode. In browse mode, extension 
-functions are disabled, and
+In this mode, a green reversed 'B' is displayed as an indicator in the bottom-left corner of the screen. 
+.Pp
+This mode can be considered a safe mode. In browse mode, extension functions are disabled, and
 .Nm
 does not make any changes to the file system. 
 .Pp
@@ -166,14 +170,18 @@ initialization, when certain non-fatal errors occur
 .Pp
 \fBSudo Mode:\fR
 .br
-In this mode, a red reversed 'S' is displayed as an indicator in the bottom-left corner of the screen. When 
+In this mode, a red reversed 'S' is displayed as an indicator in the bottom-left corner of the screen. 
+.Pp
+When 
 .Nm 
 is run as a regular user and switched to sudo mode, the following operations will be executed with superuser privileges:
 .Pp
     - All extension functions
     - File editing
 .Pp
-However, all other operations are still performed by the current user. When 
+However, all other operations are still performed by the current user. Since Undo/Redo itself is also an extension function, it only applies to the last file operation performed by the corresponding user. For example, if you switch to sudo mode and then perform an undo, it will revert the last file operation performed by the superuser, not the last operation performed before switching modes.
+.Pp
+When 
 .Nm 
 is run as the superuser, the program will always run in sudo mode or can be switched to browse mode until termination. Naturally, all operations are performed by the superuser.
 .Sh AUTHORS
