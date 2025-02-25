@@ -140,18 +140,22 @@ supports undoing or redoing the last file operation. Supported operations includ
     - Rename
     - Duplicate
 .Pp
-Notes: Undo/Redo actions span across different tabs and even different
+\fBNotes\fR:
+.br
+Undo/Redo actions span across different tabs and even different
 .Nm 
 instances. This means that a file operation performed in one 
 .Nm 
 instance can be undone or redone in another instance.
+.Pp
+DO NOT undo/redo operations across different running modes. For more details, see the \fIRUNNING MODE\fR section.
 .Sh RUNNING MODE
 .Pp
 \fBBrowse Mode:\fR
 .br
-In this mode, a green reversed 'B' is displayed as an indicator in the bottom-left
-corner of the screen. This mode can be considered a safe mode. In browse mode, extension 
-functions are disabled, and
+In this mode, a green reversed 'B' is displayed as an indicator in the bottom-left corner of the screen. 
+.Pp
+This mode can be considered a safe mode. In browse mode, extension functions are disabled, and
 .Nm
 does not make any changes to the file system. 
 .Pp
@@ -166,14 +170,18 @@ initialization, when certain non-fatal errors occur
 .Pp
 \fBSudo Mode:\fR
 .br
-In this mode, a red reversed 'S' is displayed as an indicator in the bottom-left corner of the screen. When 
+In this mode, a red reversed 'S' is displayed as an indicator in the bottom-left corner of the screen. 
+.Pp
+When 
 .Nm 
 is run as a regular user and switched to sudo mode, the following operations will be executed with superuser privileges:
 .Pp
     - All extension functions
     - File editing
 .Pp
-However, all other operations are still performed by the current user. When 
+However, all other operations are still performed by the current user. Since Undo/Redo itself is also an extension function, it only applies to the last file operation performed by the corresponding user. For example, if you switch to sudo mode and then perform an undo, it will revert the last file operation performed by the superuser, not the last operation performed before switching modes.
+.Pp
+When 
 .Nm 
 is run as the superuser, the program will always run in sudo mode or can be switched to browse mode until termination. Naturally, all operations are performed by the superuser.
 .Sh AUTHORS
