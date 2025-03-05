@@ -184,7 +184,7 @@ typedef struct {
 static int ndents = 0, cursel = 0, lastsel = -1, curscroll = 0, lastscroll = -1;
 static int markent = -1, errline = 0, errnum = 0;
 static int xlines, xcols, onscr, ncols;
-static char *home, *tmppath, *editor;
+static char *home, *editor;
 static char *cfgpath = NULL, *extfunc = NULL, *selpath = NULL, *pipepath = NULL;
 static char *pnamebuf = NULL, *pfindbuf = NULL, *ppipebuf = NULL;
 static char *findname = NULL;
@@ -446,7 +446,7 @@ static char *getgrname(gid_t gid)
 	return grpcache ? grpcache : xitoa(gid);
 }
 
-static bool seterrornum(int line, int err)
+static bool seterrnum(int line, int err)
 {
 	errline = line;
 	errnum = err;
@@ -483,10 +483,10 @@ static int quitsff(int n);
 
 #include "config.h" // Configuration
 
-static void spawn(char *arg0, char *arg1, char *arg2, char *arg3, bool detach, bool sudo)
+static void spawn(char *arg0, char *arg1, char *arg2, bool detach, bool sudo)
 {
 	pid_t pid;
-	char *args[6] = {SUDOER, arg0, arg1, arg2, arg3, NULL};
+	char *args[5] = {SUDOER, arg0, arg1, arg2, NULL};
 	char **argv = sudo ? &args[0] : &args[1];
 	struct sigaction oldsigtstp, oldsigwinch;
 	struct sigaction act = {.sa_handler = SIG_IGN};
@@ -524,7 +524,7 @@ static void spawn(char *arg0, char *arg1, char *arg2, char *arg3, bool detach, b
 		_exit(EXIT_SUCCESS);
 
 	} else
-		seterrornum(__LINE__, errno);
+		seterrnum(__LINE__, errno);
 }
 
 static int shiftcursor(int step, int scrl)
@@ -596,14 +596,14 @@ static Histpath *inithistpath(Histpath *hp, char *path, bool check)
 	struct stat sb;
 
 	if (check) {
-		if (lstat(path, &sb) != 0 && seterrornum(__LINE__, errno)) {
+		if (lstat(path, &sb) == -1 && seterrnum(__LINE__, errno)) {
 			return NULL;
 		} else if (!S_ISDIR(sb.st_mode)) {
 			name = xbasename(path);
 			xdirname(path);
 		}
 
-		if (chdir(path) != 0 && seterrornum(__LINE__, errno))
+		if (chdir(path) == -1 && seterrnum(__LINE__, errno))
 			return NULL;
 	}
 
@@ -613,7 +613,7 @@ static Histpath *inithistpath(Histpath *hp, char *path, bool check)
 		if (*p == '/' || (*p == '\0' && path[1] != '\0')) {
 			if (hp->nhs == hp->ths) {
 				Histstat *tmp = realloc(hp->hs, (hp->ths += HSTAT_INCR) * sizeof(Histstat));
-				if (!tmp && seterrornum(__LINE__, errno)) {
+				if (!tmp && seterrnum(__LINE__, errno)) {
 					hp->path[0] = '\0';
 					hp->nhs = 0;
 					hp->ths -= HSTAT_INCR;
@@ -666,7 +666,7 @@ static int switchhistpath(int n)
 	if ((gcfg.ct == TABS_MAX || !hp2->path[0]) && n == 0)
 		return GO_NONE;
 
-	if (chdir(hp2->path) != 0)
+	if (chdir(hp2->path) == -1)
 		return GO_STATBAR;
 
 	savehiststat(hp->stat);
@@ -687,7 +687,7 @@ static int enterdir(int n __attribute__((unused)))
 	if (ndents == 0 || !(ent->flag & E_DIR_DIRLNK))
 		return GO_NONE;
 
-	if (!newpath && seterrornum(__LINE__, errno))
+	if (!newpath && seterrnum(__LINE__, errno))
 		return GO_STATBAR;
 
 	if (hs->flag == S_ROOT) {
@@ -697,12 +697,12 @@ static int enterdir(int n __attribute__((unused)))
 			return newhistpath(newpath);
 	}
 
-	if (chdir(newpath) != 0 && seterrornum(__LINE__, errno))
+	if (chdir(newpath) == -1 && seterrnum(__LINE__, errno))
 		return GO_STATBAR;
 
 	if (nhs == hp->ths) {
 		Histstat *tmp = realloc(hp->hs, (hp->ths += HSTAT_INCR) * sizeof(Histstat));
-		if (!tmp && seterrornum(__LINE__, errno)) {
+		if (!tmp && seterrnum(__LINE__, errno)) {
 			hp->ths -= HSTAT_INCR;
 			return GO_STATBAR;
 		}
@@ -754,7 +754,7 @@ static int gotoparent(int n __attribute__((unused)))
 			strncpy(hs->name, xbasename(path), NAME_MAX + 1);
 			hs->flag = S_VIS;
 		}
-	} while (path[1] != '\0' && chdir(xdirname(path)) != 0 && seterrornum(__LINE__, errno));
+	} while (path[1] != '\0' && chdir(xdirname(path)) == -1 && seterrnum(__LINE__, errno));
 
 	findname = hs->name;
 	ptab->hp->stat = hs;
@@ -799,14 +799,14 @@ static int openfile(int n)
 		if (!(ent->flag & E_REG_FILE))
 			return GO_NONE;
 		endwin();
-		spawn(editor, gpbuf, NULL, NULL, FALSE, gcfg.mode == 1);
+		spawn(editor, gpbuf, NULL, FALSE, gcfg.mode == 1);
 		refresh();
 		return refreshview(0);
 
 	default :
 		if (ent->flag & E_DIR_DIRLNK)
 			return enterdir(0);
-		spawn(OPENER, gpbuf, NULL, NULL, TRUE, FALSE);
+		spawn(OPENER, gpbuf, NULL, TRUE, FALSE);
 	}
 	return GO_STATBAR;
 }
@@ -815,11 +815,11 @@ static struct selstat *addselstat(struct selstat *ss, char *path)
 {
 	struct selstat *n = malloc(sizeof(struct selstat));
 
-	if (!n && seterrornum(__LINE__, errno))
+	if (!n && seterrnum(__LINE__, errno))
 		return NULL;
 
 	n->nbuf = malloc(PATH_MAX);
-	if (!n->nbuf && seterrornum(__LINE__, errno)) {
+	if (!n->nbuf && seterrnum(__LINE__, errno)) {
 		free(n);
 		return NULL;
 	}
@@ -905,7 +905,7 @@ static bool appendselection(Entry *ent)
 	len = ss->endp - ss->nbuf;
 	if (ent->nlen >= ss->buflen - len) {
 		char *tmp = realloc(ss->nbuf, ss->buflen += PATH_MAX);
-		if (!tmp && seterrornum(__LINE__, errno)) {
+		if (!tmp && seterrnum(__LINE__, errno)) {
 			ss->buflen -= PATH_MAX;
 			return FALSE;
 		}
@@ -1141,12 +1141,13 @@ static int switchtab(int n)
 	if (gtab[n].cfg.enabled == 0 && !inittab(hp->path, n) && !inittab(home ? home : "/", n))
 		return GO_STATBAR;
 
-	if (chdir(gtab[n].hp->path) != 0 && seterrornum(__LINE__, errno) && !inittab(home ? home : "/", n))
+	if (chdir(gtab[n].hp->path) == -1 && seterrnum(__LINE__, errno) && !inittab(home ? home : "/", n))
 		return GO_STATBAR;
 
 	hp->stat->cur = cursel;
 	hp->stat->scrl = curscroll;
-	gcfg.lt = gcfg.ct;
+	if (gcfg.ct < TABS_MAX)
+		gcfg.lt = gcfg.ct;
 	gcfg.ct = n;
 	return GO_RELOAD;
 }
@@ -1156,7 +1157,7 @@ static int closetab(int n)
 	int ac = -1;
 
 	n = gcfg.ct;
-	for (int i = 0; i <= TABS_MAX; ++i)
+	for (int i = 0; i < TABS_MAX; ++i)
 		if (i != n && gtab[i].cfg.enabled == 1)
 			ac = i;
 
@@ -1170,7 +1171,7 @@ static int closetab(int n)
 			return GO_STATBAR;
 		gcfg.ct = 0;
 	} else {
-		if (chdir(gtab[ac].hp->path) != 0 && seterrornum(__LINE__, errno) && !inittab(home ? home : "/", ac))
+		if (chdir(gtab[ac].hp->path) == -1 && seterrnum(__LINE__, errno) && !inittab(home ? home : "/", ac))
 			return GO_STATBAR;
 		gcfg.ct = ac;
 	}
@@ -1224,9 +1225,9 @@ static int viewoptions(int n __attribute__((unused)))
 	werase(dpo);
 	box(dpo, 0, 0);
 	mvwaddstr(dpo, i = 0, 6, " View options ");
-	mvwaddstr(dpo, i += 2, 2, "(.)");
+	mvwaddstr(dpo, i += 2, 2, "[.]");
 	wattron(dpo, cfg->showhidden ? A_REVERSE : 0); waddstr(dpo, "show hidden"); wattroff(dpo, A_REVERSE);
-	waddstr(dpo, "  (/)");
+	waddstr(dpo, "  [/]");
 	wattron(dpo, cfg->dirontop ? A_REVERSE : 0); waddstr(dpo, "dirs on top"); wattroff(dpo, A_REVERSE);
 
 	mvwaddstr(dpo, i += 2, 2, "Sort by:");
@@ -1238,21 +1239,21 @@ static int viewoptions(int n __attribute__((unused)))
 	wattron(dpo, (cfg->sortby == 2) ? A_REVERSE : 0); waddstr(dpo, "time"); wattroff(dpo, A_REVERSE);
 	waddstr(dpo, "  (e)");
 	wattron(dpo, (cfg->sortby == 3) ? A_REVERSE : 0); waddstr(dpo, "extension"); wattroff(dpo, A_REVERSE);
-	mvwaddstr(dpo, i += 2, 2, "  (c)");
+	mvwaddstr(dpo, i += 2, 2, "  [c]");
 	wattron(dpo, cfg->casesens ? A_REVERSE : 0); waddstr(dpo, "case-sensitive"); wattroff(dpo, A_REVERSE);
-	waddstr(dpo, "  (v)");
+	waddstr(dpo, "  [v]");
 	wattron(dpo, cfg->natural ? A_REVERSE : 0); waddstr(dpo, "natural"); wattroff(dpo, A_REVERSE);
-	waddstr(dpo, "  (r)");
+	waddstr(dpo, "  [r]");
 	wattron(dpo, cfg->reverse ? A_REVERSE : 0); waddstr(dpo, "reverse"); wattroff(dpo, A_REVERSE);
 
 	mvwaddstr(dpo, i += 2, 2, "Detail info:");
-	mvwaddstr(dpo, ++i, 2, "  (i)");
+	mvwaddstr(dpo, ++i, 2, "  [i]");
 	wattron(dpo, cfg->showtime ? A_REVERSE : 0); waddstr(dpo, "time"); wattroff(dpo, A_REVERSE);
-	waddstr(dpo, "  (u)");
+	waddstr(dpo, "  [u]");
 	wattron(dpo, cfg->showowner ? A_REVERSE : 0); waddstr(dpo, "owner"); wattroff(dpo, A_REVERSE);
-	waddstr(dpo, "  (p)");
-	wattron(dpo, cfg->showperm ? A_REVERSE : 0); waddstr(dpo, "permission"); wattroff(dpo, A_REVERSE);
-	waddstr(dpo, "  (z)");
+	waddstr(dpo, "  [p]");
+	wattron(dpo, cfg->showperm ? A_REVERSE : 0); waddstr(dpo, "permissions"); wattroff(dpo, A_REVERSE);
+	waddstr(dpo, "  [z]");
 	wattron(dpo, cfg->showsize ? A_REVERSE : 0); waddstr(dpo, "size"); wattroff(dpo, A_REVERSE);
 	mvwaddstr(dpo, i += 2, 2, "  (d)default  (x)none");
 
@@ -1571,7 +1572,7 @@ static bool writeselection(void)
 		return FALSE;
 
 	int fd = open(selpath, O_CREAT | O_WRONLY | O_TRUNC, S_IWUSR | S_IRUSR);
-	if (fd == -1 && seterrornum(__LINE__, errno))
+	if (fd == -1 && seterrnum(__LINE__, errno))
 		return FALSE;
 
 	ss = ptab->ss;
@@ -1599,7 +1600,7 @@ static bool writeselection(void)
 	close(fd);
 	if (selcur)
 		clearselection(0);
-	if (errline != 0 && seterrornum(errline, errno))
+	if (errline != 0 && seterrnum(errline, errno))
 		return FALSE;
 	return TRUE;
 }
@@ -1613,7 +1614,7 @@ static bool readpipe(int fd, char **buf, size_t *plen)
 	do {
 		if (buflen - *plen < NAME_INCR) {
 			char *tmp = realloc(*buf, buflen += NAME_INCR);
-			if (!tmp && seterrornum(__LINE__, errno))
+			if (!tmp && seterrnum(__LINE__, errno))
 				return FALSE;
 			*buf = tmp;
 		}
@@ -1621,9 +1622,9 @@ static bool readpipe(int fd, char **buf, size_t *plen)
 		len = read(fd, *buf + *plen, NAME_INCR);
 		if (len > 0)
 			*plen += len;
-	} while ((len == -1 && errno == EINTR) || (len != -1 && (*buf)[*plen - 1] != 036)); // '\036' as terminating char
+	} while (len != -1 && (*buf)[*plen - 1] != 036); // '\036' as terminating char
 
-	if (len == -1 && seterrornum(__LINE__, errno)) {
+	if (len == -1 && seterrnum(__LINE__, errno)) {
 		free(*buf);
 		*buf = NULL;
 		return FALSE;
@@ -1634,17 +1635,17 @@ static bool readpipe(int fd, char **buf, size_t *plen)
 
 static int handlepipedata(int fd)
 {
-	int len, op = 0;
+	int op = 0;
 
-	do {
-		len = read(fd, &op, 1);
-	} while (len == -1 && errno == EINTR);
+	read(fd, &op, 1);
 
 	switch (op) {
 	case '-': // clear selection
-		clearselection(0);
-		// fallthrough
+		return clearselection(0);
+
 	case '*': // refresh
+		if (read(fd, &op, 1) == 1)
+			clearselection(0);
 		return refreshview(0);
 
 	case 'n': // select new file
@@ -1680,31 +1681,36 @@ static int callextfunc(int c)
 	pid_t pid;
 	int rfd, wfd, ctl = GO_STATBAR;
 
+	if (access(cfgpath, F_OK) == -1 && mkdir(cfgpath, 0700) == -1 && seterrnum(__LINE__, errno))
+		return GO_STATBAR;
+
 	if (!writeselection())
 		return GO_STATBAR;
 
-	if (mkfifo(pipepath, 0600) != 0 && seterrornum(__LINE__, errno))
+	if (mkfifo(pipepath, 0600) == -1 && seterrnum(__LINE__, errno))
 		return GO_STATBAR;
 
 	endwin();
 	pid = fork();
 	if (pid > 0) {
-		do
-			rfd = open(pipepath, O_RDONLY);
-		while (rfd == -1 && errno == EINTR);
-		ctl = handlepipedata(rfd); // Process is blocked here until pipefile is opened for writing
-		waitpid(pid, NULL, 0);
-		close(rfd);
+		rfd = open(pipepath, O_RDONLY);
+		if (rfd != -1) {
+			ctl = handlepipedata(rfd); // Process is blocked here until all writers are closed
+			waitpid(pid, NULL, 0);
+			close(rfd);
+		} else
+			seterrnum(__LINE__, errno);
 
 	} else if (pid == 0) {
-		spawn(extfunc, (char [2]){c, '\0'}, selpath, pipepath, FALSE, gcfg.mode == 1);
-		wfd = open(pipepath, O_WRONLY); // Unblock the parent process
-		if (wfd != -1)
-			close(wfd);
+		wfd = open(pipepath, O_WRONLY | O_CLOEXEC);
+		if (wfd != -1) {
+			spawn(extfunc, (char [2]){c, '\0'}, pipepath, FALSE, gcfg.mode == 1);
+			close(wfd); // Unblock the parent process
+		}
 		_exit(EXIT_SUCCESS);
 
 	} else
-		seterrornum(__LINE__, errno);
+		seterrnum(__LINE__, errno);
 	refresh();
 	unlink(pipepath);
 	return ctl;
@@ -1784,14 +1790,14 @@ static void loaddirentry(DIR *dirp, int fd)
 
 		if (ndents == totents) {
 			Entry *tent = realloc(pdents, (totents += ENTRY_INCR) * sizeof(Entry));
-			if (!tent && seterrornum(__LINE__, errno))
+			if (!tent && seterrnum(__LINE__, errno))
 				return;
 			pdents = tent;
 		}
 
 		if (buflen - off <= NAME_MAX) {
 			tmp = realloc(pnamebuf, buflen += NAME_INCR);
-			if (!tmp && seterrornum(__LINE__, errno))
+			if (!tmp && seterrnum(__LINE__, errno))
 				return;
 
 			// Reset entry names if realloc() causes memory move
@@ -1826,7 +1832,7 @@ static void loadsrchentry(int fd)
 
 		if (ndents == totents) {
 			Entry *tent = realloc(pdents, (totents += ENTRY_INCR) * sizeof(Entry));
-			if (!tent && seterrornum(__LINE__, errno))
+			if (!tent && seterrnum(__LINE__, errno))
 				return;
 			pdents = tent;
 		}
@@ -1846,7 +1852,7 @@ static void loadentries(char *path)
 	DIR *dirp = opendir(path);
 
 	ndents = 0;
-	if (!dirp && seterrornum(__LINE__, errno))
+	if (!dirp && seterrnum(__LINE__, errno))
 		return;
 	fd = dirfd(dirp);
 
@@ -2396,29 +2402,19 @@ static bool initsff(char *arg0, char *argx)
 
 	// Get environment variables
 	home = getenv("HOME");
-	if (!home || !home[0] || access(home, R_OK | W_OK | X_OK) != 0)
+	if (!home || !home[0] || access(home, R_OK | W_OK | X_OK) == -1)
 		home = NULL;
 
 	editor = getenv("EDITOR");
 	if (!editor || !editor[0])
 		editor = EDITOR;
 
-	tmppath = getenv("TMPDIR");
-	if (!tmppath || !tmppath[0] || strlen(tmppath) + 32 > PATH_MAX)
-		tmppath = "/tmp";
-
 	// Set config path: xdgcfg+"/sff" or home+"/.config/sff"
-	if (xdgcfg && xdgcfg[0] && makepath(xdgcfg, "sff", gpbuf) && strlen(gpbuf) + 32 < PATH_MAX
-	&& (access(gpbuf, R_OK | W_OK | X_OK) == 0 || mkdir(gpbuf, 0777) == 0))
+	if ((xdgcfg && xdgcfg[0] && makepath(xdgcfg, "sff", gpbuf))
+	|| (home && makepath(home, ".config/sff", gpbuf)))
 		cfgpath = gpbuf;
 
-	if (!cfgpath && home && makepath(home, ".config", gpbuf) && strlen(gpbuf) + 36 < PATH_MAX
-	&& (access(gpbuf, R_OK | W_OK | X_OK) == 0 || mkdir(gpbuf, 0777) == 0)
-	&& makepath(home, ".config/sff", gpbuf)
-	&& (access(gpbuf, R_OK | W_OK | X_OK) == 0 || mkdir(gpbuf, 0777) == 0))
-		cfgpath = gpbuf;
-
-	// Check sff-extfunc file, and set extfunc path
+	// Set extfunc path, and check sff-extfunc file
 	if (cfgpath && makepath(cfgpath, EXTFNNAME, gmbuf)
 	&& access(gmbuf, R_OK | X_OK) == 0) // check it in config path
 		extfunc = gmbuf;
@@ -2433,17 +2429,17 @@ static bool initsff(char *arg0, char *argx)
 		extfunc = gmbuf;
 
 	// Allocate memory for cfgpath + extfunc + selpath + pipepath and set these paths
-	if (cfgpath && extfunc && access(tmppath, R_OK | W_OK | X_OK) == 0
-	&& (cfgpath = malloc(strlen(cfgpath) * 2 + strlen(extfunc) + strlen(tmppath) + 64))) {
+	if (cfgpath && extfunc
+	&& (cfgpath = malloc(strlen(gpbuf) * 3 + strlen(gmbuf) + 64))) {
 		extfunc = memccpy(cfgpath, gpbuf, '\0', PATH_MAX);
 		selpath = memccpy(extfunc, gmbuf, '\0', PATH_MAX);
-		makepath(cfgpath, ".selection", selpath);
+		makepath(gpbuf, ".selection", selpath);
 		pipepath = selpath + strlen(selpath) + 1;
-		strcat(strcpy(gmbuf, "sff-pipe."), xitoa(getpid()));
-		makepath(tmppath, gmbuf, pipepath);
+		strcat(strcpy(gmbuf, ".sff-pipe."), xitoa(getpid()));
+		makepath(gpbuf, gmbuf, pipepath);
 	} else {
 		cfgpath = NULL;
-		seterrornum(__LINE__, errno);
+		seterrnum(__LINE__, errno);
 	}
 
 	// Initialize first tab
@@ -2486,19 +2482,8 @@ static void setupcurses(void)
 	onscr = xlines - 4;
 }
 
-static void removetmpfiles(void)
-{
-	char *f[] = {".exec-buf1", ".exec-buf2", ".copy-buf", ".move-buf", ".last-operation", ".selection"};
-
-	for (size_t i = 0; i < LENGTH(f); ++i)
-		if (makepath(cfgpath, f[i], gpbuf) && access(gpbuf, F_OK) == 0)
-			unlink(gpbuf);
-}
-
 static void cleanup(void)
 {
-	if (cfgpath && gcfg.mode < 3)
-		removetmpfiles();
 	for (int i = 0; i <= TABS_MAX; ++i) {
 		free(ghpath[i * 2].hs);
 		free(ghpath[i * 2 + 1].hs);
