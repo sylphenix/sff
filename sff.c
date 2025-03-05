@@ -1,7 +1,7 @@
 /*
- * 2-Clause BSD License
+ * BSD 2-Clause License
  *
- * Copyright (c) 2024 Shi Yanling
+ * Copyright (c) 2023-2025 Shi Yanling
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
