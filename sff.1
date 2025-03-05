@@ -65,7 +65,7 @@ The user's config directory is required for executing extension functions. This 
 .Pa $XDG_CONFIG_HOME/sff/ 
 or 
 .Pa ~/.config/sff/  ,
-whichever is encountered first. If this directory does not exist, the program will attempt to create it during initialization.
+whichever is encountered first. If this directory does not exist, the program will attempt to create it when calling an extension function.
 .Pp
 During initialization, 
 .Nm 
@@ -84,11 +84,13 @@ The names of the selected files are highlighted in reverse. By default, the curr
 .Nm 
 allows file selection across directories. Each tab maintains its own independent selection state. The second set of numbers, displayed in reverse video in the bottom status bar, indicates the total number of selected files in the current tab.
 .Pp
-Each time an extension function is executed, the absolute paths of the selected files in the current tab are written to the \fB.selection\fR file in the user's config directory. The \fBsff-extfunc\fR script reads this file to obtain the paths of the selected files.
+Each time an extension function is called, the absolute paths of the selected files in the current tab are written to the \fB.selection\fR file in the user's config directory. The \fBsff-extfunc\fR script reads this file to obtain the paths of the selected files.
 .Sh FILTERS
 Filters are strings used to instantly list matching files in the current directory. When a filter is enabled, it appears above the bottom status bar, and the program enters input mode. In this mode, you can:
 .Pp
     - Enter a filter matching string (matching is case-insensitive).
+.Pp
+    - Press the Up or Down Arrow keys to move.
 .Pp
     - Press the Enter or Esc key to exit input mode, and the filter 
       remains active.
@@ -106,26 +108,30 @@ Quick Find is used to quickly locate file within the current directory. When Qui
     - Press the Tab key or the '/' key to enter the currently pointed 
       directory and clear the entered search string.
 .Pp
+    - Press the Left Arrow key to go back to the parent directory.
+.Pp
+    - Press the Up or Down Arrow keys to move.
+.Pp
     - Press the Enter or Esc key to exit Quick Find.
 .Pp
 Matching is case-insensitive and prioritizes matches at the beginning of file names. If no file name starts with the search string, it will match file names containing the search string. Upon a successful match, the pointer will jump to the first matching file.
 .Sh ADVANCED SEARCH
 Advanced Search is an extension function implemented using the \fBfind\fR command. It requires two inputs:
 .Pp
-    1. Filename search term: This acts as the argument for the -name 
+    1. Filename pattern: This acts as the argument for the -name 
        option, so remember to use wildcards when necessary. For example, 
        to search for files containing 'lib' in their name, enter '*lib*' 
        instead of just 'lib'. If you do not want to search by filename, 
        simply enter '*'.
 .Pp
     2. Additional search options: Here, you can provide one or more 
-       primaries for the \fBfind\fR command, such as '-size +4k' to search 
+       options for the \fBfind\fR command, such as '-size +4k' to search 
        for files larger than 4k. If no additional options are needed, 
        leave this field blank and press the Enter key.
 .Pp
 After both inputs are provided, the executed command will be: 
 .Pp
-    find ./ -name "input1" input2
+    find ./ input2 -name "input1"
 .Pp
 The search results are sent back to 
 .Nm 
@@ -140,15 +146,11 @@ supports undoing or redoing the last file operation. Supported operations includ
     - Rename
     - Duplicate
 .Pp
-\fBNotes\fR:
-.br
 Undo/Redo actions span across different tabs and even different
 .Nm 
 instances. This means that a file operation performed in one 
 .Nm 
 instance can be undone or redone in another instance.
-.Pp
-DO NOT undo/redo operations across different running modes. For more details, see the \fIRUNNING MODE\fR section.
 .Sh RUNNING MODE
 .Pp
 \fBBrowse Mode:\fR
@@ -179,7 +181,7 @@ is run as a regular user and switched to sudo mode, the following operations wil
     - All extension functions
     - File editing
 .Pp
-However, all other operations are still performed by the current user. Since Undo/Redo itself is also an extension function, it only applies to the last file operation performed by the corresponding user. For example, if you switch to sudo mode and then perform an undo, it will revert the last file operation performed by the superuser, not the last operation performed before switching modes. Similarly, you cannot copy files and then switch to sudo mode to paste them.
+However, all other operations are still performed by the current user.
 .Pp
 When 
 .Nm 
