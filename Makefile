@@ -43,6 +43,7 @@ config.h:
 
 sff: ${OBJ}
 	${CC} -o $@ ${OBJ} ${LDFLAGS}
+	strip sff
 	rm sff.o
 
 clean:
