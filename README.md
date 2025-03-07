@@ -27,10 +27,33 @@ has been extensively tested on GNU/Linux and FreeBSD.
 
 ## Installation
 
+### Install from binary packages
+1. [Download](https://codeberg.org/sylphenix/sff/releases) the appropriate package for your system.
+
+2. Navigate to the directory where the downloaded package is located.
+
+3. Install the package using the package manager specific to your system.
+- Debian/Ubuntu:
+   ```
+   sudo apt install sff_xxx_amd64.deb
+   ```
+- Arch Linux:
+   ```
+   sudo pacman -U sff-xxx-x86_64.pkg.tar.zst
+   ```
+- Fedora:
+   ```
+   sudo dnf install sff-xxx.86_64.rpm
+   ```
+- FreeBSD
+   ```
+   sudo pkg add sff-xxx.pkg
+   ```
+
 ### Install from source
 For Linux users, ensure that `gcc` and `make` are already installed on your system.  
 
-1. Run the following command to install dependencies. (Linux only)
+1. Install dependencies. (Linux only)
 - Debian/Ubuntu:
    ```
    sudo apt install libncurses-dev
@@ -45,7 +68,6 @@ For Linux users, ensure that `gcc` and `make` are already installed on your syst
    ```
    sudo dnf install ncurses-devel
    ```
-
 - openSUSE:
    ```
    sudo zypper install ncurses-devel
@@ -57,6 +79,11 @@ For Linux users, ensure that `gcc` and `make` are already installed on your syst
 3. Navigate to the root directory of the project.
 
 4. Run the following command to build and install sff:
+- Linux:
+   ```
+   sudo make install PREFIX=/usr
+   ```
+- FreeBSD
    ```
    sudo make install
    ```
@@ -73,6 +100,10 @@ While sff is running:
 - Press `Q` to quit sff.
 
 For more details, run `man sff` to see the documentation, or visit the [wiki](https://codeberg.org/sylphenix/sff/wiki/Home) for useful tips and tricks.
+
+
+## Philosophy
+sff is built on the belief that simplicity ensures reliability. It follows a minimalist design, divided into two parts: the core program and the extension script. The core program is a lightweight file browser and selector, sticking to features that are simple, necessary, and straightforward to implement. The extension script, a POSIX-compliant shell script, handles file operations such as copying, moving, and deleting. This modular design allows users to easily customize or extend functionality while keeping the core simple and efficient.
 
 ## License
 
