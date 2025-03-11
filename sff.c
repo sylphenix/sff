@@ -352,38 +352,30 @@ static char *abspath(const char *path, char *buf)
 	return buf;
 }
 
-/* Convert integer size to string like 6.12K 25M 11.30G etc. */
+/* Convert integer size to string like 6.2K 25.0M 198.3G etc. */
 static char *tohumansize(off_t size)
 {
 	static char sbuf[12] = {0};
 	static const char unit[12] = "BKMGTPEZY";
-	char *sp, *fp;
+	char *sp;
 	int i, numint, frac = 0;
 
 	for (i = 0; size >= 1024000; ++i)
 		size >>= 10;
 
 	if (i > 0 || size >= 1024) {
-		size += 5; // round frac by (x+5)/10
+		size += 51; // round frac by (x + 51) / 100
 		numint = size >> 10;
-		frac = (size & 1023) * 100 >> 10; // by simplifying (size % 1024) * 1000 / 1024 / 10
+		frac = (size & 1023) * 10 >> 10; // by simplifying (size % 1024) * 1000 / 1024 / 100
 		++i;
 	} else
 		numint = size;
 
 	sp = (char *)memccpy(sbuf, xitoa(numint), '\0', 6) - 1;
 
-	if (frac != 0) {
-		fp = xitoa(frac);
-		*sp = '.';
-		if (fp[1] == '\0') {
-			*++sp = '0';
-			*++sp = fp[0];
-		} else {
-			*++sp = fp[0];
-			*++sp = fp[1];
-		}
-		++sp;
+	if (i > 0) {
+		*sp++ = '.';
+		*sp++ = '0' + frac;
 	}
 
 	*sp = unit[i];
@@ -642,7 +634,7 @@ static Histpath *inithistpath(Histpath *hp, char *path, bool check)
 static int newhistpath(char *path)
 {
 	Histpath *hp = ptab->hp;
-	Histpath *hp2 = (hp - ghpath == gcfg.ct * 2) ? hp + 1 : hp - 1;
+	Histpath *hp2 = ((hp - ghpath) & 1) ? hp - 1 : hp + 1;
 
 	if (strcmp(hp->path, path) == 0)
 		return GO_NONE;
@@ -661,7 +653,7 @@ static int newhistpath(char *path)
 static int switchhistpath(int n)
 {
 	Histpath *hp = ptab->hp;
-	Histpath *hp2 = (hp - ghpath == gcfg.ct * 2) ? hp + 1 : hp - 1;
+	Histpath *hp2 = ((hp - ghpath) & 1) ? hp - 1 : hp + 1;
 
 	if ((gcfg.ct == TABS_MAX || !hp2->path[0]) && n == 0)
 		return GO_NONE;
@@ -678,7 +670,7 @@ static int switchhistpath(int n)
 static int enterdir(int n __attribute__((unused)))
 {
 	Histpath *hp = ptab->hp;
-	Histpath *hp2 = (hp - ghpath == gcfg.ct * 2) ? hp + 1 : hp - 1;
+	Histpath *hp2 = ((hp - ghpath) & 1) ? hp - 1 : hp + 1;
 	Histstat *hs = hp->stat;
 	int nhs = hs - hp->hs + 1;
 	Entry *ent = &pdents[cursel];
@@ -2022,7 +2014,7 @@ static void printent(const Entry *ent, bool sel, bool mark)
 		printw(" %c%c%c ", '0' + ((ent->mode >> 6) & 7), '0' + ((ent->mode >> 3) & 7), '0' + (ent->mode & 7));
 
 	if (ptab->cfg.showsize)
-		printw("%8s ", (ent->flag & E_REG_FILE) ? tohumansize(ent->size) : filetypechar(ent->type));
+		printw("%7s ", (ent->flag & E_REG_FILE) ? tohumansize(ent->size) : filetypechar(ent->type));
 
 	attron(gcfg.newent && (ent->flag & E_NEW) ? (COLOR_PAIR(C_NEWFILE) | A_REVERSE) : 0);
 	if (sel)
@@ -2041,7 +2033,7 @@ static void redraw(char *path)
 	getmaxyx(stdscr, xlines, xcols);
 	int pcols = xcols - (TABS_MAX + 1) * 2;
 	int dcols = (ptab->cfg.showtime ? 17 : 0) + (ptab->cfg.showowner ? 15 : 0)
-		+ (ptab->cfg.showperm ? 5 : 0) + (ptab->cfg.showsize ? 9 : 0) + 2;
+		+ (ptab->cfg.showperm ? 5 : 0) + (ptab->cfg.showsize ? 8 : 0) + 2;
 	int btm, i, j = 0;
 	struct selstat *ss = ptab->ss;
 
