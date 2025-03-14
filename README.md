@@ -28,7 +28,7 @@ has been extensively tested on GNU/Linux and FreeBSD.
 ## Installation
 
 ### Install from binary packages
-1. [Download](https://codeberg.org/sylphenix/sff/releases) the appropriate package for your system.
+1. [Download](https://github.com/sylphenix/sff/releases) the appropriate package for your system.
 
 2. Navigate to the directory where the downloaded package is located.
 
@@ -99,7 +99,7 @@ While sff is running:
 - Press `alt`+`/` to see the list of key bindings for extension functions.
 - Press `Q` to quit sff.
 
-For more details, run `man sff` to see the documentation, or visit the [wiki](https://codeberg.org/sylphenix/sff/wiki/Home) for useful tips and tricks.
+For more details, run `man sff` to see the documentation, or visit the [wiki](https://github.com/sylphenix/sff/wiki) for useful tips and tricks.
 
 
 ## Philosophy
