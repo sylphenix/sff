@@ -72,8 +72,6 @@
 #define LENGTH(X)       (sizeof X / sizeof X[0])
 #define MIN(x, y)       ((x) < (y) ? (x) : (y))
 #define MAX(x, y)       ((x) > (y) ? (x) : (y))
-#define TOUPPER(ch)     (((ch) >= 'a' && (ch) <= 'z') ? ((ch) - 32) : (ch))
-#define TOLOWER(ch)     (((ch) >= 'A' && (ch) <= 'Z') ? ((ch) + 32) : (ch))
 
 enum entryflag {
 	E_REG_FILE = 0x01, E_DIR_DIRLNK = 0x02,
@@ -185,10 +183,7 @@ static int markent = -1, errline = 0, errnum = 0;
 static int xlines, xcols, onscr, ncols;
 static char *home, *editor;
 static char *cfgpath = NULL, *extfunc = NULL, *selpath = NULL, *pipepath = NULL;
-static char *pnamebuf = NULL, *pfindbuf = NULL, *ppipebuf = NULL;
-static char *findname = NULL;
-static size_t findlen = 0, pipelen = 0;
-static time_t curtime;
+static char *pnamebuf = NULL, *pfindbuf = NULL, *pfindend = NULL, *findname = NULL;
 static Entry *pdents = NULL;
 static Tabs *ptab = NULL;
 
@@ -1163,8 +1158,11 @@ static int closetab(int n)
 		gcfg.ct = ac;
 	}
 
-	if (n == TABS_MAX)
-		findlen = 0;
+	if (n == TABS_MAX) {
+		free(pfindbuf);
+		pfindbuf = pfindend = NULL;
+	}
+
 	deleteallselstat(gtab[n].ss);
 	gtab[n].ss = NULL;
 	gtab[n].cfg.enabled = 0;
@@ -1322,8 +1320,7 @@ static int showhelp(int n __attribute__((unused)))
 	keypad(help, TRUE);
 	erase();
 	refresh();
-	waddstr(help, "sff - simple file finder\n"
-			"version "VERSION"\n\n"
+	waddstr(help, "sff "VERSION"\n\n"
 			" Builtin functions:\n");
 
 	for (i = 0; i < klines; ++i)
@@ -1381,17 +1378,18 @@ static int xstrverscmp (const char *s1, const char *s2, int ci)
 	if (p1 == p2)
 		return 0;
 
-	for (unsigned char c1 = 1, c2 = 1; diff == 0 || indig; ++p1, ++p2) {
+	for (unsigned char c1, c2; diff == 0 || indig; ++p1, ++p2) {
+		c1 = *p1;
+		c2 = *p2;
 		if (ci) {
-			c1 = TOLOWER(*p1);
-			c2 = TOLOWER(*p2);
-		} else {
-			c1 = *p1;
-			c2 = *p2;
+			if (c1 <= 'Z' && c1 >= 'A')
+				c1 += 32;
+			if (c2 <= 'Z' && c2 >= 'A')
+				c2 += 32;
 		}
 
 		if (indig) {
-			switch (!!isdigit(c1) | !!isdigit(c2) << 1) {
+			switch ((c1 <= '9' && c1 >= '0') | (c2 <= '9' && c2 >= '0') << 1) {
 			case 1: // c1 is digit and c2 is not
 				return 1;
 			case 2: // c1 is not digit and c2 is
@@ -1405,12 +1403,10 @@ static int xstrverscmp (const char *s1, const char *s2, int ci)
 					return diff;
 				indig = 0;
 			}
-		}
+		} else if (isdigit(c1) && isdigit(c2) && c1 != '0' && c2 != '0')
+			indig = 1;
 
 		diff = c1 - c2;
-
-		if (!indig && isdigit(c1) && c1 != '0' && isdigit(c2) && c2 != '0')
-			indig = 1;
 	}
 	return diff;
 }
@@ -1424,9 +1420,13 @@ static int xstrcasecmp (const char *s1, const char *s2)
 	if (p1 == p2)
 		return 0;
 
-	for (unsigned char c1 = 1, c2 = 1; diff == 0; ++p1, ++p2) {
-		c1 = TOLOWER(*p1);
-		c2 = TOLOWER(*p2);
+	for (unsigned char c1, c2; diff == 0; ++p1, ++p2) {
+		c1 = *p1;
+		c2 = *p2;
+		if (c1 <= 'Z' && c1 >= 'A')
+			c1 += 32;
+		if (c2 <= 'Z' && c2 >= 'A')
+			c2 += 32;
 		diff = c1 - c2;
 	}
 	return diff;
@@ -1472,7 +1472,7 @@ static int entrycmp(const void *va, const void *vb)
 			if (!extb)
 				return 1;
 
-			int res = strcasecmp(exta, extb);
+			int res = xstrcasecmp(++exta, ++extb);
 			if (res)
 				return res;
 		}
@@ -1504,7 +1504,7 @@ static int writeselection(void)
 	char *pos, *end;
 	ssize_t plen, len;
 	struct selstat *ss;
-	int selcur = !ptab->cfg.selmode && ndents > 0;
+	int selcur = ptab->cfg.selmode == 0 && ndents > 0;
 
 	if (selcur && !appendselection(&pdents[cursel]))
 		return FALSE;
@@ -1543,31 +1543,31 @@ static int writeselection(void)
 	return TRUE;
 }
 
-static int readpipe(int fd, char **buf, size_t *plen)
+static int readfindresult(int fd)
 {
-	ssize_t len;
-	size_t buflen = 0;
+	ssize_t len = 1;
+	size_t buflen = 0, reslen = 0;
+	char *tmp;
 
-	*plen = 0;
-	do {
-		if (buflen - *plen < NAME_INCR) {
-			char *tmp = realloc(*buf, buflen += NAME_INCR);
+	while (len != -1 && len != 0) {
+		if (buflen - reslen < NAME_INCR) {
+			tmp = realloc(pfindbuf, buflen += NAME_INCR);
 			if (!tmp && seterrnum(__LINE__, errno))
 				return FALSE;
-			*buf = tmp;
+			pfindbuf = tmp;
 		}
 
-		len = read(fd, *buf + *plen, NAME_INCR);
-		if (len > 0)
-			*plen += len;
-	} while (len != -1 && (*buf)[*plen - 1] != 036); // '\036' as terminating char
+		len = read(fd, pfindbuf + reslen, NAME_INCR);
+		reslen += len;
+	}
 
 	if (len == -1 && seterrnum(__LINE__, errno)) {
-		free(*buf);
-		*buf = NULL;
+		free(pfindbuf);
+		pfindbuf = NULL;
 		return FALSE;
 	}
-	(*buf)[*plen - 1] = '\0';
+
+	pfindend = pfindbuf + reslen;
 	return TRUE;
 }
 
@@ -1587,24 +1587,23 @@ static int handlepipedata(int fd)
 		return refreshview(0);
 
 	case 'n': // select new file
-		if (!readpipe(fd, &ppipebuf, &pipelen))
+		if (read(fd, gpbuf, PATH_MAX - 1) == -1 && seterrnum(__LINE__, errno))
 			return GO_STATBAR;
-		if (ppipebuf)
-			strncpy(ptab->hp->stat->name, xbasename(ppipebuf), NAME_MAX);
+		strncpy(ptab->hp->stat->name, xbasename(gpbuf), NAME_MAX);
 		findname = ptab->hp->stat->name;
 		gcfg.newent = 1;
 		clearselection(0);
 		return GO_RELOAD;
 
 	case '>': // enter specified path
-		if (!readpipe(fd, &ppipebuf, &pipelen))
+		if (read(fd, gpbuf, PATH_MAX - 1) == -1 && seterrnum(__LINE__, errno))
 			return GO_STATBAR;
-		if (abspath(ppipebuf, gpbuf))
-			return newhistpath(gpbuf);
+		if (abspath(gpbuf, gmbuf))
+			return newhistpath(gmbuf);
 		break;
 
 	case 'f': // load search result
-		if (!readpipe(fd, &pfindbuf, &findlen))
+		if (!readfindresult(fd))
 			return GO_STATBAR;
 		if (!inittab(ptab->hp->path, TABS_MAX))
 			return GO_STATBAR;
@@ -1633,7 +1632,7 @@ static int callextfunc(int c)
 	if (pid > 0) {
 		rfd = open(pipepath, O_RDONLY);
 		if (rfd != -1) {
-			ctl = handlepipedata(rfd); // Process is blocked here until all writers are closed
+			ctl = handlepipedata(rfd);
 			waitpid(pid, NULL, 0);
 			close(rfd);
 		} else
@@ -1643,7 +1642,7 @@ static int callextfunc(int c)
 		wfd = open(pipepath, O_WRONLY | O_CLOEXEC);
 		if (wfd != -1) {
 			spawn(extfunc, (char [2]){c, '\0'}, pipepath, FALSE, gcfg.mode == 1);
-			close(wfd); // Unblock the parent process
+			close(wfd);
 		}
 		_exit(EXIT_SUCCESS);
 
@@ -1654,7 +1653,7 @@ static int callextfunc(int c)
 	return ctl;
 }
 
-static inline void fillentry(int fd, Entry *ent, struct stat sb)
+static inline void fillentry(int fd, Entry *ent, struct stat sb, time_t curtime)
 {
 	switch (ptab->cfg.timetype) {
 	case 0: ent->sec = sb.st_atime;
@@ -1665,7 +1664,6 @@ static inline void fillentry(int fd, Entry *ent, struct stat sb)
 		break;
 	case 2: ent->sec = sb.st_ctime;
 		ent->nsec = (unsigned int)sb.st_ctim.tv_nsec;
-		break;
 	}
 
 	ent->size = sb.st_size;
@@ -1714,6 +1712,7 @@ static void loaddirentry(DIR *dirp, int fd)
 	size_t buflen = 0, off = 0;
 	struct dirent *dp;
 	struct stat sb;
+	time_t curtime = time(NULL);
 	Entry *ent;
 
 	while ((dp = readdir(dirp))) {
@@ -1752,7 +1751,7 @@ static void loaddirentry(DIR *dirp, int fd)
 		ent->nlen = tmp - ent->name; // include terminational '\0'
 		off += ent->nlen;
 
-		fillentry(fd, ent, sb);
+		fillentry(fd, ent, sb, curtime);
 		++ndents;
 	}
 }
@@ -1762,9 +1761,10 @@ static void loadsrchentry(int fd)
 	char *name, *end = pfindbuf;
 	int totents = 0;
 	struct stat sb;
+	time_t curtime = time(NULL);
 	Entry *ent;
 
-	while ((name = end) && (end = memchr(name, '\0', PATH_MAX)) && ++end < pfindbuf + findlen) {
+	while ((name = end) && (end = memchr(name, '\0', PATH_MAX)) && ++end < pfindend) {
 		if (fstatat(fd, name, &sb, AT_SYMLINK_NOFOLLOW) == -1)
 			continue;
 
@@ -1779,7 +1779,7 @@ static void loadsrchentry(int fd)
 		ent->name = name;
 		ent->nlen = end - name;
 
-		fillentry(fd, ent, sb);
+		fillentry(fd, ent, sb, curtime);
 		++ndents;
 	}
 }
@@ -1793,8 +1793,6 @@ static void loadentries(char *path)
 	if (!dirp && seterrnum(__LINE__, errno))
 		return;
 	fd = dirfd(dirp);
-
-	curtime = time(NULL);
 
 	if (ptab->hp->stat->flag != S_ROOT)
 		loaddirentry(dirp, fd); // Load dir entry
@@ -2122,7 +2120,7 @@ static void statusbar(void)
 		addch(':');
 		addstr(getgrname(ent->gid));
 
-		printw("%8s ", tohumansize(ent->size));
+		printw("  %s ", tohumansize(ent->size));
 
 		printenttime(&ent->sec);
 
@@ -2135,7 +2133,7 @@ static void statusbar(void)
 				addwstr(fitpathcols(gpbuf, n - 2)); // Show symlink target
 			}
 
-		} else if (ent->type == F_REG && n > 1) {
+		} else if ((ent->flag & E_REG_FILE) && n > 1) {
 			char *p = getextension(ent->name, ent->nlen);
 			if (p)
 				addnstr(p , n); // Show file extension
@@ -2431,7 +2429,6 @@ static void cleanup(void)
 	free(pdents);
 	free(pnamebuf);
 	free(pfindbuf);
-	free(ppipebuf);
 }
 
 int main(int argc, char *argv[])
@@ -2460,7 +2457,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'm': gcfg.dirontop = 0;
 			break;
-		case 'v': printf("v"VERSION"\n");
+		case 'v': printf("sff "VERSION"\n");
 			return EXIT_SUCCESS;
 		case 'h': usage();
 			return EXIT_SUCCESS;
