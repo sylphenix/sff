@@ -62,7 +62,7 @@ sffpipe_sel_new()
 	[ "$1" = "$exbuf1" -o "$1" = "$exbuf2" ] \
 	&& name=$(tr '\n\0' '\035\n' <"$1" | head -n1 | tr -d '\n' | tr '\035' '\n')
 
-	[ -p "$sffpipe" ] && printf "n%s\036" "$name" >"$sffpipe"
+	[ -p "$sffpipe" ] && printf "n%s\0" "$name" >"$sffpipe"
 }
 
 sff_init_bufs()
@@ -401,13 +401,13 @@ sff_find()
 
 	printf "f" >"$sffpipe"
 	find ./ $y -name "$x" | sed -e 's/^\.\///' | tr '\n' '\0' 1>>"$sffpipe"
-	printf "\036" >>"$sffpipe"
+	printf "\0" >>"$sffpipe"
 }
 
 sff_fzf_find()
 {
 	f=$(fzf)
-	[ "$f" ] && printf ">%s\036" "$f" >"$sffpipe"
+	[ "$f" ] && printf ">%s\0" "$f" >"$sffpipe"
 }
 
 sff_file_stat()
@@ -581,7 +581,7 @@ sff_help()
 
 # === key bindings ===
 case "$1" in                #?> Extension functions:
-'n') sff_new;;              #?>     Alt-n  Create files (ends with '/' for dirs)
+'n') sff_new;;              #?>     Alt-n  Create new files (ends with '/' for dirs)
 'd') sff_delete;;           #?>     Alt-d  Delete
 'y') sff_write_cbuf 'cp';;  #?>     Alt-y  Copy
 'x') sff_write_cbuf 'mv';;  #?>     Alt-x  Cut

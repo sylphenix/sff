@@ -45,7 +45,6 @@
 #include <grp.h>
 #include <pwd.h>
 #include <signal.h>
-
 #ifndef _XOPEN_SOURCE_EXTENDED
 #define _XOPEN_SOURCE_EXTENDED
 #endif
@@ -73,8 +72,6 @@
 #define LENGTH(X)       (sizeof X / sizeof X[0])
 #define MIN(x, y)       ((x) < (y) ? (x) : (y))
 #define MAX(x, y)       ((x) > (y) ? (x) : (y))
-#define TOUPPER(ch)     (((ch) >= 'a' && (ch) <= 'z') ? ((ch) - 32) : (ch))
-#define TOLOWER(ch)     (((ch) >= 'A' && (ch) <= 'Z') ? ((ch) + 32) : (ch))
 
 enum entryflag {
 	E_REG_FILE = 0x01, E_DIR_DIRLNK = 0x02,
@@ -141,7 +138,7 @@ typedef struct {
 	unsigned int showhidden : 1;  // Show hidden files
 	unsigned int dirontop   : 1;  // Sort directories on the top
 	unsigned int sortby     : 3;  // (0: name, 1: size, 2: time, 3: extension)
-	unsigned int casesens   : 1;  // Case sensitive
+	unsigned int caseinsen  : 1;  // Case insensitive
 	unsigned int natural    : 1;  // Natural numeric sorting
 	unsigned int reverse    : 1;  // Reverse sort
 	unsigned int showtime   : 1;  // Show time info
@@ -186,10 +183,7 @@ static int markent = -1, errline = 0, errnum = 0;
 static int xlines, xcols, onscr, ncols;
 static char *home, *editor;
 static char *cfgpath = NULL, *extfunc = NULL, *selpath = NULL, *pipepath = NULL;
-static char *pnamebuf = NULL, *pfindbuf = NULL, *ppipebuf = NULL;
-static char *findname = NULL;
-static size_t findlen = 0, pipelen = 0;
-static time_t curtime;
+static char *pnamebuf = NULL, *pfindbuf = NULL, *pfindend = NULL, *findname = NULL;
 static Entry *pdents = NULL;
 static Tabs *ptab = NULL;
 
@@ -213,36 +207,6 @@ static void dbgprint(char *vn, char *str, int n)
 	fclose(fp);
 }
 #endif
-
-/* Convert unsigned integer to string. The maximum value it can handle is 4,294,967,295
-   This is a modified version of xitoa() from nnn. https://github.com/jarun/nnn */
-static char *xitoa(unsigned int val)
-{
-	static char dst[16] = {0};
-	static const char digits[204] =
-		"0001020304050607080910111213141516171819"
-		"2021222324252627282930313233343536373839"
-		"4041424344454647484950515253545556575859"
-		"6061626364656667686970717273747576777879"
-		"8081828384858687888990919293949596979899";
-	unsigned int i, j, quo;
-
-	for (i = 14; val >= 100; --i) { // Fill digits backward from dst[14]
-		quo = val / 100;
-		j = (val - (quo * 100)) << 1;
-		val = quo;
-		dst[i] = digits[j + 1];
-		dst[--i] = digits[j];
-	}
-
-	if (val >= 10) {
-		j = val << 1;
-		dst[i] = digits[j + 1];
-		dst[--i] = digits[j];
-	} else
-		dst[i] = '0' + val;
-	return &dst[i];
-}
 
 /* Get directory portion of pathname. Source would be modified!!! */
 static char *xdirname(char *path)
@@ -352,38 +316,60 @@ static char *abspath(const char *path, char *buf)
 	return buf;
 }
 
-/* Convert integer size to string like 6.12K 25M 11.30G etc. */
+/* Convert unsigned integer to string. The maximum value it can handle is 4,294,967,295
+   This is a modified version of xitoa() from nnn. https://github.com/jarun/nnn */
+static char *xitoa(unsigned int val)
+{
+	static char dst[16] = {0};
+	static const char digits[204] =
+		"0001020304050607080910111213141516171819"
+		"2021222324252627282930313233343536373839"
+		"4041424344454647484950515253545556575859"
+		"6061626364656667686970717273747576777879"
+		"8081828384858687888990919293949596979899";
+	unsigned int i, j, quo;
+
+	for (i = 14; val >= 100; --i) { // Fill digits backward from dst[14]
+		quo = val / 100;
+		j = (val - (quo * 100)) << 1;
+		val = quo;
+		dst[i] = digits[j + 1];
+		dst[--i] = digits[j];
+	}
+
+	if (val >= 10) {
+		j = val << 1;
+		dst[i] = digits[j + 1];
+		dst[--i] = digits[j];
+	} else
+		dst[i] = '0' + val;
+	return &dst[i];
+}
+
+/* Convert integer size to string like 6.2K 25.0M 198.3G etc. */
 static char *tohumansize(off_t size)
 {
 	static char sbuf[12] = {0};
 	static const char unit[12] = "BKMGTPEZY";
-	char *sp, *fp;
+	char *sp;
 	int i, numint, frac = 0;
 
 	for (i = 0; size >= 1024000; ++i)
 		size >>= 10;
 
 	if (i > 0 || size >= 1024) {
-		size += 5; // round frac by (x+5)/10
+		size += 51; // round frac by (x + 51) / 100
 		numint = size >> 10;
-		frac = (size & 1023) * 100 >> 10; // by simplifying (size % 1024) * 1000 / 1024 / 10
+		frac = (size & 1023) * 10 >> 10; // by simplifying (size % 1024) * 1000 / 1024 / 100
 		++i;
 	} else
 		numint = size;
 
 	sp = (char *)memccpy(sbuf, xitoa(numint), '\0', 6) - 1;
 
-	if (frac != 0) {
-		fp = xitoa(frac);
-		*sp = '.';
-		if (fp[1] == '\0') {
-			*++sp = '0';
-			*++sp = fp[0];
-		} else {
-			*++sp = fp[0];
-			*++sp = fp[1];
-		}
-		++sp;
+	if (i > 0) {
+		*sp++ = '.';
+		*sp++ = '0' + frac;
 	}
 
 	*sp = unit[i];
@@ -414,39 +400,35 @@ static char *strperms(mode_t mode)
 	return str;
 }
 
-/* Returns the cached name if the provided uid is the same as the previous uid.
-   This is a modified version of getpwname() from nnn. https://github.com/jarun/nnn */
+/* Returns the cached user name if the provided uid is the same as the previous uid. */
 static char *getpwname(uid_t uid)
 {
-	static unsigned int uidcache = -1;
-	static char *namecache = NULL;
+	static char *unamecache = NULL;
+	static uid_t uidcache = (uid_t)-1;
 
-	if (uidcache != uid) {
+	if (uid != uidcache) {
 		struct passwd *pw = getpwuid(uid);
-
+		unamecache = pw ? pw->pw_name : NULL;
 		uidcache = uid;
-		namecache = pw ? pw->pw_name : NULL;
 	}
-	return namecache ? namecache : xitoa(uid);
+	return unamecache ? unamecache : xitoa(uid);
 }
 
-/* Returns the cached group if the provided gid is the same as the previous gid.
-   This is a modified version of getgrname() from nnn. https://github.com/jarun/nnn */
+/* Returns the cached group name if the provided gid is the same as the previous gid. */
 static char *getgrname(gid_t gid)
 {
-	static unsigned int gidcache = -1;
-	static char *grpcache = NULL;
+	static char *gnamecache = NULL;
+	static gid_t gidcache = (gid_t)-1;
 
-	if (gidcache != gid) {
+	if (gid != gidcache) {
 		struct group *gr = getgrgid(gid);
-
+		gnamecache = gr ? gr->gr_name : NULL;
 		gidcache = gid;
-		grpcache = gr ? gr->gr_name : NULL;
 	}
-	return grpcache ? grpcache : xitoa(gid);
+	return gnamecache ? gnamecache : xitoa(gid);
 }
 
-static bool seterrnum(int line, int err)
+static int seterrnum(int line, int err)
 {
 	errline = line;
 	errnum = err;
@@ -483,7 +465,7 @@ static int quitsff(int n);
 
 #include "config.h" // Configuration
 
-static void spawn(char *arg0, char *arg1, char *arg2, bool detach, bool sudo)
+static void spawn(char *arg0, char *arg1, char *arg2, int detach, int sudo)
 {
 	pid_t pid;
 	char *args[5] = {SUDOER, arg0, arg1, arg2, NULL};
@@ -590,7 +572,7 @@ static inline void savehiststat(Histstat *hs)
 	}
 }
 
-static Histpath *inithistpath(Histpath *hp, char *path, bool check)
+static Histpath *inithistpath(Histpath *hp, char *path, int check)
 {
 	char *name = NULL;
 	struct stat sb;
@@ -642,7 +624,7 @@ static Histpath *inithistpath(Histpath *hp, char *path, bool check)
 static int newhistpath(char *path)
 {
 	Histpath *hp = ptab->hp;
-	Histpath *hp2 = (hp - ghpath == gcfg.ct * 2) ? hp + 1 : hp - 1;
+	Histpath *hp2 = ((hp - ghpath) & 1) ? hp - 1 : hp + 1;
 
 	if (strcmp(hp->path, path) == 0)
 		return GO_NONE;
@@ -661,7 +643,7 @@ static int newhistpath(char *path)
 static int switchhistpath(int n)
 {
 	Histpath *hp = ptab->hp;
-	Histpath *hp2 = (hp - ghpath == gcfg.ct * 2) ? hp + 1 : hp - 1;
+	Histpath *hp2 = ((hp - ghpath) & 1) ? hp - 1 : hp + 1;
 
 	if ((gcfg.ct == TABS_MAX || !hp2->path[0]) && n == 0)
 		return GO_NONE;
@@ -678,7 +660,7 @@ static int switchhistpath(int n)
 static int enterdir(int n __attribute__((unused)))
 {
 	Histpath *hp = ptab->hp;
-	Histpath *hp2 = (hp - ghpath == gcfg.ct * 2) ? hp + 1 : hp - 1;
+	Histpath *hp2 = ((hp - ghpath) & 1) ? hp - 1 : hp + 1;
 	Histstat *hs = hp->stat;
 	int nhs = hs - hp->hs + 1;
 	Entry *ent = &pdents[cursel];
@@ -894,7 +876,7 @@ static struct selstat *getselstat(void)
 	return ss;
 }
 
-static bool appendselection(Entry *ent)
+static int appendselection(Entry *ent)
 {
 	size_t len;
 	struct selstat *ss = getselstat();
@@ -1112,7 +1094,7 @@ static int qfindnext(int n)
 	return GO_REDRAW;
 }
 
-static bool inittab(char *path, int n)
+static int inittab(char *path, int n)
 {
 	deleteallselstat(gtab[n].ss);
 	gtab[n].ss = NULL;
@@ -1176,8 +1158,11 @@ static int closetab(int n)
 		gcfg.ct = ac;
 	}
 
-	if (n == TABS_MAX)
-		findlen = 0;
+	if (n == TABS_MAX) {
+		free(pfindbuf);
+		pfindbuf = pfindend = NULL;
+	}
+
 	deleteallselstat(gtab[n].ss);
 	gtab[n].ss = NULL;
 	gtab[n].cfg.enabled = 0;
@@ -1240,7 +1225,7 @@ static int viewoptions(int n __attribute__((unused)))
 	waddstr(dpo, "  (e)");
 	wattron(dpo, (cfg->sortby == 3) ? A_REVERSE : 0); waddstr(dpo, "extension"); wattroff(dpo, A_REVERSE);
 	mvwaddstr(dpo, i += 2, 2, "  [c]");
-	wattron(dpo, cfg->casesens ? A_REVERSE : 0); waddstr(dpo, "case-sensitive"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, !cfg->caseinsen ? A_REVERSE : 0); waddstr(dpo, "case-sensitive"); wattroff(dpo, A_REVERSE);
 	waddstr(dpo, "  [v]");
 	wattron(dpo, cfg->natural ? A_REVERSE : 0); waddstr(dpo, "natural"); wattroff(dpo, A_REVERSE);
 	waddstr(dpo, "  [r]");
@@ -1283,7 +1268,7 @@ static int viewoptions(int n __attribute__((unused)))
 			break;
 		case 'e': cfg->sortby = 3;
 			break;
-		case 'c': cfg->casesens ^= 1;
+		case 'c': cfg->caseinsen ^= 1;
 			break;
 		case 'v': cfg->natural ^= 1;
 			break;
@@ -1335,8 +1320,7 @@ static int showhelp(int n __attribute__((unused)))
 	keypad(help, TRUE);
 	erase();
 	refresh();
-	waddstr(help, "sff - simple file finder\n"
-			"version "VERSION"\n\n"
+	waddstr(help, "sff "VERSION"\n\n"
 			" Builtin functions:\n");
 
 	for (i = 0; i < klines; ++i)
@@ -1385,96 +1369,46 @@ static void usage(void)
 		"  -h      Print this help and exit\n");
 }
 
-/* states: S_N: normal, S_I: comparing integral part, S_F: comparing
-           fractionnal parts, S_Z: idem but with leading Zeroes only */
-#define  S_N    0x0
-#define  S_I    0x3
-#define  S_F    0x6
-#define  S_Z    0x9
-
-/* result_type: CMP: return diff; LEN: compare using len_diff/diff */
-#define  CMP    2
-#define  LEN    3
-
-/* This is a modified version of the GLIBC and uClibc implementation of strverscmp()
-   https://elixir.bootlin.com/uclibc-ng/latest/source/libc/string/strverscmp.c */
-
-/* Compare S1 and S2 as strings holding indices/version numbers,
-   returning less than, equal to or greater than zero if S1 is less than,
-   equal to or greater than S2 (for more info, see the texinfo doc). */
-static int xstrverscmp (const char *s1, const char *s2, bool cs)
+static int xstrverscmp (const char *s1, const char *s2, int ci)
 {
-	const unsigned char *p1 = (const unsigned char *) s1;
-	const unsigned char *p2 = (const unsigned char *) s2;
-
-	/* Symbol(s)    0       [1-9]   others
-	   Transition   (10) 0  (01) d  (00) x  */
-	static const uint8_t next_state[] =
-	{
-		/* state    x    d    0  */
-		/* S_N */  S_N, S_I, S_Z,
-		/* S_I */  S_N, S_I, S_I,
-		/* S_F */  S_N, S_F, S_F,
-		/* S_Z */  S_N, S_F, S_Z
-	};
-
-	static const int8_t result_type[] =
-	{
-		/* state   x/x  x/d  x/0  d/x  d/d  d/0  0/x  0/d  0/0  */
-		/* S_N */  CMP, CMP, CMP, CMP, LEN, CMP, CMP, CMP, CMP,
-		/* S_I */  CMP, -1,  -1,  +1,  LEN, LEN, +1,  LEN, LEN,
-		/* S_F */  CMP, CMP, CMP, CMP, CMP, CMP, CMP, CMP, CMP,
-		/* S_Z */  CMP, +1,  +1,  -1,  CMP, CMP, -1,  CMP, CMP
-	};
-	unsigned char c1, c2;
-	int state, diff;
+	const unsigned char *p1 = (const unsigned char *)s1;
+	const unsigned char *p2 = (const unsigned char *)s2;
+	int diff = 0, indig = 0;
 
 	if (p1 == p2)
 		return 0;
 
-	if (cs) {
-		c1 = *p1++;
-		c2 = *p2++;
-	} else {
-		c1 = TOLOWER(*p1);
-		c2 = TOLOWER(*p2);
-		++p1;
-		++p2;
-	}
-
-	/* Hint: '0' is a digit too.  */
-	state = S_N + ((c1 == '0') + (isdigit (c1) != 0));
-	while ((diff = c1 - c2) == 0) {
-		if (c1 == '\0')
-			return diff;
-
-		state = next_state[state];
-		if (cs) {
-			c1 = *p1++;
-			c2 = *p2++;
-		} else {
-			c1 = TOLOWER(*p1);
-			c2 = TOLOWER(*p2);
-			++p1;
-			++p2;
+	for (unsigned char c1, c2; diff == 0 || indig; ++p1, ++p2) {
+		c1 = *p1;
+		c2 = *p2;
+		if (ci) {
+			if (c1 <= 'Z' && c1 >= 'A')
+				c1 += 32;
+			if (c2 <= 'Z' && c2 >= 'A')
+				c2 += 32;
 		}
-		state += (c1 == '0') + (isdigit (c1) != 0);
-	}
 
-	state = result_type[state * 3 + (((c2 == '0') + (isdigit (c2) != 0)))];
-	switch (state)	{
-	case CMP:
-		return diff;
-
-	case LEN:
-		while (isdigit (*p1++))
-			if (!isdigit (*p2++))
+		if (indig) {
+			switch ((c1 <= '9' && c1 >= '0') | (c2 <= '9' && c2 >= '0') << 1) {
+			case 1: // c1 is digit and c2 is not
 				return 1;
-		return isdigit (*p2) ? -1 : diff;
+			case 2: // c1 is not digit and c2 is
+				return -1;
+			case 3: // c1 and c2 are digit
+				if (diff)
+					continue;
+				break;
+			case 0: // c1 and c2 are not digit
+				if (diff)
+					return diff;
+				indig = 0;
+			}
+		} else if (isdigit(c1) && isdigit(c2) && c1 != '0' && c2 != '0')
+			indig = 1;
 
-	default:
-		return state;
+		diff = c1 - c2;
 	}
+	return diff;
 }
 
 static int xstrcasecmp (const char *s1, const char *s2)
@@ -1486,9 +1420,13 @@ static int xstrcasecmp (const char *s1, const char *s2)
 	if (p1 == p2)
 		return 0;
 
-	for (unsigned char c1 = 1, c2 = 1; diff == 0 && c1 && c2; ++p1, ++p2) {
-		c1 = TOLOWER(*p1);
-		c2 = TOLOWER(*p2);
+	for (unsigned char c1, c2; diff == 0; ++p1, ++p2) {
+		c1 = *p1;
+		c2 = *p2;
+		if (c1 <= 'Z' && c1 >= 'A')
+			c1 += 32;
+		if (c2 <= 'Z' && c2 >= 'A')
+			c2 += 32;
 		diff = c1 - c2;
 	}
 	return diff;
@@ -1534,18 +1472,18 @@ static int entrycmp(const void *va, const void *vb)
 			if (!extb)
 				return 1;
 
-			int res = strcasecmp(exta, extb);
+			int res = xstrcasecmp(++exta, ++extb);
 			if (res)
 				return res;
 		}
 	}
 
 	if (ptab->cfg.natural)
-		return xstrverscmp(pa->name, pb->name, ptab->cfg.casesens);
+		return xstrverscmp(pa->name, pb->name, ptab->cfg.caseinsen);
 
-	if (ptab->cfg.casesens)
-		return strcoll(pa->name, pb->name);
-	return xstrcasecmp(pa->name, pb->name);
+	if (ptab->cfg.caseinsen)
+		return xstrcasecmp(pa->name, pb->name);
+	return strcoll(pa->name, pb->name);
 }
 
 static int reventrycmp(const void *va, const void *vb)
@@ -1561,12 +1499,12 @@ static int reventrycmp(const void *va, const void *vb)
 	return -entrycmp(va, vb);
 }
 
-static bool writeselection(void)
+static int writeselection(void)
 {
 	char *pos, *end;
 	ssize_t plen, len;
 	struct selstat *ss;
-	bool selcur = !ptab->cfg.selmode && ndents > 0;
+	int selcur = ptab->cfg.selmode == 0 && ndents > 0;
 
 	if (selcur && !appendselection(&pdents[cursel]))
 		return FALSE;
@@ -1605,31 +1543,31 @@ static bool writeselection(void)
 	return TRUE;
 }
 
-static bool readpipe(int fd, char **buf, size_t *plen)
+static int readfindresult(int fd)
 {
-	ssize_t len;
-	size_t buflen = 0;
+	ssize_t len = 1;
+	size_t buflen = 0, reslen = 0;
+	char *tmp;
 
-	*plen = 0;
-	do {
-		if (buflen - *plen < NAME_INCR) {
-			char *tmp = realloc(*buf, buflen += NAME_INCR);
+	while (len != -1 && len != 0) {
+		if (buflen - reslen < NAME_INCR) {
+			tmp = realloc(pfindbuf, buflen += NAME_INCR);
 			if (!tmp && seterrnum(__LINE__, errno))
 				return FALSE;
-			*buf = tmp;
+			pfindbuf = tmp;
 		}
 
-		len = read(fd, *buf + *plen, NAME_INCR);
-		if (len > 0)
-			*plen += len;
-	} while (len != -1 && (*buf)[*plen - 1] != 036); // '\036' as terminating char
+		len = read(fd, pfindbuf + reslen, NAME_INCR);
+		reslen += len;
+	}
 
 	if (len == -1 && seterrnum(__LINE__, errno)) {
-		free(*buf);
-		*buf = NULL;
+		free(pfindbuf);
+		pfindbuf = NULL;
 		return FALSE;
 	}
-	(*buf)[*plen - 1] = '\0';
+
+	pfindend = pfindbuf + reslen;
 	return TRUE;
 }
 
@@ -1649,24 +1587,23 @@ static int handlepipedata(int fd)
 		return refreshview(0);
 
 	case 'n': // select new file
-		if (!readpipe(fd, &ppipebuf, &pipelen))
+		if (read(fd, gpbuf, PATH_MAX - 1) == -1 && seterrnum(__LINE__, errno))
 			return GO_STATBAR;
-		if (ppipebuf)
-			strncpy(ptab->hp->stat->name, xbasename(ppipebuf), NAME_MAX);
+		strncpy(ptab->hp->stat->name, xbasename(gpbuf), NAME_MAX);
 		findname = ptab->hp->stat->name;
 		gcfg.newent = 1;
 		clearselection(0);
 		return GO_RELOAD;
 
 	case '>': // enter specified path
-		if (!readpipe(fd, &ppipebuf, &pipelen))
+		if (read(fd, gpbuf, PATH_MAX - 1) == -1 && seterrnum(__LINE__, errno))
 			return GO_STATBAR;
-		if (abspath(ppipebuf, gpbuf))
-			return newhistpath(gpbuf);
+		if (abspath(gpbuf, gmbuf))
+			return newhistpath(gmbuf);
 		break;
 
 	case 'f': // load search result
-		if (!readpipe(fd, &pfindbuf, &findlen))
+		if (!readfindresult(fd))
 			return GO_STATBAR;
 		if (!inittab(ptab->hp->path, TABS_MAX))
 			return GO_STATBAR;
@@ -1695,7 +1632,7 @@ static int callextfunc(int c)
 	if (pid > 0) {
 		rfd = open(pipepath, O_RDONLY);
 		if (rfd != -1) {
-			ctl = handlepipedata(rfd); // Process is blocked here until all writers are closed
+			ctl = handlepipedata(rfd);
 			waitpid(pid, NULL, 0);
 			close(rfd);
 		} else
@@ -1705,7 +1642,7 @@ static int callextfunc(int c)
 		wfd = open(pipepath, O_WRONLY | O_CLOEXEC);
 		if (wfd != -1) {
 			spawn(extfunc, (char [2]){c, '\0'}, pipepath, FALSE, gcfg.mode == 1);
-			close(wfd); // Unblock the parent process
+			close(wfd);
 		}
 		_exit(EXIT_SUCCESS);
 
@@ -1716,7 +1653,7 @@ static int callextfunc(int c)
 	return ctl;
 }
 
-static inline void fillentry(int fd, Entry *ent, struct stat sb)
+static inline void fillentry(int fd, Entry *ent, struct stat sb, time_t curtime)
 {
 	switch (ptab->cfg.timetype) {
 	case 0: ent->sec = sb.st_atime;
@@ -1727,7 +1664,6 @@ static inline void fillentry(int fd, Entry *ent, struct stat sb)
 		break;
 	case 2: ent->sec = sb.st_ctime;
 		ent->nsec = (unsigned int)sb.st_ctim.tv_nsec;
-		break;
 	}
 
 	ent->size = sb.st_size;
@@ -1776,6 +1712,7 @@ static void loaddirentry(DIR *dirp, int fd)
 	size_t buflen = 0, off = 0;
 	struct dirent *dp;
 	struct stat sb;
+	time_t curtime = time(NULL);
 	Entry *ent;
 
 	while ((dp = readdir(dirp))) {
@@ -1814,7 +1751,7 @@ static void loaddirentry(DIR *dirp, int fd)
 		ent->nlen = tmp - ent->name; // include terminational '\0'
 		off += ent->nlen;
 
-		fillentry(fd, ent, sb);
+		fillentry(fd, ent, sb, curtime);
 		++ndents;
 	}
 }
@@ -1824,9 +1761,10 @@ static void loadsrchentry(int fd)
 	char *name, *end = pfindbuf;
 	int totents = 0;
 	struct stat sb;
+	time_t curtime = time(NULL);
 	Entry *ent;
 
-	while ((name = end) && (end = memchr(name, '\0', PATH_MAX)) && ++end < pfindbuf + findlen) {
+	while ((name = end) && (end = memchr(name, '\0', PATH_MAX)) && ++end < pfindend) {
 		if (fstatat(fd, name, &sb, AT_SYMLINK_NOFOLLOW) == -1)
 			continue;
 
@@ -1841,7 +1779,7 @@ static void loadsrchentry(int fd)
 		ent->name = name;
 		ent->nlen = end - name;
 
-		fillentry(fd, ent, sb);
+		fillentry(fd, ent, sb, curtime);
 		++ndents;
 	}
 }
@@ -1855,8 +1793,6 @@ static void loadentries(char *path)
 	if (!dirp && seterrnum(__LINE__, errno))
 		return;
 	fd = dirfd(dirp);
-
-	curtime = time(NULL);
 
 	if (ptab->hp->stat->flag != S_ROOT)
 		loaddirentry(dirp, fd); // Load dir entry
@@ -1928,8 +1864,7 @@ static wchar_t *fitpathcols(const char *path, int maxcols)
 	static int homelen = 0;
 	wchar_t *tbuf = (wchar_t *)gmbuf, *wbuf = (wchar_t *)gpbuf;
 	wchar_t *tbp = tbuf, *wbp = wbuf, *slash = NULL;
-	int i, len;
-	bool fold = FALSE;
+	int i, len, fold = 0;
 
 	if (homelen == 0 && home)
 		homelen = strlen(home);
@@ -1942,7 +1877,7 @@ static wchar_t *fitpathcols(const char *path, int maxcols)
 	len = mbstowcs(tbp, path, PATH_MAX);
 
 	if (wcswidth(tbuf, len) + (wbp - wbuf) > maxcols) {
-		fold = TRUE;
+		fold = 1;
 		*wbp++ = *tbp++; // If fold path, keep the first level
 	}
 
@@ -1986,7 +1921,7 @@ static inline void printenttime(const time_t *timep)
 	printw("%s-%02d-%02d %02d:%02d ", xitoa(t.tm_year + 1900), t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min);
 }
 
-static inline void printentname(const Entry *ent, bool sel)
+static inline void printentname(const Entry *ent, int sel)
 {
 	int attr = COLOR_PAIR(ent->type)
 		| (ent->flag & E_DIR_DIRLNK ? A_BOLD : 0)
@@ -2002,7 +1937,7 @@ static inline void printentname(const Entry *ent, bool sel)
 }
 
 
-static void printent(const Entry *ent, bool sel, bool mark)
+static void printent(const Entry *ent, int sel, int mark)
 {
 	int attr = COLOR_PAIR(C_DETAIL)	| (mark || (sel && ptab->cfg.selmode) ? A_REVERSE : 0);
 
@@ -2022,7 +1957,7 @@ static void printent(const Entry *ent, bool sel, bool mark)
 		printw(" %c%c%c ", '0' + ((ent->mode >> 6) & 7), '0' + ((ent->mode >> 3) & 7), '0' + (ent->mode & 7));
 
 	if (ptab->cfg.showsize)
-		printw("%8s ", (ent->flag & E_REG_FILE) ? tohumansize(ent->size) : filetypechar(ent->type));
+		printw("%7s ", (ent->flag & E_REG_FILE) ? tohumansize(ent->size) : filetypechar(ent->type));
 
 	attron(gcfg.newent && (ent->flag & E_NEW) ? (COLOR_PAIR(C_NEWFILE) | A_REVERSE) : 0);
 	if (sel)
@@ -2041,7 +1976,7 @@ static void redraw(char *path)
 	getmaxyx(stdscr, xlines, xcols);
 	int pcols = xcols - (TABS_MAX + 1) * 2;
 	int dcols = (ptab->cfg.showtime ? 17 : 0) + (ptab->cfg.showowner ? 15 : 0)
-		+ (ptab->cfg.showperm ? 5 : 0) + (ptab->cfg.showsize ? 9 : 0) + 2;
+		+ (ptab->cfg.showperm ? 5 : 0) + (ptab->cfg.showsize ? 8 : 0) + 2;
 	int btm, i, j = 0;
 	struct selstat *ss = ptab->ss;
 
@@ -2185,7 +2120,7 @@ static void statusbar(void)
 		addch(':');
 		addstr(getgrname(ent->gid));
 
-		printw("%8s ", tohumansize(ent->size));
+		printw("  %s ", tohumansize(ent->size));
 
 		printenttime(&ent->sec);
 
@@ -2198,7 +2133,7 @@ static void statusbar(void)
 				addwstr(fitpathcols(gpbuf, n - 2)); // Show symlink target
 			}
 
-		} else if (ent->type == F_REG && n > 1) {
+		} else if ((ent->flag & E_REG_FILE) && n > 1) {
 			char *p = getextension(ent->name, ent->nlen);
 			if (p)
 				addnstr(p , n); // Show file extension
@@ -2262,7 +2197,7 @@ static int filterinput(int c)
 
 static int qfindinput(int c)
 {
-	bool cd = FALSE;
+	int cd = FALSE;
 	wchar_t *wbuf = (wchar_t *)gmbuf;
 
 	if (ptab->fdlen <= 0) // fdlen=0 no quick find, fdlen<0 invisible, fdlen>0 active
@@ -2381,7 +2316,7 @@ static void exitsighandler(int sig __attribute__((unused)))
 	exit(EXIT_SUCCESS);
 }
 
-static bool initsff(char *arg0, char *argx)
+static int initsff(char *arg0, char *argx)
 {
 	char *path, *xdgcfg = getenv("XDG_CONFIG_HOME");
 	struct sigaction act = {.sa_handler = exitsighandler};
@@ -2494,7 +2429,6 @@ static void cleanup(void)
 	free(pdents);
 	free(pnamebuf);
 	free(pfindbuf);
-	free(ppipebuf);
 }
 
 int main(int argc, char *argv[])
@@ -2505,7 +2439,7 @@ int main(int argc, char *argv[])
 		switch (opt) {
 		case 'b': gcfg.mode = 4;
 			break;
-		case 'c': gcfg.casesens = 1;
+		case 'c': gcfg.caseinsen = 0;
 			break;
 		case 'd': gcfg.showtime = gcfg.showowner = gcfg.showperm = gcfg.showsize = 0;
 			for (int i = 0; optarg[i]; ++i) {
@@ -2523,7 +2457,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'm': gcfg.dirontop = 0;
 			break;
-		case 'v': printf("v"VERSION"\n");
+		case 'v': printf("sff "VERSION"\n");
 			return EXIT_SUCCESS;
 		case 'h': usage();
 			return EXIT_SUCCESS;
