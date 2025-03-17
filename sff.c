@@ -229,26 +229,24 @@ static char *xbasename(char *path)
 }
 
 /* Make path/name in buf. Ensure buf size is not less than PATH_MAX. */
-static char *makepath(const char *path, const char *name, char *buf)
+static int makepath(const char *path, const char *name, char *buf)
 {
-	if (!path || !buf)
-		return NULL;
+	char *p;
 
-	char *p = (path == buf) ? (char *)memchr(path, '\0', PATH_MAX - 2) + 1
-		: memccpy(buf, path, '\0', PATH_MAX - 2);
+	if (!path || !path[0] || !buf)
+		return 0;
+
+	if (path == buf)
+		p = memchr(buf, '\0', PATH_MAX - 2);
+	else if ((p = memccpy(buf, path, '\0', PATH_MAX - 2)))
+		--p;
 
 	if (p) {
-		if (path[0] == '/' && path[1] == '\0')
-			--p;
-		else
-			p[-1] = '/';
-		p = memccpy(p, name, '\0', PATH_MAX - (p - buf));
+		if (*(p - 1) != '/')
+			*p++ = '/';
+		p = memccpy(p, name, '\0', PATH_MAX - (p - buf) - 1);
 	}
-
-	if (p)
-		return buf;
-	errno = ENAMETOOLONG;
-	return NULL;
+	return p ? p - buf : 0;
 }
 
 /* Get file extension. Extensions longer than 7 chars will be ignored. */
@@ -663,15 +661,13 @@ static int enterdir(int n __attribute__((unused)))
 	Histpath *hp2 = ((hp - ghpath) & 1) ? hp - 1 : hp + 1;
 	Histstat *hs = hp->stat;
 	int nhs = hs - hp->hs + 1;
+	char *newpath = gpbuf;
 	Entry *ent = &pdents[cursel];
-	char *newpath = makepath(hp->path, ent->name, gpbuf);
 
 	if (ndents == 0 || !(ent->flag & E_DIR_DIRLNK))
 		return GO_NONE;
 
-	if (!newpath && seterrnum(__LINE__, errno))
-		return GO_STATBAR;
-
+	makepath(hp->path, ent->name, newpath);
 	if (hs->flag == S_ROOT) {
 		if (strcmp(newpath, hp2->path) == 0)
 			return switchhistpath(1);
@@ -775,7 +771,6 @@ static int openfile(int n)
 		return GO_NONE;
 
 	makepath(ptab->hp->path, ent->name, gpbuf);
-
 	switch (n) {
 	case 1:
 		if (!(ent->flag & E_REG_FILE))
@@ -1502,7 +1497,7 @@ static int reventrycmp(const void *va, const void *vb)
 static int writeselection(void)
 {
 	char *pos, *end;
-	ssize_t plen, len;
+	ssize_t len;
 	struct selstat *ss;
 	int selcur = ptab->cfg.selmode == 0 && ndents > 0;
 
@@ -1518,18 +1513,9 @@ static int writeselection(void)
 		ss = ss->prev;
 
 	while (ss && errline == 0) {
-		plen = strlen(ss->path);
-		for (pos = ss->nbuf; (end = memchr(pos, '\0', PATH_MAX)) && end < ss->endp; pos += len) {
-			len = end - pos + 1;
-
-			if (write(fd, ss->path, plen) != plen)
-				errline = __LINE__;
-			if (*(ss->path + 1) != '\0' && write(fd, "/", 1) != 1)
-				errline = __LINE__;
-			if (write(fd, pos, len) != len)
-				errline = __LINE__;
-
-			if (errline != 0)
+		for (pos = ss->nbuf; (end = memchr(pos, '\0', PATH_MAX)) && end < ss->endp; pos += end - pos + 1) {
+			len = makepath(ss->path, pos, gpbuf);
+			if (write(fd, gpbuf, len) != len && seterrnum(__LINE__, errno))
 				break;
 		}
 		ss = ss->next;
@@ -1538,7 +1524,7 @@ static int writeselection(void)
 	close(fd);
 	if (selcur)
 		clearselection(0);
-	if (errline != 0 && seterrnum(errline, errno))
+	if (errline != 0)
 		return FALSE;
 	return TRUE;
 }
@@ -1701,7 +1687,7 @@ static inline void fillentry(int fd, Entry *ent, struct stat sb, time_t curtime)
 	default: ent->type = F_UNKN;
 	}
 
-	if (gcfg.newent && ((curtime - sb.st_mtime <= 180) || (curtime - sb.st_ctime <= 180)))
+	if (gcfg.newent && (curtime - sb.st_ctime <= 180))
 		ent->flag |= E_NEW;
 }
 
@@ -2368,10 +2354,9 @@ static int initsff(char *arg0, char *argx)
 	&& (cfgpath = malloc(strlen(gpbuf) * 3 + strlen(gmbuf) + 64))) {
 		extfunc = memccpy(cfgpath, gpbuf, '\0', PATH_MAX);
 		selpath = memccpy(extfunc, gmbuf, '\0', PATH_MAX);
-		makepath(gpbuf, ".selection", selpath);
-		pipepath = selpath + strlen(selpath) + 1;
+		pipepath = selpath + makepath(cfgpath, ".selection", selpath);
 		strcat(strcpy(gmbuf, ".sff-pipe."), xitoa(getpid()));
-		makepath(gpbuf, gmbuf, pipepath);
+		makepath(cfgpath, gmbuf, pipepath);
 	} else {
 		cfgpath = NULL;
 		seterrnum(__LINE__, errno);
