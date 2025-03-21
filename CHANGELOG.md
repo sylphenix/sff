@@ -19,8 +19,8 @@
 ### Removed
 ### Fixed
 
-Fixed issue where the executable file extension was not showing in the status bar.
-Fixed 'Illegal instruction' runtime error on Chimera Linux.
+* Fixed issue where the executable file extension was not showing in the status bar.
+* Fixed 'Illegal instruction' runtime error on Chimera Linux.
 
 
 ### Security
