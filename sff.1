@@ -83,7 +83,7 @@ The names of the selected files are highlighted in reverse video. By default, th
 .Nm 
 allows file selection across directories. Each tab maintains its own independent selection state. The second set of numbers in the bottom status bar (highlighted in reverse video) indicates the total number of selected files in the current tab.
 .Pp
-Whenever an extension function is called, the absolute paths of the selected files in the current tab are written to the \fB.selection\fR file in the user's config directory. The \fBsff-extfunc\fR script reads this file to obtain the paths of the selected files.
+When an extension function is executed, if it sends a request, the absolute paths of the selected files are delivered to the extension function via a FIFO.
 .Sh FILTERS
 Filters are strings used to dynamically list matching files in the current directory. When a filter is enabled, it appears above the bottom status bar, and the program enters input mode. In this mode, you can perform the following actions:
 .Pp
