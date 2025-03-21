@@ -12,6 +12,7 @@
 * Set the precision of the file size value to one decimal place.
 * Rewrote the `xstrverscmp` function for better performance.
 * Simplified the implementation of reading pipe data.
+* `sff` now shares selected file paths with `sff-extfunc` via a pipe instead of a regular file.
 
 
 ### Deprecated

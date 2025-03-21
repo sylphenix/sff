@@ -182,7 +182,7 @@ static int ndents = 0, cursel = 0, lastsel = -1, curscroll = 0, lastscroll = -1;
 static int markent = -1, errline = 0, errnum = 0;
 static int xlines, xcols, onscr, ncols;
 static char *home, *editor;
-static char *cfgpath = NULL, *extfunc = NULL, *selpath = NULL, *pipepath = NULL;
+static char *cfgpath = NULL, *extfunc = NULL, *pipepath = NULL;
 static char *pnamebuf = NULL, *pfindbuf = NULL, *pfindend = NULL, *findname = NULL;
 static Entry *pdents = NULL;
 static Tabs *ptab = NULL;
@@ -482,27 +482,22 @@ static void spawn(char *arg0, char *arg1, char *arg2, int detach, int sudo)
 	} else if (pid == 0) {
 		if (detach) {
 			pid = fork(); // Fork a grandchild to detach
-			if (pid > 0) {
+			if (pid != 0)
 				_exit(EXIT_SUCCESS);
-			} else if (pid == 0) {
-				setsid();
-			} else {
-				perror("fork failed");
-				_exit(EXIT_FAILURE);
-			}
-
+			setsid();
 			// Suppress stdout and stderr
 			int fd = open("/dev/null", O_WRONLY, 0200);
 			dup2(fd, STDOUT_FILENO);
 			dup2(fd, STDERR_FILENO);
 			close(fd);
 		}
+
 		sigaction(SIGTSTP, &act, NULL);
 		act.sa_handler = SIG_DFL;
 		sigaction(SIGINT, &act, NULL);
+		sigaction(SIGPIPE, &act, NULL);
 		execvp(*argv, argv);
 		_exit(EXIT_SUCCESS);
-
 	} else
 		seterrnum(__LINE__, errno);
 }
@@ -1494,7 +1489,7 @@ static int reventrycmp(const void *va, const void *vb)
 	return -entrycmp(va, vb);
 }
 
-static int writeselection(void)
+static int writeselection(int fd)
 {
 	char *pos, *end;
 	ssize_t len;
@@ -1502,10 +1497,6 @@ static int writeselection(void)
 	int selcur = ptab->cfg.selmode == 0 && ndents > 0;
 
 	if (selcur && !appendselection(&pdents[cursel]))
-		return FALSE;
-
-	int fd = open(selpath, O_CREAT | O_WRONLY | O_TRUNC, S_IWUSR | S_IRUSR);
-	if (fd == -1 && seterrnum(__LINE__, errno))
 		return FALSE;
 
 	ss = ptab->ss;
@@ -1521,12 +1512,9 @@ static int writeselection(void)
 		ss = ss->next;
 	}
 
-	close(fd);
 	if (selcur)
 		clearselection(0);
-	if (errline != 0)
-		return FALSE;
-	return TRUE;
+	return (errline == 0) ? TRUE : FALSE;
 }
 
 static int readfindresult(int fd)
@@ -1562,6 +1550,8 @@ static int handlepipedata(int fd)
 	int op = 0;
 
 	read(fd, &op, 1);
+	if (op == 'd')
+		read(fd, &op, 1);
 
 	switch (op) {
 	case '-': // clear selection
@@ -1572,7 +1562,7 @@ static int handlepipedata(int fd)
 			clearselection(0);
 		return refreshview(0);
 
-	case 'n': // select new file
+	case '@': // select specified file
 		if (read(fd, gpbuf, PATH_MAX - 1) == -1 && seterrnum(__LINE__, errno))
 			return GO_STATBAR;
 		strncpy(ptab->hp->stat->name, xbasename(gpbuf), NAME_MAX);
@@ -1588,7 +1578,7 @@ static int handlepipedata(int fd)
 			return newhistpath(gmbuf);
 		break;
 
-	case 'f': // load search result
+	case '?': // load search result
 		if (!readfindresult(fd))
 			return GO_STATBAR;
 		if (!inittab(ptab->hp->path, TABS_MAX))
@@ -1601,13 +1591,10 @@ static int handlepipedata(int fd)
 
 static int callextfunc(int c)
 {
-	pid_t pid;
-	int rfd, wfd, ctl = GO_STATBAR;
+	pid_t pid, gpid = 0;
+	int rfd, wfd, len, ctl = GO_STATBAR;
 
 	if (access(cfgpath, F_OK) == -1 && mkdir(cfgpath, 0700) == -1 && seterrnum(__LINE__, errno))
-		return GO_STATBAR;
-
-	if (!writeselection())
 		return GO_STATBAR;
 
 	if (mkfifo(pipepath, 0600) == -1 && seterrnum(__LINE__, errno))
@@ -1616,18 +1603,34 @@ static int callextfunc(int c)
 	endwin();
 	pid = fork();
 	if (pid > 0) {
-		rfd = open(pipepath, O_RDONLY);
-		if (rfd != -1) {
-			ctl = handlepipedata(rfd);
-			waitpid(pid, NULL, 0);
+		if ((rfd = open(pipepath, O_RDONLY)) != -1) {
+			len = read(rfd, gpbuf, 1);
+			if (gpbuf[0] == 'd' && len == 1)
+				ctl = handlepipedata(rfd);
+			if (isdigit(gpbuf[0]) && len == 1) {
+				len = read(rfd, &gpbuf[1], 8);
+				gpbuf[len + 1] = '\0';
+				gpid = (pid_t)strtol(gpbuf, NULL, 10);
+			}
 			close(rfd);
+
+			if (gpid > 9 && (wfd = open(pipepath, O_WRONLY)) != -1) {
+				if (!writeselection(wfd))
+					kill(gpid, SIGTERM);
+				close(wfd);
+			}
+			if (gpid > 9 && (rfd = open(pipepath, O_RDONLY)) != -1) {
+				ctl = handlepipedata(rfd);
+				close(rfd);
+			}
 		} else
 			seterrnum(__LINE__, errno);
+		waitpid(pid, NULL, 0);
 
 	} else if (pid == 0) {
-		wfd = open(pipepath, O_WRONLY | O_CLOEXEC);
-		if (wfd != -1) {
-			spawn(extfunc, (char [2]){c, '\0'}, pipepath, FALSE, gcfg.mode == 1);
+		spawn(extfunc, (char [2]){c, '\0'}, pipepath, FALSE, gcfg.mode == 1);
+		if ((wfd = open(pipepath, O_WRONLY | O_NONBLOCK)) != -1) {
+			write(wfd, "/", 1);
 			close(wfd);
 		}
 		_exit(EXIT_SUCCESS);
@@ -2313,6 +2316,7 @@ static int initsff(char *arg0, char *argx)
 	act.sa_handler = SIG_IGN;
 	sigaction(SIGINT, &act, NULL);
 	sigaction(SIGQUIT, &act, NULL);
+	sigaction(SIGPIPE, &act, NULL);
 
 	// Reset standard input
 	if (!freopen("/dev/null", "r", stdin)
@@ -2349,12 +2353,11 @@ static int initsff(char *arg0, char *argx)
 	&& access(gmbuf, R_OK | X_OK) == 0) // check it in EXTFNPREFIX
 		extfunc = gmbuf;
 
-	// Allocate memory for cfgpath + extfunc + selpath + pipepath and set these paths
+	// Allocate memory for cfgpath + extfunc + pipepath and set these paths
 	if (cfgpath && extfunc
-	&& (cfgpath = malloc(strlen(gpbuf) * 3 + strlen(gmbuf) + 64))) {
+	&& (cfgpath = malloc(strlen(gpbuf) * 2 + strlen(gmbuf) + 32))) {
 		extfunc = memccpy(cfgpath, gpbuf, '\0', PATH_MAX);
-		selpath = memccpy(extfunc, gmbuf, '\0', PATH_MAX);
-		pipepath = selpath + makepath(cfgpath, ".selection", selpath);
+		pipepath = memccpy(extfunc, gmbuf, '\0', PATH_MAX);
 		strcat(strcpy(gmbuf, ".sff-pipe."), xitoa(getpid()));
 		makepath(cfgpath, gmbuf, pipepath);
 	} else {
