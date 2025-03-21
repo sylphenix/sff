@@ -12,7 +12,7 @@
 * Set the precision of the file size value to one decimal place.
 * Rewrote the `xstrverscmp` function for better performance.
 * Simplified the implementation of reading pipe data.
-* `sff` now shares selected file paths with `sff-extfunc` via a pipe instead of a regular file.
+* Now shares selections with extension script via a pipe instead of a regular file.
 
 
 ### Deprecated
@@ -20,6 +20,7 @@
 ### Fixed
 
 Fixed issue where the executable file extension was not showing in the status bar.
+Fixed 'Illegal instruction' runtime error on Chimera Linux.
 
 
 ### Security

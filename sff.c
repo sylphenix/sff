@@ -178,7 +178,7 @@ typedef struct {
 
 /*** Global Variables ***/
 
-static int ndents = 0, cursel = 0, lastsel = -1, curscroll = 0, lastscroll = -1;
+static int ndents = 0, tdents = 0, cursel = 0, lastsel = -1, curscroll = 0, lastscroll = -1;
 static int markent = -1, errline = 0, errnum = 0;
 static int xlines, xcols, onscr, ncols;
 static char *home, *editor;
@@ -187,8 +187,8 @@ static char *pnamebuf = NULL, *pfindbuf = NULL, *pfindend = NULL, *findname = NU
 static Entry *pdents = NULL;
 static Tabs *ptab = NULL;
 
-alignas(max_align_t) static char gpbuf[PATH_MAX] = {0};
-alignas(max_align_t) static char gmbuf[PATH_MAX] = {0};
+alignas(max_align_t) static char gpbuf[PATH_MAX * sizeof(wchar_t)] = {0};
+alignas(max_align_t) static char gmbuf[PATH_MAX * sizeof(wchar_t)] = {0};
 alignas(max_align_t) static Tabs gtab[TABS_MAX + 1] = {0};
 alignas(max_align_t) static Histpath ghpath[(TABS_MAX + 1) * 2] = {0};
 
@@ -1697,12 +1697,11 @@ static inline void fillentry(int fd, Entry *ent, struct stat sb, time_t curtime)
 static void loaddirentry(DIR *dirp, int fd)
 {
 	char *name, *tmp;
-	int totents = 0;
 	size_t buflen = 0, off = 0;
 	struct dirent *dp;
 	struct stat sb;
 	time_t curtime = time(NULL);
-	Entry *ent;
+	Entry *ent,*tmpent;
 
 	while ((dp = readdir(dirp))) {
 		name = dp->d_name;
@@ -1714,11 +1713,11 @@ static void loaddirentry(DIR *dirp, int fd)
 		if (fstatat(fd, name, &sb, AT_SYMLINK_NOFOLLOW) == -1)
 			continue;
 
-		if (ndents == totents) {
-			Entry *tent = realloc(pdents, (totents += ENTRY_INCR) * sizeof(Entry));
-			if (!tent && seterrnum(__LINE__, errno))
+		if (ndents == tdents) {
+			tmpent = realloc(pdents, (tdents += ENTRY_INCR) * sizeof(Entry));
+			if (!tmpent && seterrnum(__LINE__, errno))
 				return;
-			pdents = tent;
+			pdents = tmpent;
 		}
 
 		if (buflen - off <= NAME_MAX) {
@@ -1748,20 +1747,19 @@ static void loaddirentry(DIR *dirp, int fd)
 static void loadsrchentry(int fd)
 {
 	char *name, *end = pfindbuf;
-	int totents = 0;
 	struct stat sb;
 	time_t curtime = time(NULL);
-	Entry *ent;
+	Entry *ent, *tmpent;
 
 	while ((name = end) && (end = memchr(name, '\0', PATH_MAX)) && ++end < pfindend) {
 		if (fstatat(fd, name, &sb, AT_SYMLINK_NOFOLLOW) == -1)
 			continue;
 
-		if (ndents == totents) {
-			Entry *tent = realloc(pdents, (totents += ENTRY_INCR) * sizeof(Entry));
-			if (!tent && seterrnum(__LINE__, errno))
+		if (ndents == tdents) {
+			tmpent = realloc(pdents, (tdents += ENTRY_INCR) * sizeof(Entry));
+			if (!tmpent && seterrnum(__LINE__, errno))
 				return;
-			pdents = tent;
+			pdents = tmpent;
 		}
 
 		ent = pdents + ndents;
@@ -1863,7 +1861,7 @@ static wchar_t *fitpathcols(const char *path, int maxcols)
 		*wbp++ = L'~';
 	}
 
-	len = mbstowcs(tbp, path, PATH_MAX);
+	len = mbstowcs(tbp, path, PATH_MAX - 1);
 
 	if (wcswidth(tbuf, len) + (wbp - wbuf) > maxcols) {
 		fold = 1;
@@ -2358,8 +2356,8 @@ static int initsff(char *arg0, char *argx)
 	&& (cfgpath = malloc(strlen(gpbuf) * 2 + strlen(gmbuf) + 32))) {
 		extfunc = memccpy(cfgpath, gpbuf, '\0', PATH_MAX);
 		pipepath = memccpy(extfunc, gmbuf, '\0', PATH_MAX);
-		strcat(strcpy(gmbuf, ".sff-pipe."), xitoa(getpid()));
-		makepath(cfgpath, gmbuf, pipepath);
+		makepath(gpbuf, ".sff-pipe.", pipepath);
+		strcat(pipepath, xitoa(getpid()));
 	} else {
 		cfgpath = NULL;
 		seterrnum(__LINE__, errno);

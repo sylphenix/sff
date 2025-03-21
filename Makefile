@@ -14,7 +14,7 @@ LIBS = -lncursesw
 
 # flags
 CPPFLAGS = -DDEBUG -D_DEFAULT_SOURCE -D_BSD_SOURCE -DEXTFNNAME=\"${EXTFNNAME}\" -DEXTFNPREFIX=\"${EXTFNPREFIX}\" -DVERSION=\"${VERSION}\"
-CFLAGS   = -std=c11 -pedantic -Wall -Wextra -Wshadow -Wno-deprecated-declarations -Os ${CPPFLAGS}
+CFLAGS   = -std=c11 -pedantic -Wall -Wextra -Wshadow -Wno-deprecated-declarations -O3 ${CPPFLAGS}
 LDFLAGS  = ${LIBS}
 
 # compiler and linker
