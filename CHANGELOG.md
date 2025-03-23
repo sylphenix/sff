@@ -20,8 +20,8 @@
 ### Fixed
 
 * Fixed issue where the executable file extension was not showing in the status bar.
-* Fixed 'Illegal instruction' runtime error on Chimera Linux.
-
+* Fixed 'Illegal instruction' error on Chimera Linux.
+* Fixed go to root directory key binding issue.
 
 ### Security
 ### Contributors
