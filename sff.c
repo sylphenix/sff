@@ -142,8 +142,8 @@ typedef struct {
 	unsigned int natural    : 1;  // Natural numeric sorting
 	unsigned int reverse    : 1;  // Reverse sort
 	unsigned int showtime   : 1;  // Show time info
-	unsigned int showowner  : 1;  // Show user/group info
-	unsigned int showperm   : 1;  // Show permission info
+	unsigned int showowner  : 1;  // Show owner:group info
+	unsigned int showperm   : 1;  // Show permissions info
 	unsigned int showsize   : 1;  // Show size info
 	unsigned int timetype   : 2;  // (0: access, 1: modify, 2: change)
 	unsigned int havesel    : 1;  // (0: no selection in current path, 1: have selection)
@@ -181,6 +181,7 @@ typedef struct {
 static int ndents = 0, tdents = 0, cursel = 0, lastsel = -1, curscroll = 0, lastscroll = -1;
 static int markent = -1, errline = 0, errnum = 0;
 static int xlines, xcols, onscr, ncols;
+static size_t namebuflen = 0;
 static char *home, *editor;
 static char *cfgpath = NULL, *extfunc = NULL, *pipepath = NULL;
 static char *pnamebuf = NULL, *pfindbuf = NULL, *pfindend = NULL, *findname = NULL;
@@ -1379,21 +1380,22 @@ static int xstrverscmp (const char *s1, const char *s2, int ci)
 		}
 
 		if (indig) {
-			switch ((c1 <= '9' && c1 >= '0') | (c2 <= '9' && c2 >= '0') << 1) {
-			case 1: // c1 is digit and c2 is not
-				return 1;
-			case 2: // c1 is not digit and c2 is
-				return -1;
-			case 3: // c1 and c2 are digit
-				if (diff)
-					continue;
-				break;
-			case 0: // c1 and c2 are not digit
-				if (diff)
-					return diff;
-				indig = 0;
+			if ((unsigned int)c1 - '0' <= 9) {
+				if ((unsigned int)c2 - '0' <= 9) { // c1 and c2 are digit
+					if (diff)
+						continue;
+				} else // c1 is digit and c2 is not
+					return 1;
+			} else {
+				if ((unsigned int)c2 - '0' <= 9) // c1 is not digit and c2 is
+					return -1;
+				else { // c1 and c2 are not digit
+					if (diff)
+						return diff;
+					indig = 0;
+				}
 			}
-		} else if (isdigit(c1) && isdigit(c2) && c1 != '0' && c2 != '0')
+		} else if ((unsigned int)c1 - '1' <= 8 && (unsigned int)c2 - '1' <= 8) // c1 and c2 are 1-9
 			indig = 1;
 
 		diff = c1 - c2;
@@ -1697,7 +1699,7 @@ static inline void fillentry(int fd, Entry *ent, struct stat sb, time_t curtime)
 static void loaddirentry(DIR *dirp, int fd)
 {
 	char *name, *tmp;
-	size_t buflen = 0, off = 0;
+	size_t off = 0;
 	struct dirent *dp;
 	struct stat sb;
 	time_t curtime = time(NULL);
@@ -1720,8 +1722,8 @@ static void loaddirentry(DIR *dirp, int fd)
 			pdents = tmpent;
 		}
 
-		if (buflen - off <= NAME_MAX) {
-			tmp = realloc(pnamebuf, buflen += NAME_INCR);
+		if (namebuflen - off <= NAME_MAX) {
+			tmp = realloc(pnamebuf, namebuflen += NAME_INCR);
 			if (!tmp && seterrnum(__LINE__, errno))
 				return;
 
