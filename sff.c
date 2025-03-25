@@ -79,7 +79,7 @@ enum entryflag {
 };
 
 enum filetypes {
-	F_REG, F_DIR, F_CHR, F_BLK, F_IFO, F_LNK, F_SOCK,
+	F_REG = 0, F_DIR, F_CHR, F_BLK, F_IFO, F_LNK, F_SOCK,
 	F_HLNK, F_EXEC, F_EMPT, F_ORPH, F_MISS, F_UNKN
 };
 
@@ -88,11 +88,11 @@ enum colorflag {
 };
 
 enum histstatflag {
-	S_UNVIS, S_VIS, S_ROOT, S_SUBROOT
+	S_UNVIS = 0, S_VIS, S_ROOT, S_SUBROOT
 };
 
 enum procctrl {
-	GO_NONE, GO_FASTDRAW, GO_STATBAR, GO_REDRAW, GO_SORT, GO_RELOAD, GO_QUIT
+	GO_NONE = 0, GO_FASTDRAW, GO_STATBAR, GO_REDRAW, GO_SORT, GO_RELOAD, GO_QUIT
 };
 
 typedef struct {
@@ -488,9 +488,11 @@ static void spawn(char *arg0, char *arg1, char *arg2, int detach, int sudo)
 			setsid();
 			// Suppress stdout and stderr
 			int fd = open("/dev/null", O_WRONLY, 0200);
-			dup2(fd, STDOUT_FILENO);
-			dup2(fd, STDERR_FILENO);
-			close(fd);
+			if (fd != -1) {
+				dup2(fd, STDOUT_FILENO);
+				dup2(fd, STDERR_FILENO);
+				close(fd);
+			}
 		}
 
 		sigaction(SIGTSTP, &act, NULL);
@@ -550,13 +552,6 @@ static int movetoedge(int n)
 	return shiftcursor(ndents * n, 0);
 }
 
-static inline void inithiststat(Histstat *hs)
-{
-	hs->name[0] = hs->name[NAME_MAX] = '\0';
-	hs->cur = hs->scrl = 0;
-	hs->flag = S_UNVIS;
-}
-
 static inline void savehiststat(Histstat *hs)
 {
 	if (ndents > 0) {
@@ -585,30 +580,29 @@ static Histpath *inithistpath(Histpath *hp, char *path, int check)
 
 	// Each level of path corresponds to a histstat. Add one more for current level
 	hp->nhs = 0;
-	for (char *p = path, *p2 = hp->path; *p != '\0' || p != p2; ++p, ++p2) {
+	for (char *p = path, *p2 = hp->path; ; ++p, ++p2) {
 		if (*p == '/' || (*p == '\0' && path[1] != '\0')) {
 			if (hp->nhs == hp->ths) {
 				Histstat *tmp = realloc(hp->hs, (hp->ths += HSTAT_INCR) * sizeof(Histstat));
 				if (!tmp && seterrnum(__LINE__, errno)) {
-					hp->path[0] = '\0';
-					hp->nhs = 0;
-					hp->ths -= HSTAT_INCR;
+					free(hp->hs);
+					memset(hp, 0, sizeof(Histpath));
 					return NULL;
 				}
 				hp->hs = tmp;
 			}
-			inithiststat(hp->hs + hp->nhs++);
+			memset((hp->hs + hp->nhs++), 0, sizeof(Histstat));
 		}
 
 		*p2 = *p;
 		if (*p == '\0')
-			p2 = --p;
+			break;
 	}
 
 	hp->stat = hp->hs + hp->nhs - 1;
 	hp->stat->flag = S_VIS;
 	if (name){
-		findname = strncpy(hp->stat->name, name, NAME_MAX + 1);
+		findname = strncpy(hp->stat->name, name, NAME_MAX);
 		if (*name == '.')
 			gcfg.showhidden = 1;
 	}
@@ -697,7 +691,7 @@ static int enterdir(int n __attribute__((unused)))
 	}
 
 	if (nhs == hp->nhs) {
-		inithiststat(hs + 1);
+		memset((hs + 1), 0, sizeof(Histstat));
 		(hs + 1)->flag = S_VIS;
 		++hp->nhs;
 	}
@@ -725,7 +719,7 @@ static int gotoparent(int n __attribute__((unused)))
 	do {
 		--hs;
 		if (hs->flag == S_UNVIS) {
-			strncpy(hs->name, xbasename(path), NAME_MAX + 1);
+			strncpy(hs->name, xbasename(path), NAME_MAX);
 			hs->flag = S_VIS;
 		}
 	} while (path[1] != '\0' && chdir(xdirname(path)) == -1 && seterrnum(__LINE__, errno));
@@ -791,7 +785,7 @@ static struct selstat *addselstat(struct selstat *ss, char *path)
 	if (!n && seterrnum(__LINE__, errno))
 		return NULL;
 
-	n->nbuf = malloc(PATH_MAX);
+	n->nbuf = calloc(NAME_INCR, 1);
 	if (!n->nbuf && seterrnum(__LINE__, errno)) {
 		free(n);
 		return NULL;
@@ -807,7 +801,7 @@ static struct selstat *addselstat(struct selstat *ss, char *path)
 
 	strncpy(n->path, path, PATH_MAX);
 	n->endp = n->nbuf;
-	n->buflen = PATH_MAX;
+	n->buflen = NAME_INCR;
 	return n;
 }
 
@@ -877,9 +871,9 @@ static int appendselection(Entry *ent)
 
 	len = ss->endp - ss->nbuf;
 	if (ent->nlen >= ss->buflen - len) {
-		char *tmp = realloc(ss->nbuf, ss->buflen += PATH_MAX);
+		char *tmp = realloc(ss->nbuf, ss->buflen += NAME_INCR);
 		if (!tmp && seterrnum(__LINE__, errno)) {
-			ss->buflen -= PATH_MAX;
+			ss->buflen -= NAME_INCR;
 			return FALSE;
 		}
 		ss->nbuf = tmp;
@@ -2094,7 +2088,7 @@ static void statusbar(void)
 	printw("%d/%d ", ndents > 0 ? cursel + 1 : 0, ndents);
 
 	attron(A_REVERSE);
-	printw(" %d ", (ndents >0 && !ptab->cfg.selmode) ? 1 : ptab->nsel);
+	printw(" %d ", (ndents > 0 && !ptab->cfg.selmode) ? 1 : ptab->nsel);
 	attroff(A_REVERSE);
 	addch(' ');
 
