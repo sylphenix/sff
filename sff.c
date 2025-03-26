@@ -278,7 +278,7 @@ static char *abspath(const char *path, char *buf)
 		return NULL;
 
 	if (path[0] != '/') {
-		if (!getcwd(buf, PATH_MAX - 1))
+		if (!getcwd(buf, PATH_MAX))
 			return NULL;
 		len = strlen(buf);
 	} else
@@ -705,8 +705,8 @@ static int enterdir(int n __attribute__((unused)))
 
 static int gotoparent(int n __attribute__((unused)))
 {
-	char *path = ptab->hp->path;
-	Histstat *hs = ptab->hp->stat;
+	char *path = gtab[gcfg.ct].hp->path;
+	Histstat *hs = gtab[gcfg.ct].hp->stat;
 
 	if ((path[0] == '/' && path[1] == '\0') || hs->flag == S_ROOT)
 		return GO_NONE;
@@ -722,7 +722,7 @@ static int gotoparent(int n __attribute__((unused)))
 			strncpy(hs->name, xbasename(path), NAME_MAX);
 			hs->flag = S_VIS;
 		}
-	} while (path[1] != '\0' && chdir(xdirname(path)) == -1 && seterrnum(__LINE__, errno));
+	} while (path[1] != '\0' && hs->flag != S_SUBROOT && chdir(xdirname(path)) == -1 && seterrnum(__LINE__, errno));
 
 	findname = hs->name;
 	ptab->hp->stat = hs;
@@ -1108,14 +1108,14 @@ static int switchtab(int n)
 	if (gtab[n].cfg.enabled == 0 && !inittab(hp->path, n) && !inittab(home ? home : "/", n))
 		return GO_STATBAR;
 
-	if (chdir(gtab[n].hp->path) == -1 && seterrnum(__LINE__, errno) && !inittab(home ? home : "/", n))
-		return GO_STATBAR;
-
 	hp->stat->cur = cursel;
 	hp->stat->scrl = curscroll;
 	if (gcfg.ct < TABS_MAX)
 		gcfg.lt = gcfg.ct;
 	gcfg.ct = n;
+
+	if (chdir(gtab[n].hp->path) == -1)
+		seterrnum(__LINE__, errno);
 	return GO_RELOAD;
 }
 
@@ -1138,8 +1138,8 @@ static int closetab(int n)
 			return GO_STATBAR;
 		gcfg.ct = 0;
 	} else {
-		if (chdir(gtab[ac].hp->path) == -1 && seterrnum(__LINE__, errno) && !inittab(home ? home : "/", ac))
-			return GO_STATBAR;
+		if (chdir(gtab[ac].hp->path) == -1)
+			seterrnum(__LINE__, errno);
 		gcfg.ct = ac;
 	}
 
@@ -1559,7 +1559,7 @@ static int handlepipedata(int fd)
 		return refreshview(0);
 
 	case '@': // select specified file
-		if (read(fd, gpbuf, PATH_MAX - 1) == -1 && seterrnum(__LINE__, errno))
+		if (read(fd, gpbuf, PATH_MAX) == -1 && seterrnum(__LINE__, errno))
 			return GO_STATBAR;
 		strncpy(ptab->hp->stat->name, xbasename(gpbuf), NAME_MAX);
 		findname = ptab->hp->stat->name;
@@ -1568,9 +1568,9 @@ static int handlepipedata(int fd)
 		return GO_RELOAD;
 
 	case '>': // enter specified path
-		if (read(fd, gpbuf, PATH_MAX - 1) == -1 && seterrnum(__LINE__, errno))
+		if (read(fd, gpbuf, PATH_MAX) == -1 && seterrnum(__LINE__, errno))
 			return GO_STATBAR;
-		if (abspath(gpbuf, gmbuf))
+		if (gcfg.ct < TABS_MAX && abspath(gpbuf, gmbuf))
 			return newhistpath(gmbuf);
 		break;
 
@@ -2110,7 +2110,7 @@ static void statusbar(void)
 		getyx(stdscr, n, x);
 		n = xcols - x;
 		if (ent->type == F_LNK && n > 1) {
-			if ((x = readlink(ent->name, gpbuf, PATH_MAX - 1)) > 1) {
+			if ((x = readlink(ent->name, gpbuf, PATH_MAX)) > 1) {
 				gpbuf[x] = '\0';
 				addstr("->");
 				addwstr(fitpathcols(gpbuf, n - 2)); // Show symlink target
@@ -2360,7 +2360,7 @@ static int initsff(char *arg0, char *argx)
 	}
 
 	// Initialize first tab
-	path = argx ? abspath(argx, gpbuf) : getcwd(gpbuf, PATH_MAX - 1);
+	path = argx ? abspath(argx, gpbuf) : getcwd(gpbuf, PATH_MAX);
 	if (!path || !inittab(path, 0)) {
 		perror(xitoa(__LINE__));
 		return FALSE;
