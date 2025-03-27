@@ -83,10 +83,9 @@ sff_init_bufs()
 	chmod 600 "$exbuf1" "$exbuf2" "$lastop" "$cpbuf"
 
 	if [ ! -O "$sffdir" ]; then
-		case "$(uname -s)" in
-		'Linux') local uid=$(stat -c %u "$sffdir");;
-		*) local uid=$(stat -f %u "$sffdir");;
-		esac
+		stat --version >/dev/null 2>&1 \
+		&& local uid=$(stat -c %u "$sffdir") \
+		|| local uid=$(stat -f %u "$sffdir")
 		chown "$uid" "$exbuf1" "$exbuf2" "$lastop" "$cpbuf"
 	fi
 }
@@ -430,12 +429,7 @@ sff_file_stat()
 		echo ""
 		f="$(printf "%s" "$f" | tr '\035' '\n')"
 
-		case "$(uname -s)" in
-		"Linux") stat "$f";;
-		*) stat -f "File: %N %nSize: %z %t Blocks: %b %t IO Block: %k %nDevice: %d %t Inode: %i %t Links: %l %nAccess: %p/%Sp %t Uid: %u/%Su %t Gid: %g/%Sg %nAccess: %Sa %nModify: %Sm %nChange: %Sc"\
-				 -t "%Y-%m-%d %H:%M:%S %z %s" "$f";;
-		esac
-
+		stat --version >/dev/null 2>&1 && stat "$f" || stat -x "$f"
 		file -bi "$f"
 		file -b "$f"
 	done <"$tsel"
