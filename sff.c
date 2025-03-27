@@ -250,16 +250,16 @@ static int makepath(const char *path, const char *name, char *buf)
 	return p ? p - buf : 0;
 }
 
-/* Get file extension. Extensions longer than 7 chars will be ignored. */
+/* Get file extension. Extensions longer than 8 chars will be ignored. */
 static char *getextension(char *name, int len)
 {
 	char *p;
 
 	if (len > 3) {
 		p = name + len - 2;
-		len = (len > 10) ? 8 : len - 2;
+		len = (len > 11) ? 9 : len - 2;
 
-		 while (--len != 0)
+		 while (--len > 0)
 			if (*--p == '.')
 				return p;
 	}
@@ -532,7 +532,7 @@ static int movecursor(int n)
 
 static int movequarterpage(int n)
 {
-	return shiftcursor(((xlines - 4) / 4) * n, 0);
+	return shiftcursor(onscr / 4 * n, 0);
 }
 
 static int scrollpage(int n)
@@ -968,7 +968,7 @@ static int invertselection(int n __attribute__((unused)))
 
 static int selectrange(int n)
 {
-	int i, start, end;
+	int start, end;
 
 	if (ndents == 0)
 		return GO_NONE;
@@ -988,11 +988,11 @@ static int selectrange(int n)
 	}
 
 	if (n > 0) {
-		for (i = start; i <= end; ++i)
+		for (int i = start; i <= end; ++i)
 			if (!(pdents[i].flag & E_SEL))
 				appendselection(&pdents[i]);
 	} else {
-		for (i = start; i <= end; ++i)
+		for (int i = start; i <= end; ++i)
 			if (pdents[i].flag & E_SEL)
 				removeselection(&pdents[i]);
 	}
@@ -1054,13 +1054,13 @@ static int quickfind(int n __attribute__((unused)))
 
 static int qfindnext(int n)
 {
-	int i, sta = (n == 0) ? 0 : cursel + n;
+	int sta = (n == 0) ? 0 : cursel + n;
 
 	if (ptab->fdlen == 0 || ptab->find[0] == '\0')
 		return GO_NONE;
 
 	if (n >= 0) {
-		for (i = sta; i < ndents; ++i) {
+		for (int i = sta; i < ndents; ++i) {
 			if (strcasestr(pdents[i].name, ptab->find)) {
 				cursel = i;
 				curscroll = MAX(i - (onscr * 3 >> 2), MIN(i - (onscr >> 2), curscroll));
@@ -1068,7 +1068,7 @@ static int qfindnext(int n)
 			}
 		}
 	} else {
-		for (i = sta; i >= 0; --i) {
+		for (int i = sta; i >= 0; --i) {
 			if (strcasestr(pdents[i].name, ptab->find)) {
 				cursel = i;
 				curscroll = MAX(i - (onscr * 3 >> 2), MIN(i - (onscr >> 2), curscroll));
@@ -1298,8 +1298,7 @@ static int viewoptions(int n __attribute__((unused)))
 
 static int showhelp(int n __attribute__((unused)))
 {
-	int i, c = 0, klines = (int)LENGTH(keys);
-	int start = 0, plines = klines + 8;
+	int klines = (int)LENGTH(keys), plines = klines + 8;
 	WINDOW *help = newpad(plines, 80);
 
 	keypad(help, TRUE);
@@ -1308,14 +1307,14 @@ static int showhelp(int n __attribute__((unused)))
 	waddstr(help, "sff "VERSION"\n\n"
 			" Builtin functions:\n");
 
-	for (i = 0; i < klines; ++i)
+	for (int i = 0; i < klines; ++i)
 		wprintw(help, "  %s\n", keys[i].cmnt);
 
 	waddstr(help, "\nNote: All file operations are implemented by extension functions.\n"
 			"To get help for extension functions, press Alt-/ in the main view.\n"
 			"Press 'q' or Esc to leave this page.");
 
-	while (c != ESC && c != 'q') {
+	for (int c = 0, start = 0; c != ESC && c != 'q'; ) {
 		start = MAX(0, MIN(start, plines - xlines));
 		prefresh(help, start, 0, 0, 0, xlines - 1, xcols - 1);
 
@@ -1363,25 +1362,19 @@ static int xstrverscmp (const char *s1, const char *s2, int ci)
 	if (p1 == p2)
 		return 0;
 
-	for (unsigned char c1, c2; diff == 0 || indig; ++p1, ++p2) {
+	for (unsigned int c1, c2; diff == 0 || indig; ++p1, ++p2) {
 		c1 = *p1;
 		c2 = *p2;
-		if (ci) {
-			if (c1 <= 'Z' && c1 >= 'A')
-				c1 += 32;
-			if (c2 <= 'Z' && c2 >= 'A')
-				c2 += 32;
-		}
 
 		if (indig) {
-			if ((unsigned int)c1 - '0' <= 9) {
-				if ((unsigned int)c2 - '0' <= 9) { // c1 and c2 are digit
+			if (c1 - '0' <= 9) {
+				if (c2 - '0' <= 9) { // c1 and c2 are digit
 					if (diff)
 						continue;
 				} else // c1 is digit and c2 is not
 					return 1;
 			} else {
-				if ((unsigned int)c2 - '0' <= 9) // c1 is not digit and c2 is
+				if (c2 - '0' <= 9) // c1 is not digit and c2 is
 					return -1;
 				else { // c1 and c2 are not digit
 					if (diff)
@@ -1389,8 +1382,17 @@ static int xstrverscmp (const char *s1, const char *s2, int ci)
 					indig = 0;
 				}
 			}
-		} else if ((unsigned int)c1 - '1' <= 8 && (unsigned int)c2 - '1' <= 8) // c1 and c2 are 1-9
+
+		} else if (c1 == '\0' || c2 == '\0') {
+			return c1 - c2;
+		} else if (c1 - '1' <= 8 && c2 - '1' <= 8) { // c1 and c2 are 1-9
 			indig = 1;
+		} else if (ci) {
+			if (c1 <= 'Z' && c1 >= 'A')
+				c1 += 32;
+			if (c2 <= 'Z' && c2 >= 'A')
+				c2 += 32;
+		}
 
 		diff = c1 - c2;
 	}
@@ -1406,9 +1408,11 @@ static int xstrcasecmp (const char *s1, const char *s2)
 	if (p1 == p2)
 		return 0;
 
-	for (unsigned char c1, c2; diff == 0; ++p1, ++p2) {
-		c1 = *p1;
-		c2 = *p2;
+	for (unsigned int c1, c2; diff == 0; ++p1, ++p2) {
+		if ((c1 = *p1) == '\0')
+			return -1;
+		if ((c2 = *p2) == '\0')
+			return 1;
 		if (c1 <= 'Z' && c1 >= 'A')
 			c1 += 32;
 		if (c2 <= 'Z' && c2 >= 'A')
@@ -1453,10 +1457,10 @@ static int entrycmp(const void *va, const void *vb)
 		exta = fa ? NULL : getextension(pa->name, pa->nlen);
 		extb = fb ? NULL : getextension(pb->name, pb->nlen);
 		if (exta || extb) {
-			if (!exta)
-				return -1;
 			if (!extb)
 				return 1;
+			if (!exta)
+				return -1;
 
 			int res = xstrcasecmp(++exta, ++extb);
 			if (res)
@@ -1960,7 +1964,7 @@ static void redraw(char *path)
 	int pcols = xcols - (TABS_MAX + 1) * 2;
 	int dcols = (ptab->cfg.showtime ? 17 : 0) + (ptab->cfg.showowner ? 15 : 0)
 		+ (ptab->cfg.showperm ? 5 : 0) + (ptab->cfg.showsize ? 8 : 0) + 2;
-	int btm, i, j = 0;
+	int btm, j = 0;
 	struct selstat *ss = ptab->ss;
 
 	erase();
@@ -1969,7 +1973,7 @@ static void redraw(char *path)
 	ncols = xcols - dcols - 1;
 
 	// Print tabs tag
-	for (i = 0; i <= TABS_MAX; ++i) {
+	for (int i = 0; i <= TABS_MAX; ++i) {
 		if (gtab[i].cfg.enabled == 1)
 			addch((i < TABS_MAX ? i + '1' : '#')
 			| (COLOR_PAIR(C_TABTAG) | (gcfg.ct == i ? A_REVERSE : 0) | A_BOLD));
@@ -1990,7 +1994,7 @@ static void redraw(char *path)
 		addstr("<<");
 
 	btm = MIN(onscr + curscroll, ndents);
-	for (i = curscroll; i < btm; ++i) {
+	for (int i = curscroll; i < btm; ++i) {
 		if (ptab->cfg.havesel && !(pdents[i].flag & E_SEL_SCANED)) {
 			if (findinbuf(ss->nbuf, ss->endp - ss->nbuf, pdents[i].name, pdents[i].nlen))
 				pdents[i].flag |= E_SEL;
@@ -2035,7 +2039,7 @@ static void redraw(char *path)
 		: 2 + (((curscroll * (onscr - btm) << 1) / (j - onscr) + 1) >> 1); // starting row to drawing
 	attron(COLOR_PAIR(C_DETAIL));
 	mvaddch(1, xcols -1, '=');
-	for (i = 0; i < btm; ++i, ++j)
+	for (int i = 0; i < btm; ++i, ++j)
 		mvaddch(j, xcols - 1, ' ' | A_REVERSE);
 	mvaddch(xlines - 2, xcols - 1 , '=');
 	attroff(COLOR_PAIR(C_DETAIL));
@@ -2044,7 +2048,7 @@ static void redraw(char *path)
 
 static void fastredraw(void)
 {
-	if (xcols < 0) { // Skip fastredraw if redraw() has already been called
+	if (xcols < 0) { // skip fastredraw if redraw() has already done
 		xcols = -xcols;
 		return;
 	} else if (ndents == 0)
@@ -2236,7 +2240,7 @@ static int qfindinput(int c)
 
 static void browse(void)
 {
-	int c, i, ctl = GO_RELOAD;
+	int c, ctl = GO_RELOAD;
 
 	for (;;) {
 		switch (ctl) {
@@ -2279,7 +2283,7 @@ static void browse(void)
 			if ((ctl = qfindinput(c)) != GO_NONE)
 				break;
 
-			for (i = 0; i < (int)LENGTH(keys); ++i)
+			for (int i = 0; i < (int)LENGTH(keys); ++i)
 				if ((c == keys[i].keysym1 || c == keys[i].keysym2) && keys[i].func)
 					ctl = keys[i].func(keys[i].arg);
 
