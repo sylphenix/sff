@@ -20,8 +20,13 @@
 ### Fixed
 
 * Fixed issue where the executable file extension was not showing in the status bar.
-* Fixed 'Illegal instruction' error on Chimera Linux.
+* Fixed 'Illegal instruction' error on Chimera Linux ([#1][1]).
 * Fixed go to root directory key binding issue.
+* Unset `LESS` in the extension script to ensure proper pager behavior ([#2][2]).
+
+[1]: https://codeberg.org/sylphenix/sff/issues/1
+[2]: https://codeberg.org/sylphenix/sff/issues/2
+
 
 ### Security
 ### Contributors
