@@ -60,7 +60,7 @@ sffpipe_sel_file()
 {
 	local name="$1"
 	[ "$1" = "$exbuf1" -o "$1" = "$exbuf2" ] \
-	&& name=$(tr '\n\0' '\035\n' <"$1" | head -n1 | tr -d '\n' | tr '\035' '\n')
+	&& name=$(tr '\n\0' '\035\n' <"$1" | head -n 1 | tr -d '\n' | tr '\035' '\n')
 	printf "d%s%s\0" '@' "$name" >"$sffpipe"
 }
 
@@ -78,7 +78,6 @@ sffpipe_get_sel()
 sff_init_bufs()
 {
 	[ -e "$exbuf1" ] && [ -e "$exbuf2" ] && [ -e "$lastop" ] && [ -e "$cpbuf" ] && return 0
-
 	touch -a "$exbuf1" "$exbuf2" "$lastop" "$cpbuf"
 	chmod 600 "$exbuf1" "$exbuf2" "$lastop" "$cpbuf"
 
@@ -120,7 +119,7 @@ sff_new()
 		[ ! -s "$tbuf1" ] && sff_abort "$tlist"
 
 		sed -e 's/\/.*$//' "$tbuf1" | sort -u >"$tbuf2"
-		local dlin=$(xargs ls -1d -- 2>/dev/null <"$tbuf2" | head -n80)
+		local dlin=$(xargs ls -1d -- 2>/dev/null <"$tbuf2" | head -n 80)
 		[ -z "$dlin" ] && break
 
 		printf "\n%s\n" "$dlin"
@@ -156,7 +155,7 @@ sff_undo_new()
 	local op=$(cat "$lastop")
 
 	echo ""
-	tr '\0' '\n' <"$exbuf2" | head -n160
+	tr '\0' '\n' <"$exbuf2" | head -n 160
 	echo "^^^:" $(tr '\n\0' '\035\n' <"$exbuf2" | wc -l) "file(s) will be permanently deleted!"
 	read -p "Undo '${op}' operation? (y/n) [default=n]: " -r x
 	[ "$x" != 'y' ] && exit 0
@@ -181,7 +180,7 @@ sff_view_cbuf()
 {
 	echo ""
 	if [ -s "$cpbuf" ]; then
-		head -n160 "$cpbuf"
+		head -n 160 "$cpbuf"
 		echo $(wc -l <"$cpbuf") "file(s) in buffer"
 	else
 		echo "Buffer is empty"
@@ -200,10 +199,10 @@ sff_paste()
 	[ "$(find "$cpbuf" -mmin +30)" ] && exit 0
 	sff_pwd_perm
 
-	local op='copy'
+	local x='' op='copy'
 	ls -l "$cpbuf" | grep -q '^...[sS]' && op='move' && chmod u-s "$cpbuf"
 
-	local dlin=$(sed 's/^.*\///' "$cpbuf" | tr '\n\035' '\0\n' | xargs -0 ls -1d -- 2>/dev/null | head -n80)
+	local dlin=$(sed 's/^.*\///' "$cpbuf" | tr '\n\035' '\0\n' | xargs -0 ls -1d -- 2>/dev/null | head -n 80)
 	if [ "$dlin" ]; then
 		printf "\n%s\n" "$dlin"
 		echo "^^^: File(s) already exist"
@@ -236,15 +235,15 @@ sff_do_paste()
 
 	case "$1" in
 	'copy') case "$2" in
-		'0'|'w') xargs -0 -n2 cp -afv -- <"$exbuf1" || err=1;;
-		's') xargs -0 -n2 cp -anv -- <"$exbuf1" || err=1;;
-		'i') xargs -0 -n2 -o cp -aiv -- <"$exbuf1" || err=1;;
+		'0'|'w') xargs -0 -n 2 cp -afv -- <"$exbuf1" || err=1;;
+		's') xargs -0 -n 2 cp -anv -- <"$exbuf1" || err=1;;
+		'i') xargs -0 -n 2 -o cp -aiv -- <"$exbuf1" || err=1;;
 		esac
 		;;
 	'move') case "$2" in
-		'0'|'w') xargs -0 -n2 mv -fv -- <"$exbuf1" || err=1;;
-		's') xargs -0 -n2 mv -nv -- <"$exbuf1" || err=1;;
-		'i') xargs -0 -n2 -o mv -iv -- <"$exbuf1" || err=1;;
+		'0'|'w') xargs -0 -n 2 mv -fv -- <"$exbuf1" || err=1;;
+		's') xargs -0 -n 2 mv -nv -- <"$exbuf1" || err=1;;
+		'i') xargs -0 -n 2 -o mv -iv -- <"$exbuf1" || err=1;;
 		esac
 		;;
 	esac
@@ -270,10 +269,10 @@ sff_rename()
 		| sed -e '/^\(.*\)\1$/d' -e '/^/d' -e '/\/$/d' >"$tbuf2"
 		[ ! -s "$tbuf2" ] && sff_abort "$tlist"
 
-		local dlin1=$(cut -d '' -f2 "$tbuf2" | sort | uniq -d | head -n80)
+		local dlin1=$(cut -d '' -f 2 "$tbuf2" | sort | uniq -d | head -n 80)
 		[ "$dlin1" ] && printf "\n%s\n^^^: The list has duplicate names\n" "$dlin1"
 
-		local dlin2=$(cut -d '' -f2 "$tbuf2" | tr '\n\035' '\0\n' | xargs -0 ls -1d -- 2>/dev/null | head -n80)
+		local dlin2=$(cut -d '' -f 2 "$tbuf2" | tr '\n\035' '\0\n' | xargs -0 ls -1d -- 2>/dev/null | head -n 80)
 		[ "$dlin2" ] && printf "\n%s\n^^^: File(s) already exist\n" "$dlin2"
 
 		[ -z "$dlin1" ] && [ -z "$dlin2" ] && break
@@ -295,7 +294,7 @@ sff_do_rename()
 	printf "rename" >"$lastop"
 	sffpipe_sel_file "$exbuf2"
 
-	xargs -0 -n2 mv -nv -- <"$exbuf1" || err=1
+	xargs -0 -n 2 mv -nv -- <"$exbuf1" || err=1
 	[ "$err" ] && read -p "Press Enter to continue " -r x
 }
 
@@ -304,14 +303,14 @@ sff_undo_move()
 	[ ! -s "$exbuf2" ] && exit 0
 	local op=$(cat "$lastop")
 	echo ""
-	xargs -0 -n2 printf "%s -> %s\n" <"$exbuf2" | head -n160
+	xargs -0 -n 2 printf "%s -> %s\n" <"$exbuf2" | head -n 160
 	read -p "Undo '$op' operation? (y/n) [default=n]: " -r x
 	[ "$x" != 'y' ] && exit 0
 
 	printf "un%s" "$op" >"$lastop"
 	sffpipe_sel_file "$exbuf1"
 
-	xargs -0 -n2 mv -n -- <"$exbuf2" || err=1
+	xargs -0 -n 2 mv -n -- <"$exbuf2" || err=1
 	[ "$err" ] && read -p "Press Enter to continue " -r x
 }
 
@@ -359,7 +358,7 @@ sff_do_duplicate()
 	printf "duplicate" >"$lastop"
 	sffpipe_sel_file "$exbuf2"
 
-	xargs -0 -n2 cp -an -- <"$exbuf1" || err=1
+	xargs -0 -n 2 cp -an -- <"$exbuf1" || err=1
 	[ "$err" ] && read -p "Press Enter to continue " -r x
 }
 
@@ -370,14 +369,14 @@ sff_delete()
 	[ ! -s "$tsel" ] && exit 0
 
 	echo ""
-	head -n160 "$tsel"
+	head -n 160 "$tsel"
 	echo "Permanently delete" $(wc -l <"$tsel") "file(s), this action cannot be undone"
 	read -p "Are you sure? (y/n) [default=n]: " -r x
 	[ "$x" != 'y' ] && exit 0
+	sffpipe_refresh -c
 
 	tr '\n\035' '\0\n' <"$tsel" | xargs -0 rm -rf -- || err=1
 	rm -f "$tsel"
-	[ -z "$err" ] && sffpipe_refresh -c || sffpipe_refresh
 	[ "$err" ] && read -p "Press Enter to continue " -r x
 }
 
@@ -414,7 +413,7 @@ sff_find()
 
 sff_fzf_find()
 {
-	f=$(fzf)
+	local f=$(fzf)
 	[ -z "$f" ] && exit 0
 	sffpipe_enter "$f"
 }
@@ -425,10 +424,10 @@ sff_file_stat()
 	rm -f "$tsel"; tr '\n\0' '\035\n' <"$sel" >"$tsel"
 	[ ! -s "$tsel" ] && { rm -f "$tsel"; exit 0; }
 
+	local f
 	while IFS='' read -r f; do
 		echo ""
 		f="$(printf "%s" "$f" | tr '\035' '\n')"
-
 		stat --version >/dev/null 2>&1 && stat "$f" || stat -x "$f"
 		file -bi "$f"
 		file -b "$f"
@@ -449,54 +448,46 @@ sff_disk_usage()
 
 sff_extract()
 {
+	sffpipe_get_sel
+	rm -f "$tsel"; tr '\n\0' '\035\n' <"$sel" >"$tsel"
+	[ ! -s "$tsel" ] && exit 0
+
 	printf "\nx) extract archive(s)\n"
 	echo "l) show the contents"
 	echo "q) cancel"
 	read -p "(x/l/q) [default=l]: " -r x
 	[ "$x" = 'q' ] && exit 0
-	[ "$x" != 'x' ] && x='l'
-
-	sffpipe_get_sel
-	rm -f "$tsel"; tr '\n\0' '\035\n' <"$sel" >"$tsel"
-	[ ! -s "$tsel" ] && exit 0
 	sffpipe_refresh -c
 
+	local pa ppa name bname
 	while IFS='' read -r pa; do
 		pa=$(printf "%s" "$pa" | tr '\035' '\n')
 		ppa=${pa%/*}
 		name=${pa##*/}
-
-		[ -f "$pa" -a -s "$pa" ] || continue
-		case "$name" in
-		*?.?*) bname=${name%.?*}
-			bname=${bname%.tar};;
-		*) continue;;
-		esac
+		bname=${name%.?*}
+		bname=${bname%.tar}
 
 		case "$x" in
-		'l') case "$(printf "%s" "$name" | tr '[A-Z]' '[a-z]')" in
-			*?.zip) unzip -l "$pa" | less;;
-			*?.7z) 7z l "$pa" | less;;
-			*?.rar) unrar l "$pa" | less;;
+		'x') case "$(printf "%s" "$name" | tr '[A-Z]' '[a-z]')" in
+			*?.tar.gz|*?.tar.bz2|*?.tar.xz) mkdir -p "${ppa}/$bname" && cd "${ppa}/$bname" && tar -xvf "$pa" || err=1;;
+			*?.gz) gunzip -k "$pa" || err=1;;
+			*?.bz2) bunzip2 -k "$pa" || err=1;;
+			*?.xz) unxz -k "$pa" || err=1;;
+			*?.zip) mkdir -p "${ppa}/$bname" && cd "${ppa}/$bname" && unzip "$pa" || err=1;;
+			*?.7z) mkdir -p "${ppa}/$bname" && cd "${ppa}/$bname" && 7z e "$pa" || err=1;;
+			*?.rar) mkdir -p "${ppa}/$bname" && cd "${ppa}/$bname" && unrar e "$pa" || err=1;;
+			*?.?*) mkdir -p "${ppa}/$bname" && cd "${ppa}/$bname" && tar -xvf "$pa" || err=1;;
+			esac
+			;;
+		*) case "$(printf "%s" "$name" | tr '[A-Z]' '[a-z]')" in
 			*?.tar.gz|*?.tar.bz2|*?.tar.xz) tar -tvf "$pa" | less;;
 			*?.gz) zcat "$pa" | less;;
 			*?.bz2) bzcat "$pa" | less;;
 			*?.xz) xzcat "$pa" | less;;
+			*?.zip) unzip -l "$pa" | less;;
+			*?.7z) 7z l "$pa" | less;;
+			*?.rar) unrar l "$pa" | less;;
 			*?.?*) tar -tvf "$pa" | less;;
-			esac
-			break
-			;;
-		'x') mkdir -p "${ppa}/$bname" || { err=1; continue; }
-			cd "${ppa}/$bname"
-			case "$(printf "%s" "$name" | tr '[A-Z]' '[a-z]')" in
-			*?.zip) unzip "$pa" || err=1;;
-			*?.7z) 7z e "$pa" || err=1;;
-			*?.rar) unrar e "$pa" || err=1;;
-			*?.tar.gz|*?.tar.bz2|*?.tar.xz) tar -xvf "$pa" || err=1;;
-			*?.gz) rm -r "${ppa}/$bname"; gunzip -k "$pa" || err=1;;
-			*?.bz2) rm -r "${ppa}/$bname"; bunzip2 -k "$pa" || err=1;;
-			*?.xz) rm -r "${ppa}/$bname"; unxz -k "$pa" || err=1;;
-			*?.?*) tar -xvf "$pa" || err=1;;
 			esac
 			;;
 		esac
@@ -514,38 +505,27 @@ sff_archive()
 	tr '\n\0' '\035\n' <"$sel" >"$tsel"
 	[ ! -s "$tsel" ] && exit 0
 
-	onam=$(tail -n1 "$tsel" | sed 's/^.*\///')
-	printf "%s\n" "$onam" >"$tbuf1"
+	local tname name wd
+	tname=$(tail -n 1 "$tsel" | sed 's/^.*\///')
+	printf "%s.tar.gz\n" "$tname" >"$tbuf1"
 
-	while true; do
-		"$EDITOR" "$tbuf1"
-		name=$(head -n1 "$tbuf1")
-		[ -z "$name" -o "$name" = "$onam" ] && sff_abort
-		if [ -e "$name" ]; then
-			echo "$name already exist"
-			echo "e) edit the list"
-			echo "q) abort"
-			read -p "(e/q) [default=e]: " -r x
-			echo ""
-			[ "$x" = 'q' ] && sff_abort
-		else
-			break
-		fi
-	done
+	"$EDITOR" "$tbuf1"
+	name=$(head -n 1 "$tbuf1")
+	[ -z "$name" -o "$name" = "$tname" ] && sff_abort
 	sffpipe_sel_file "$name"
 
 	wd=$(printf "%s" "$PWD" | tr '\n' '\035')
 	sed "s^$wd/" "$tsel" | tr '\n\035' '\0\n' >"$tbuf2"
 
 	case "$(printf "%s" "$name" | tr '[A-Z]' '[a-z]')" in
-	*?.zip) xargs -0 zip -r "$name" -- <"$tbuf2" || err=1;;
-	*?.7z) xargs -0 7z a "$name" -- <"$tbuf2" || err=1	;;
 	*?.tar.gz|*?.tar.bz2|*?.tar.xz) xargs -0 tar -a -cvf "$name" -- <"$tbuf2" || err=1;;
 	*.gz) xargs -0 gzip -k -- <"$tbuf2" || err=1;;
 	*.bz2)xargs -0 bzip2 -k -- <"$tbuf2" || err=1;;
 	*.xz) xargs -0 xz -k -- <"$tbuf2" || err=1;;
+	*?.zip) xargs -0 zip -r "$name" -- <"$tbuf2" || err=1;;
+	*?.7z) xargs -0 7z a "$name" -- <"$tbuf2" || err=1	;;
 	*?.tar|*?.tgz|*?.tbz2|*?.txz) xargs -0 tar -a -cvf "$name" -- <"$tbuf2" || err=1;;
-	*) read -p "Unknown file type. Press Enter to abort" -r x; sff_abort;;
+	*) echo "Unsupported file format: '$name'"; err=1;;
 	esac
 
 	rm -f "$tsel" "$tbuf1" "$tbuf2"
