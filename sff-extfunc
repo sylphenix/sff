@@ -469,7 +469,7 @@ sff_extract()
 
 		case "$x" in
 		'x') case "$(printf "%s" "$name" | tr '[A-Z]' '[a-z]')" in
-			*?.tar.gz|*?.tar.bz2|*?.tar.xz) mkdir -p "${ppa}/$bname" && cd "${ppa}/$bname" && tar -xvf "$pa" || err=1;;
+			*?.tar.?*) mkdir -p "${ppa}/$bname" && cd "${ppa}/$bname" && tar -xvf "$pa" || err=1;;
 			*?.gz) gunzip -k "$pa" || err=1;;
 			*?.bz2) bunzip2 -k "$pa" || err=1;;
 			*?.xz) unxz -k "$pa" || err=1;;
@@ -480,7 +480,7 @@ sff_extract()
 			esac
 			;;
 		*) case "$(printf "%s" "$name" | tr '[A-Z]' '[a-z]')" in
-			*?.tar.gz|*?.tar.bz2|*?.tar.xz) tar -tvf "$pa" | less;;
+			*?.tar.?*) tar -tvf "$pa" | less;;
 			*?.gz) zcat "$pa" | less;;
 			*?.bz2) bzcat "$pa" | less;;
 			*?.xz) xzcat "$pa" | less;;
@@ -509,23 +509,29 @@ sff_archive()
 	tname=$(tail -n 1 "$tsel" | sed 's/^.*\///')
 	printf "%s.tar.gz\n" "$tname" >"$tbuf1"
 
-	"$EDITOR" "$tbuf1"
-	name=$(head -n 1 "$tbuf1")
-	[ -z "$name" -o "$name" = "$tname" ] && sff_abort
+	while true; do
+		"$EDITOR" "$tbuf1"
+		name=$(head -n 1 "$tbuf1")
+		[ -z "$name" ] && sff_abort
+		[ ! -e "$name" ] && break
+		printf "\nFile exist. Overwrite?\n"
+		read -p "(y/n/q) [default=n]: " -r x
+		[ "$x" = 'y' ] && break
+		[ "$x" = 'q' ] && sff_abort
+	done
 	sffpipe_sel_file "$name"
 
 	wd=$(printf "%s" "$PWD" | tr '\n' '\035')
 	sed "s^$wd/" "$tsel" | tr '\n\035' '\0\n' >"$tbuf2"
 
 	case "$(printf "%s" "$name" | tr '[A-Z]' '[a-z]')" in
-	*?.tar.gz|*?.tar.bz2|*?.tar.xz) xargs -0 tar -a -cvf "$name" -- <"$tbuf2" || err=1;;
-	*.gz) xargs -0 gzip -k -- <"$tbuf2" || err=1;;
-	*.bz2)xargs -0 bzip2 -k -- <"$tbuf2" || err=1;;
-	*.xz) xargs -0 xz -k -- <"$tbuf2" || err=1;;
+	*?.tar.?*|*?.t?*) xargs -0 tar -cavf "$name" -- <"$tbuf2" || err=1;;
+	*?.gz) xargs -0 gzip -k -- <"$tbuf2" || err=1;;
+	*?.bz2) xargs -0 bzip2 -k -- <"$tbuf2" || err=1;;
+	*?.xz) xargs -0 xz -k -- <"$tbuf2" || err=1;;
 	*?.zip) xargs -0 zip -r "$name" -- <"$tbuf2" || err=1;;
-	*?.7z) xargs -0 7z a "$name" -- <"$tbuf2" || err=1	;;
-	*?.tar|*?.tgz|*?.tbz2|*?.txz) xargs -0 tar -a -cvf "$name" -- <"$tbuf2" || err=1;;
-	*) echo "Unsupported file format: '$name'"; err=1;;
+	*?.7z) xargs -0 7z a "$name" -- <"$tbuf2" || err=1;;
+	*) echo "Unsupported file format"; err=1;;
 	esac
 
 	rm -f "$tsel" "$tbuf1" "$tbuf2"
