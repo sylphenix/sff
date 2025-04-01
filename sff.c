@@ -120,8 +120,8 @@ typedef struct {
 	char path[PATH_MAX];
 	Histstat *hs;
 	Histstat *stat;
-	int ths;
-	int nhs;
+	unsigned int nhs;
+	unsigned int ths;
 } Histpath;
 
 struct selstat {
@@ -130,7 +130,7 @@ struct selstat {
 	struct selstat *next;
 	char *nbuf;
 	char *endp;
-	size_t buflen;
+	unsigned int buflen;
 };
 
 typedef struct {
@@ -178,10 +178,10 @@ typedef struct {
 
 /*** Global Variables ***/
 
-static int ndents = 0, tdents = 0, cursel = 0, lastsel = -1, curscroll = 0, lastscroll = -1;
+static int ndents = 0, cursel = 0, lastsel = -1, curscroll = 0, lastscroll = -1;
 static int markent = -1, errline = 0, errnum = 0;
 static int xlines, xcols, onscr, ncols;
-static size_t namebuflen = 0;
+static unsigned int tdents = 0, namebuflen = 0;
 static char *home, *editor;
 static char *cfgpath = NULL, *extfunc = NULL, *pipepath = NULL;
 static char *pnamebuf = NULL, *pfindbuf = NULL, *pfindend = NULL, *findname = NULL;
@@ -434,6 +434,15 @@ static int seterrnum(int line, int err)
 	return TRUE;
 }
 
+static void *irealloc(void *ptr, unsigned int *len, int incr, size_t size)
+{
+	void *p = realloc(ptr, (*len += incr) * size);
+
+	if (p == NULL && seterrnum(__LINE__, errno))
+		*len -= incr;
+	return p;
+}
+
 /****** Key Functions ******/
 
 static int movecursor(int n);
@@ -565,6 +574,7 @@ static Histpath *inithistpath(Histpath *hp, char *path, int check)
 {
 	char *name = NULL;
 	struct stat sb;
+	Histstat *tmphs;
 
 	if (check) {
 		if (lstat(path, &sb) == -1 && seterrnum(__LINE__, errno)) {
@@ -583,13 +593,12 @@ static Histpath *inithistpath(Histpath *hp, char *path, int check)
 	for (char *p = path, *p2 = hp->path; ; ++p, ++p2) {
 		if (*p == '/' || (*p == '\0' && path[1] != '\0')) {
 			if (hp->nhs == hp->ths) {
-				Histstat *tmp = realloc(hp->hs, (hp->ths += HSTAT_INCR) * sizeof(Histstat));
-				if (!tmp && seterrnum(__LINE__, errno)) {
+				if (!(tmphs = irealloc(hp->hs, &hp->ths, HSTAT_INCR, sizeof(Histstat)))) {
 					free(hp->hs);
 					memset(hp, 0, sizeof(Histpath));
 					return NULL;
 				}
-				hp->hs = tmp;
+				hp->hs = tmphs;
 			}
 			memset((hp->hs + hp->nhs++), 0, sizeof(Histstat));
 		}
@@ -649,8 +658,8 @@ static int enterdir(int n __attribute__((unused)))
 {
 	Histpath *hp = ptab->hp;
 	Histpath *hp2 = ((hp - ghpath) & 1) ? hp - 1 : hp + 1;
-	Histstat *hs = hp->stat;
-	int nhs = hs - hp->hs + 1;
+	Histstat *tmphs, *hs = hp->stat;
+	unsigned int nhs = hs - hp->hs + 1;
 	char *newpath = gpbuf;
 	Entry *ent = &pdents[cursel];
 
@@ -669,36 +678,32 @@ static int enterdir(int n __attribute__((unused)))
 		return GO_STATBAR;
 
 	if (nhs == hp->ths) {
-		Histstat *tmp = realloc(hp->hs, (hp->ths += HSTAT_INCR) * sizeof(Histstat));
-		if (!tmp && seterrnum(__LINE__, errno)) {
-			hp->ths -= HSTAT_INCR;
+		if (!(tmphs = irealloc(hp->hs, &hp->ths, HSTAT_INCR, sizeof(Histstat)))) {
+			chdir(hp->path);
 			return GO_STATBAR;
 		}
-		hp->hs = tmp;
-	}
+		hp->hs = tmphs;
 
-	if (nhs < hp->nhs) {
+	} else if (nhs < hp->nhs) {
 		if (strcmp(ent->name, hs->name) != 0) {
-			if ((strcmp(hp->path, hp2->path) != 0 || strcmp(ent->name, hp2->stat->name) != 0)
-			&& (gcfg.ct == TABS_MAX || !inithistpath(hp2, hp->path, FALSE))) {
-				hp->nhs = nhs;
-			} else {
+			if ((strcmp(hp->path, hp2->path) == 0 && strcmp(ent->name, hp2->stat->name) == 0)
+			|| (gcfg.ct < TABS_MAX && inithistpath(hp2, hp->path, FALSE)))
 				hp = hp2;
-				hs = hp->stat;
-			}
+			else
+				hp->nhs = nhs;
 		}
-		findname = (hs + 1)->name;
+		findname = (hp->stat + 1)->name;
 	}
 
+	hp->stat = hp->hs + nhs;
 	if (nhs == hp->nhs) {
-		memset((hs + 1), 0, sizeof(Histstat));
-		(hs + 1)->flag = S_VIS;
+		memset(hp->stat, 0, sizeof(Histstat));
+		hp->stat->flag = S_VIS;
 		++hp->nhs;
 	}
 
-	savehiststat(hs);
-	strncpy(hp->path, newpath, PATH_MAX);
-	hp->stat = hp->hs + nhs;
+	savehiststat(hp->stat - 1);
+	strncpy(hp->path, newpath, PATH_MAX - 1);
 	ptab->hp = hp;
 	return GO_RELOAD;
 }
@@ -799,7 +804,7 @@ static struct selstat *addselstat(struct selstat *ss, char *path)
 	n->prev = ss;
 	n->next = NULL;
 
-	strncpy(n->path, path, PATH_MAX);
+	strncpy(n->path, path, PATH_MAX - 1);
 	n->endp = n->nbuf;
 	n->buflen = NAME_INCR;
 	return n;
@@ -865,17 +870,15 @@ static int appendselection(Entry *ent)
 {
 	size_t len;
 	struct selstat *ss = getselstat();
+	char *tmp;
 
 	if (!ss)
 		return FALSE;
 
 	len = ss->endp - ss->nbuf;
 	if (ent->nlen >= ss->buflen - len) {
-		char *tmp = realloc(ss->nbuf, ss->buflen += NAME_INCR);
-		if (!tmp && seterrnum(__LINE__, errno)) {
-			ss->buflen -= NAME_INCR;
+		if (!(tmp = irealloc(ss->nbuf, &ss->buflen, NAME_INCR, 1)))
 			return FALSE;
-		}
 		ss->nbuf = tmp;
 		ss->endp = len + ss->nbuf;
 	}
@@ -1059,21 +1062,12 @@ static int qfindnext(int n)
 	if (ptab->fdlen == 0 || ptab->find[0] == '\0')
 		return GO_NONE;
 
-	if (n >= 0) {
-		for (int i = sta; i < ndents; ++i) {
-			if (strcasestr(pdents[i].name, ptab->find)) {
-				cursel = i;
-				curscroll = MAX(i - (onscr * 3 >> 2), MIN(i - (onscr >> 2), curscroll));
-				return GO_REDRAW;
-			}
-		}
-	} else {
-		for (int i = sta; i >= 0; --i) {
-			if (strcasestr(pdents[i].name, ptab->find)) {
-				cursel = i;
-				curscroll = MAX(i - (onscr * 3 >> 2), MIN(i - (onscr >> 2), curscroll));
-				return GO_REDRAW;
-			}
+	n = (n == 0) ? 1 : n;
+	for (int i = sta; i >= 0 && i < ndents; i += n) {
+		if (strcasestr(pdents[i].name, ptab->find)) {
+			cursel = i;
+			curscroll = MAX(i - (onscr * 3 >> 2), MIN(i - (onscr >> 2), curscroll));
+			return GO_REDRAW;
 		}
 	}
 	return GO_REDRAW;
@@ -1520,14 +1514,15 @@ static int writeselection(int fd)
 static int readfindresult(int fd)
 {
 	ssize_t len = 1;
-	size_t buflen = 0, reslen = 0;
+	unsigned int buflen = 0, reslen = 0;
 	char *tmp;
 
 	while (len != -1 && len != 0) {
 		if (buflen - reslen < NAME_INCR) {
-			tmp = realloc(pfindbuf, buflen += NAME_INCR);
-			if (!tmp && seterrnum(__LINE__, errno))
-				return FALSE;
+			if (!(tmp = irealloc(pfindbuf, &buflen, NAME_INCR, 1))) {
+				len = -1;
+				break;
+			}
 			pfindbuf = tmp;
 		}
 
@@ -1713,16 +1708,14 @@ static void loaddirentry(DIR *dirp, int fd)
 		if (fstatat(fd, name, &sb, AT_SYMLINK_NOFOLLOW) == -1)
 			continue;
 
-		if (ndents == tdents) {
-			tmpent = realloc(pdents, (tdents += ENTRY_INCR) * sizeof(Entry));
-			if (!tmpent && seterrnum(__LINE__, errno))
+		if ((unsigned int)ndents == tdents) {
+			if (!(tmpent = irealloc(pdents, &tdents, ENTRY_INCR, sizeof(Entry))))
 				return;
 			pdents = tmpent;
 		}
 
 		if (namebuflen - off <= NAME_MAX) {
-			tmp = realloc(pnamebuf, namebuflen += NAME_INCR);
-			if (!tmp && seterrnum(__LINE__, errno))
+			if (!(tmp = irealloc(pnamebuf, &namebuflen, NAME_INCR, 1)))
 				return;
 
 			// Reset entry names if realloc() causes memory move
@@ -1755,9 +1748,8 @@ static void loadsrchentry(int fd)
 		if (fstatat(fd, name, &sb, AT_SYMLINK_NOFOLLOW) == -1)
 			continue;
 
-		if (ndents == tdents) {
-			tmpent = realloc(pdents, (tdents += ENTRY_INCR) * sizeof(Entry));
-			if (!tmpent && seterrnum(__LINE__, errno))
+		if ((unsigned int)ndents == tdents) {
+			if (!(tmpent = irealloc(pdents, &tdents, ENTRY_INCR, sizeof(Entry))))
 				return;
 			pdents = tmpent;
 		}
@@ -2174,9 +2166,9 @@ static int filterinput(int c)
 		ptab->filt[ptab->ftlen - 1] = '\0';
 		ndents = ptab->nde;
 
-	} else if (c > 31 && c < 256 && ptab->ftlen < FILT_MAX) {
+	} else if (c > 31 && c < 256) {
 		ptab->filt[ptab->ftlen - 1] = c;
-		ptab->filt[++ptab->ftlen - 1] = '\0';
+		ptab->filt[ptab->ftlen == FILT_MAX - 1 ? ptab->ftlen : ++ptab->ftlen - 1] = '\0';
 	} else
 		return GO_NONE;
 	return refreshview(2);
@@ -2213,9 +2205,9 @@ static int qfindinput(int c)
 		ptab->fdlen = wcstombs(ptab->find, wbuf, ptab->fdlen) + 1;
 		ptab->find[ptab->fdlen - 1] = '\0';
 
-	} else if (c > 31 && c < 256 && ptab->fdlen < FILT_MAX) {
+	} else if (c > 31 && c < 256) {
 		ptab->find[ptab->fdlen - 1] = c;
-		ptab->find[++ptab->fdlen - 1] = '\0';
+		ptab->find[ptab->fdlen == FILT_MAX - 1 ? ptab->fdlen : ++ptab->fdlen - 1] = '\0';
 	} else
 		return GO_NONE;
 
