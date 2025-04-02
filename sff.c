@@ -971,7 +971,7 @@ static int invertselection(int n __attribute__((unused)))
 
 static int selectrange(int n)
 {
-	int start, end;
+	int step = (cursel >= markent) ? 1 : -1;
 
 	if (ndents == 0)
 		return GO_NONE;
@@ -982,20 +982,12 @@ static int selectrange(int n)
 		return shiftcursor(0, 0);
 	}
 
-	if (cursel > markent) {
-		start = markent;
-		end = cursel;
-	} else {
-		start = cursel;
-		end = markent;
-	}
-
 	if (n > 0) {
-		for (int i = start; i <= end; ++i)
+		for (int i = markent; (step > 0) ? i <= cursel : i >= cursel; i += step)
 			if (!(pdents[i].flag & E_SEL))
 				appendselection(&pdents[i]);
 	} else {
-		for (int i = start; i <= end; ++i)
+		for (int i = markent; (step > 0) ? i <= cursel : i >= cursel; i += step)
 			if (pdents[i].flag & E_SEL)
 				removeselection(&pdents[i]);
 	}
