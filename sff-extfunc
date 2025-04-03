@@ -406,9 +406,9 @@ sff_find()
 
 	echo "Optionally, add more options (e.g., -type d, -size +4k)"
 	read -p ": " -r y
-	echo "searching..."
+	echo "Searching in $PWD/ ..."
 
-	{ printf "d%s" '?'; find ./ $y -name "$x" | sed -e 's/^\.\///' | tr '\n' '\0'; } 1>>"$sffpipe"
+	{ printf "d%s" '?'; find ./ $y -name "$x" 2>/dev/null | sed -e 's/^\.\///' | tr '\n' '\0'; } >"$sffpipe"
 }
 
 sff_fzf_find()
