@@ -35,19 +35,19 @@ has been extensively tested on GNU/Linux and FreeBSD.
 3. Install the package using the package manager specific to your system.
 - Debian/Ubuntu:
    ```
-   sudo apt install sff_xxx_amd64.deb
+   sudo apt install ./sff_xxx_amd64.deb
    ```
 - Arch Linux:
    ```
-   sudo pacman -U sff-xxx-x86_64.pkg.tar.zst
+   sudo pacman -U ./sff-xxx-x86_64.pkg.tar.zst
    ```
 - Fedora:
    ```
-   sudo dnf install sff-xxx.86_64.rpm
+   sudo dnf install ./sff-xxx.86_64.rpm
    ```
 - FreeBSD
    ```
-   sudo pkg add sff-xxx.pkg
+   sudo pkg add ./sff-xxx.pkg
    ```
 
 ### Install from source
