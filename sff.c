@@ -50,7 +50,7 @@
 #endif
 #include <curses.h>
 
-#define VERSION         "0.9"
+#define VERSION         "1.0"
 #ifndef PATH_MAX
 #define PATH_MAX        4096
 #endif
@@ -153,7 +153,6 @@ typedef struct {
 	unsigned int lt         : 3;  // Last tab
 	unsigned int mode       : 3;  // (0: normal, 1: sudo, 2: permanent sudo, 3: browse, 4: permanent browse)
 	unsigned int newent     : 1;  // (0: do not mark new entry, 1: mark new entry)
-	unsigned int misc       : 6;
 } Settings;
 
 typedef struct {
@@ -642,11 +641,8 @@ static int switchhistpath(int n)
 	Histpath *hp = ptab->hp;
 	Histpath *hp2 = ((hp - ghpath) & 1) ? hp - 1 : hp + 1;
 
-	if ((gcfg.ct == TABS_MAX || !hp2->path[0]) && n == 0)
+	if ((gcfg.ct == TABS_MAX && n == 0) || !hp2->path[0] || chdir(hp2->path) == -1)
 		return GO_NONE;
-
-	if (chdir(hp2->path) == -1)
-		return GO_STATBAR;
 
 	savehiststat(hp->stat);
 	findname = hp2->stat->name;
@@ -720,14 +716,13 @@ static int gotoparent(int n __attribute__((unused)))
 		return switchhistpath(1);
 
 	savehiststat(hs);
-
 	do {
 		--hs;
 		if (hs->flag == S_UNVIS) {
 			strncpy(hs->name, xbasename(path), NAME_MAX);
 			hs->flag = S_VIS;
 		}
-	} while (path[1] != '\0' && hs->flag != S_SUBROOT && chdir(xdirname(path)) == -1 && seterrnum(__LINE__, errno));
+	} while (chdir(xdirname(path)) == -1 && path[1] != '\0' && hs->flag != S_SUBROOT);
 
 	findname = hs->name;
 	ptab->hp->stat = hs;
@@ -1099,45 +1094,41 @@ static int switchtab(int n)
 	if (gcfg.ct < TABS_MAX)
 		gcfg.lt = gcfg.ct;
 	gcfg.ct = n;
-
-	if (chdir(gtab[n].hp->path) == -1)
-		seterrnum(__LINE__, errno);
+	chdir(gtab[n].hp->path);
 	return GO_RELOAD;
 }
 
-static int closetab(int n)
+static int closetab(int n __attribute__((unused)))
 {
-	int ac = -1;
+	int ct = gcfg.ct, lt = -1;
 
-	n = gcfg.ct;
 	for (int i = 0; i < TABS_MAX; ++i)
-		if (i != n && gtab[i].cfg.enabled == 1)
-			ac = i;
+		if (i != ct && gtab[i].cfg.enabled == 1)
+			lt = i;
 
-	if (gcfg.lt != n && gtab[gcfg.lt].cfg.enabled == 1)
-		ac = gcfg.lt;
+	if (gcfg.lt != ct && gtab[gcfg.lt].cfg.enabled == 1)
+		lt = gcfg.lt;
 
-	if (ac == -1) {
-		if (n == 0)
+	if (lt == -1) {
+		if (ct == 0)
 			return GO_NONE;
 		else if (!inittab(home ? home : "/", 0))
 			return GO_STATBAR;
 		gcfg.ct = 0;
 	} else {
-		if (chdir(gtab[ac].hp->path) == -1)
-			seterrnum(__LINE__, errno);
-		gcfg.ct = ac;
+		chdir(gtab[lt].hp->path);
+		gcfg.ct = lt;
 	}
 
-	if (n == TABS_MAX) {
+	if (ct == TABS_MAX) {
 		free(pfindbuf);
 		pfindbuf = pfindend = NULL;
-	}
+	} else
+		gcfg.lt = ct;
 
-	deleteallselstat(gtab[n].ss);
-	gtab[n].ss = NULL;
-	gtab[n].cfg.enabled = 0;
-	gcfg.lt = n;
+	deleteallselstat(gtab[ct].ss);
+	gtab[ct].ss = NULL;
+	gtab[ct].cfg.enabled = 0;
 	return GO_RELOAD;
 }
 
@@ -1477,7 +1468,6 @@ static int reventrycmp(const void *va, const void *vb)
 
 static int writeselection(int fd)
 {
-	char *pos, *end;
 	ssize_t len;
 	struct selstat *ss;
 	int selcur = ptab->cfg.selmode == 0 && ndents > 0;
@@ -1490,7 +1480,7 @@ static int writeselection(int fd)
 		ss = ss->prev;
 
 	while (ss && errline == 0) {
-		for (pos = ss->nbuf; (end = memchr(pos, '\0', PATH_MAX)) && end < ss->endp; pos += end - pos + 1) {
+		for (char *pos = ss->nbuf, *end; pos < ss->endp && (end = memchr(pos, '\0', PATH_MAX)); pos = end + 1) {
 			len = makepath(ss->path, pos, gpbuf);
 			if (write(fd, gpbuf, len) != len && seterrnum(__LINE__, errno))
 				break;
@@ -1509,7 +1499,7 @@ static int readfindresult(int fd)
 	unsigned int buflen = 0, reslen = 0;
 	char *tmp;
 
-	while (len != -1 && len != 0) {
+	while (len > 0) {
 		if (buflen - reslen < NAME_INCR) {
 			if (!(tmp = irealloc(pfindbuf, &buflen, NAME_INCR, 1))) {
 				len = -1;
@@ -1529,6 +1519,7 @@ static int readfindresult(int fd)
 	}
 
 	pfindend = pfindbuf + reslen;
+	*pfindend = '\0';
 	return TRUE;
 }
 
@@ -1731,12 +1722,11 @@ static void loaddirentry(DIR *dirp, int fd)
 
 static void loadsrchentry(int fd)
 {
-	char *name, *end = pfindbuf;
 	struct stat sb;
 	time_t curtime = time(NULL);
 	Entry *ent, *tmpent;
 
-	while ((name = end) && (end = memchr(name, '\0', PATH_MAX)) && ++end < pfindend) {
+	for (char *name = pfindbuf, *end; name < pfindend && (end = memchr(name, '\0', PATH_MAX)); name = end + 1) {
 		if (fstatat(fd, name, &sb, AT_SYMLINK_NOFOLLOW) == -1)
 			continue;
 
@@ -1748,7 +1738,7 @@ static void loadsrchentry(int fd)
 
 		ent = pdents + ndents;
 		ent->name = name;
-		ent->nlen = end - name;
+		ent->nlen = end - name + 1;
 
 		fillentry(fd, ent, sb, curtime);
 		++ndents;
@@ -1767,7 +1757,7 @@ static void loadentries(char *path)
 
 	if (ptab->hp->stat->flag != S_ROOT)
 		loaddirentry(dirp, fd); // Load dir entry
-	else
+	else if (pfindbuf)
 		loadsrchentry(fd); // Load search result
 
 	closedir(dirp);

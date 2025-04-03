@@ -1,22 +1,32 @@
 # Changelog
 
 * [Unreleased](#unreleased)
-* [0.9](#0.9)
+* [0.9](#0-9)
+* [1.0](#1-0)
 
 
 ## Unreleased
-
 ### Added
+### Changed
+### Deprecated
+### Removed
+### Fixed
+### Security
+### Contributors
+
+
+## 1.0
+
 ### Changed
 
 * Set the precision of the file size value to one decimal place.
 * Rewrote the `xstrverscmp` function for better performance.
 * Simplified the implementation of reading pipe data.
 * Now shares selections with extension script via a pipe instead of a regular file.
+* Select range feature now selects files in start-to-end order.
+* Tab switching no longer falls back to home directory on chdir failure.
 
 
-### Deprecated
-### Removed
 ### Fixed
 
 * Fixed issue where the executable file extension was not showing in the status bar.
@@ -26,10 +36,6 @@
 
 [1]: https://codeberg.org/sylphenix/sff/issues/1
 [2]: https://codeberg.org/sylphenix/sff/issues/2
-
-
-### Security
-### Contributors
 
 
 ## 0.9
