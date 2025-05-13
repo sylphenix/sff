@@ -6,7 +6,7 @@ PREFIX = /usr/local
 MANPREFIX = ${PREFIX}/share/man
 
 EXTFNNAME = sff-extfunc
-EXTFNPREFIX = ${PREFIX}/libexec
+EXTFNPREFIX = ${PREFIX}/libexec/sff
 
 # includes and libs
 INCS =
@@ -60,8 +60,8 @@ install: all
 	cp -f sff ${DESTDIR}${PREFIX}/bin/
 	chmod 755 ${DESTDIR}${PREFIX}/bin/sff
 	mkdir -p ${DESTDIR}${EXTFNPREFIX}
-	cp -f ${EXTFNNAME} ${DESTDIR}${EXTFNPREFIX}/
-	chmod 755 ${DESTDIR}${EXTFNPREFIX}/${EXTFNNAME}
+	cp -fR ${EXTFNNAME} plugins ${DESTDIR}${EXTFNPREFIX}/
+	chmod -R 755 ${DESTDIR}${EXTFNPREFIX}
 	mkdir -p ${DESTDIR}${MANPREFIX}/man1
 	gzip -fk sff.1
 	cp -f sff.1.gz ${DESTDIR}${MANPREFIX}/man1/

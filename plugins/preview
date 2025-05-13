@@ -1,0 +1,99 @@
+#!/usr/bin/env sh
+
+sffpipe="$1"
+pvfifo="${sffpipe}.pv"
+[ -w /dev/shm ] && tmpdir="/dev/shm" || tmpdir="/tmp"
+
+preview_loop_tui()
+{
+	mkfifo "$pvfifo" || exit 0
+	while IFS='' read -r f; do
+		while x=$(timeout 0.005 sh -c 'IFS="" read -r x && printf "%s" "$x"'); do
+			f="$x"
+		done
+		clear
+		dest=''
+		mime="$(file -bL --mime-type "$f" 2>&1)"
+
+		case "$mime" in
+		image/*) dest="$f"
+			;;
+		application/pdf) dest="${tmpdir}/sff-pv-tmp"
+			pdftoppm -jpeg -f 1 -singlefile -scale-to 800 "$f" "$dest" >/dev/null 2>&1 \
+			&& dest="${dest}.jpg" || dest=''
+			;;
+		video/*) dest="${tmpdir}/sff-pv-tmp.jpg"
+			ffmpegthumbnailer -m -s 0 -i "$f" -o "$dest" >/dev/null 2>&1 \
+			|| dest=''
+			;;
+		*) rows=$(tput lines); cols=$(tput cols)
+			case "$mime" in
+			text/*) { printf "    --- %s ---\n" "$mime"; head -n $rows "$f"; } | less -SX +gq
+				continue ;;
+			inode/directory) { printf "    --- %s ---  (%s files)\n" "$mime" $(find "$f" -mindepth 1 -maxdepth 1 | wc -l); \
+					ls -1Ap "$f"; } | head -n $((rows - 1)) | cut -c 1-$cols
+				continue ;;
+			esac
+			;;
+		esac
+
+		if [ "$dest" ]; then
+			chafa "$dest"
+			tput civis
+		else
+			printf "    --- %s ---" "$mime"
+		fi
+	done <"$pvfifo"
+}
+
+check_fifo()
+{
+	if [ -p "$pvfifo" ]; then
+		printf "d%sq" '#' >"$sffpipe"
+		rm -f "$pvfifo"
+		exit 0
+	fi
+}
+
+wait_for_fifo()
+{
+	i=1
+	while [ ! -p "$pvfifo" ]; do
+		sleep 0.1
+		i=$((i + 1))
+		[ "$i" -gt 20 ] && exit 0
+	done
+}
+
+case "$2" in
+'tui') check_fifo
+	if [ "$TMUX" ]; then
+		[ $(($(tput lines) * 2)) -gt "$(tput cols)" ] && layout='v' || layout='h'
+		tmux split-window -d"$layout" "$0" "$sffpipe" 'loop'
+	else
+		if [ -z "$SFF_PV_TERM" ]; then
+			echo "SFF_PV_TERM is not set"
+			read -p "Specify terminal emulator for preview (press Enter to cancel): " -r x
+			[ -z "$x" ] && exit 0
+			SFF_PV_TERM="$x"
+		fi
+
+		case "$SFF_PV_TERM" in
+		'kitty'|'gnome-terminal') "$SFF_PV_TERM" -- "$0" "$sffpipe" 'loop' &
+			;;
+		'xfce4-terminal'|'terminator') "$SFF_PV_TERM" -e "\"$0\" \"$sffpipe\" loop" &
+			;;
+		*) "$SFF_PV_TERM" -e "$0" "$sffpipe" 'loop' &
+			;;
+		esac
+	fi
+	wait_for_fifo
+	printf "d%sp" '#' >"$sffpipe"
+	;;
+
+'gui') :
+	;;
+'loop') tput civis
+	preview_loop_tui
+	;;
+esac
