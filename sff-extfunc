@@ -411,13 +411,6 @@ sff_find()
 	{ printf "d%s" '?'; find ./ $y -name "$x" 2>/dev/null | sed -e 's/^\.\///' | tr '\n' '\0'; } >"$sffpipe"
 }
 
-sff_fzf_find()
-{
-	local f=$(fzf)
-	[ -z "$f" ] && exit 0
-	sffpipe_enter "$f"
-}
-
 sff_file_stat()
 {
 	sffpipe_get_sel
@@ -567,31 +560,39 @@ sff_help()
 	sed -n '/[ ][#][?][>][ ]/p' "$0" | sed 's/^.*[#][?][>]//' | less
 }
 
+run_pl()
+{
+	plugin="${sffdir}/plugins/$1"
+	[ ! -e "$plugin" ] && plugin="${0%/*}/plugins/$1"
+	[ ! -e "$plugin" ] && { read -p "Plugin '$1' not found. Press Enter to continue " -r x; exit 0; }
+	"$plugin" "$sffpipe" "$2" || read -p "Press Enter to continue " -r x
+}
 
 # === custom functions ===
 
 
-
 # === key bindings ===
-case "$1" in                #?> Extension functions:
-'n') sff_new;;              #?>     Alt-n  Create new files (ends with '/' for dirs)
-'d') sff_delete;;           #?>     Alt-d  Delete
-'y') sff_write_cbuf 'cp';;  #?>     Alt-y  Copy
-'x') sff_write_cbuf 'mv';;  #?>     Alt-x  Cut
-'v') sff_view_cbuf;;        #?>     Alt-v  View copy/cut buffer
-'V') sff_clear_cbuf;;       #?>     Alt-V  Clear copy/cut buffer
-'p') sff_paste 'd';;        #?>     Alt-p  Paste
-'P') sff_paste;;            #?>     Alt-P  Paste and keep copy buffer
-'r') sff_rename;;           #?>     Alt-r  Rename
-'Y') sff_duplicate;;        #?>     Alt-Y  Duplicate
-'m') sff_chmod_chown;;      #?>     Alt-m  Change permissions or owner
-'f') sff_find;;             #?>     Alt-f  Advanced search
-'F') sff_fzf_find;;         #?>     Alt-F  Search with 'fzf'
-'i') sff_file_stat;;        #?>     Alt-i  Show file status
-'I') sff_disk_usage;;       #?>     Alt-I  Show disk usage
-'z') sff_extract;;          #?>     Alt-z  Extract
-'Z') sff_archive;;          #?>     Alt-Z  Archive
-'u') sff_undo;;             #?>     Alt-u  Undo last operation
-'U') sff_redo;;             #?>     Alt-U  Redu last operation
-'/') sff_help;;             #?>     Alt-/  Show this help
-esac                        #?> Press 'q' to leave this page.
+case "$1" in                  #?> Extension functions:
+'n') sff_new;;                #?>     Alt-n  Create new files (ends with '/' for dirs)
+'d') sff_delete;;             #?>     Alt-d  Delete
+'y') sff_write_cbuf 'cp';;    #?>     Alt-y  Copy
+'x') sff_write_cbuf 'mv';;    #?>     Alt-x  Cut
+'v') sff_view_cbuf;;          #?>     Alt-v  View copy/cut buffer
+'V') sff_clear_cbuf;;         #?>     Alt-V  Clear copy/cut buffer
+'p') sff_paste 'd';;          #?>     Alt-p  Paste
+'P') sff_paste;;              #?>     Alt-P  Paste and keep copy buffer
+'r') sff_rename;;             #?>     Alt-r  Rename
+'Y') sff_duplicate;;          #?>     Alt-Y  Duplicate
+'m') sff_chmod_chown;;        #?>     Alt-m  Change permissions or owner
+'f') sff_find;;               #?>     Alt-f  Advanced search
+'i') sff_file_stat;;          #?>     Alt-i  Show file status
+'I') sff_disk_usage;;         #?>     Alt-I  Show disk usage
+'z') sff_extract;;            #?>     Alt-z  Extract
+'Z') sff_archive;;            #?>     Alt-Z  Archive
+'u') sff_undo;;               #?>     Alt-u  Undo last operation
+'U') sff_redo;;               #?>     Alt-U  Redu last operation
+'/') sff_help;;               #?>     Alt-/  Show this help
+                              #?> Plugins:
+'F') run_pl 'fzf-find';;      #?>     Alt-F  Search with 'fzf'
+'=') run_pl 'preview' 'tui';; #?>     Alt-=  Toggle preview
+esac                          #?> Press 'q' to leave this page.

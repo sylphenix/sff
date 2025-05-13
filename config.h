@@ -52,7 +52,7 @@ static const Key keys[] = {
 	{ '3',           0,         switchtab,        2,    "         3  Tab 3" },
 	{ '4',           0,         switchtab,        3,    "         4  Tab 4" },
 	{ '5',           0,         switchtab,        4,    "         5  Search result tab" },
-	{ 'q',           0,         closetab,        -1,    "         q  Close tab" },
+	{ 'q',           0,         closetab,         0,    "         q  Close tab" },
 	{ ' ',           0,         toggleselection,  0,    "     Space  (Un)select current" },
 	{ SHIFT_UP,     'K',        toggleselection, -1,    "  Sh-Up, K  (Un)select and move up" },
 	{ SHIFT_DOWN,   'J',        toggleselection,  1,    "Sh-Down, J  (Un)select and move down" },
@@ -69,7 +69,7 @@ static const Key keys[] = {
 	{ CTRL('T'),     0,         togglemode,       1,    "        ^T  Toggle sudo mode" },
 	{ 'o',           0,         viewoptions,      0,    "         o  View options" },
 	{ '?',          KEY_F(1),   showhelp,         0,    "     F1, ?  Show this help" },
-	{ 'Q',           0,         quitsff,          1,    "         Q  Quit" },
+	{ 'Q',           0,         quitsff,          0,    "         Q  Quit" },
 };
 
 /* Color definitions for 256 color*/

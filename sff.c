@@ -66,7 +66,7 @@
 #define EXTFNNAME       "sff-extfunc"
 #endif
 #ifndef EXTFNPREFIX
-#define EXTFNPREFIX     "/usr/local/libexec"
+#define EXTFNPREFIX     "/usr/local/libexec/sff"
 #endif
 
 #define LENGTH(X)       (sizeof X / sizeof X[0])
@@ -182,7 +182,7 @@ static int markent = -1, errline = 0, errnum = 0;
 static int xlines, xcols, onscr, ncols;
 static unsigned int tdents = 0, namebuflen = 0;
 static char *home, *editor;
-static char *cfgpath = NULL, *extfunc = NULL, *pipepath = NULL;
+static char *cfgpath = NULL, *extfunc = NULL, *pipepath = NULL, *pvfifo = NULL;
 static char *pnamebuf = NULL, *pfindbuf = NULL, *pfindend = NULL, *findname = NULL;
 static Entry *pdents = NULL;
 static Tabs *ptab = NULL;
@@ -609,7 +609,7 @@ static Histpath *inithistpath(Histpath *hp, char *path, int check)
 
 	hp->stat = hp->hs + hp->nhs - 1;
 	hp->stat->flag = S_VIS;
-	if (name){
+	if (name) {
 		findname = strncpy(hp->stat->name, name, NAME_MAX);
 		if (*name == '.')
 			gcfg.showhidden = 1;
@@ -1466,6 +1466,38 @@ static int reventrycmp(const void *va, const void *vb)
 	return -entrycmp(va, vb);
 }
 
+static void setpreview(int op)
+{
+	static int fd = -1;
+
+	switch (op) {
+	case 0: // open preview
+		if (fd == -1) {
+			fd = open(pvfifo, O_WRONLY|O_NONBLOCK|O_CLOEXEC);
+			if (fd == -1 && seterrnum(__LINE__, errno))
+				return;
+		}
+
+		// fallthrough
+	case 1: // send file path
+		if (fd == -1 || ndents == 0)
+			return;
+
+		int len = makepath(ptab->hp->path, pdents[cursel].name, gpbuf);
+		gpbuf[len - 1] = '\n';
+		if (write(fd, gpbuf, len) == len)
+			return;
+		seterrnum(__LINE__, errno);
+
+		// fallthrough
+	case 2: // close preview
+		if (fd != -1) {
+			close(fd);
+			fd = -1;
+		}
+	}
+}
+
 static int writeselection(int fd)
 {
 	ssize_t len;
@@ -1563,6 +1595,14 @@ static int handlepipedata(int fd)
 			return GO_STATBAR;
 		switchtab(TABS_MAX);
 		return GO_RELOAD;
+
+	case '#': // set preview
+		read(fd, &op, 1);
+		if (op == 'p')
+			setpreview(0);
+		else if (op == 'q')
+			setpreview(2);
+		return GO_FASTDRAW;
 	}
 	return GO_REDRAW;
 }
@@ -1571,6 +1611,8 @@ static int callextfunc(int c)
 {
 	pid_t pid, gpid = 0;
 	int rfd, wfd, len, ctl = GO_STATBAR;
+	struct sigaction oldsigtstp, oldsigwinch;
+	struct sigaction act = {.sa_handler = SIG_IGN};
 
 	if (access(cfgpath, F_OK) == -1 && mkdir(cfgpath, 0700) == -1 && seterrnum(__LINE__, errno))
 		return GO_STATBAR;
@@ -1581,6 +1623,8 @@ static int callextfunc(int c)
 	endwin();
 	pid = fork();
 	if (pid > 0) {
+		sigaction(SIGTSTP, &act, &oldsigtstp);
+		sigaction(SIGWINCH, &act, &oldsigwinch);
 		if ((rfd = open(pipepath, O_RDONLY)) != -1) {
 			len = read(rfd, gpbuf, 1);
 			if (gpbuf[0] == 'd' && len == 1)
@@ -1604,6 +1648,8 @@ static int callextfunc(int c)
 		} else
 			seterrnum(__LINE__, errno);
 		waitpid(pid, NULL, 0);
+		sigaction(SIGTSTP, &oldsigtstp, NULL);
+		sigaction(SIGWINCH, &oldsigwinch, NULL);
 
 	} else if (pid == 0) {
 		spawn(extfunc, (char [2]){c, '\0'}, pipepath, FALSE, gcfg.mode == 1);
@@ -2115,8 +2161,7 @@ static void filterentry(void)
 		return;
 
 	for (int i = 0; i < ndents; ++i) {
-		if (!strcasestr(pdents[i].name, ptab->filt)
-		&& i != --ndents) {
+		if (!strcasestr(pdents[i].name, ptab->filt) && i != --ndents) {
 			tmpent = pdents[i];
 			pdents[i] = pdents[ndents];
 			pdents[ndents] = tmpent;
@@ -2235,6 +2280,7 @@ static void browse(void)
 			// fallthrough
 		case GO_FASTDRAW:
 			fastredraw();
+			setpreview(1);
 
 			// fallthrough
 		case GO_STATBAR:
@@ -2327,11 +2373,13 @@ static int initsff(char *arg0, char *argx)
 
 	// Allocate memory for cfgpath + extfunc + pipepath and set these paths
 	if (cfgpath && extfunc
-	&& (cfgpath = malloc(strlen(gpbuf) * 2 + strlen(gmbuf) + 32))) {
+	&& (cfgpath = malloc(strlen(gpbuf) * 3 + strlen(gmbuf) + 64))) {
 		extfunc = memccpy(cfgpath, gpbuf, '\0', PATH_MAX);
 		pipepath = memccpy(extfunc, gmbuf, '\0', PATH_MAX);
-		makepath(gpbuf, ".sff-pipe.", pipepath);
-		strcat(pipepath, xitoa(getpid()));
+		strcat(strcat(gpbuf, "/.sff-pipe."), xitoa(getpid()));
+		pvfifo =  memccpy(pipepath, gpbuf, '\0', PATH_MAX);
+		strcpy(pvfifo, gpbuf);
+		strcat(pvfifo, ".pv");
 	} else {
 		cfgpath = NULL;
 		seterrnum(__LINE__, errno);
@@ -2379,6 +2427,7 @@ static void setupcurses(void)
 
 static void cleanup(void)
 {
+	setpreview(2);
 	for (int i = 0; i <= TABS_MAX; ++i) {
 		free(ghpath[i * 2].hs);
 		free(ghpath[i * 2 + 1].hs);
