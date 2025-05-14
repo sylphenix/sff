@@ -1555,16 +1555,13 @@ static int readfindresult(int fd)
 	return TRUE;
 }
 
-static int handlepipedata(int fd)
+static int handlepipedata(int fd, int op)
 {
-	int op = 0;
-
-	read(fd, &op, 1);
-	if (op == 'd')
+	if (op == 0)
 		read(fd, &op, 1);
 
 	switch (op) {
-	case '-': // clear selection
+	case '.': // clear selection
 		return clearselection(0);
 
 	case '*': // refresh
@@ -1627,13 +1624,12 @@ static int callextfunc(int c)
 		sigaction(SIGWINCH, &act, &oldsigwinch);
 		if ((rfd = open(pipepath, O_RDONLY)) != -1) {
 			len = read(rfd, gpbuf, 1);
-			if (gpbuf[0] == 'd' && len == 1)
-				ctl = handlepipedata(rfd);
-			if (isdigit(gpbuf[0]) && len == 1) {
+			if (isdigit(gpbuf[0])) {
 				len = read(rfd, &gpbuf[1], 8);
 				gpbuf[len + 1] = '\0';
 				gpid = (pid_t)strtol(gpbuf, NULL, 10);
-			}
+			} else if (len == 1)
+				ctl = handlepipedata(rfd, gpbuf[0]);
 			close(rfd);
 
 			if (gpid > 9 && (wfd = open(pipepath, O_WRONLY)) != -1) {
@@ -1642,7 +1638,7 @@ static int callextfunc(int c)
 				close(wfd);
 			}
 			if (gpid > 9 && (rfd = open(pipepath, O_RDONLY)) != -1) {
-				ctl = handlepipedata(rfd);
+				ctl = handlepipedata(rfd, 0);
 				close(rfd);
 			}
 		} else

@@ -4,4 +4,4 @@ sffpipe="$1"
 
 f=$(fzf)
 [ -z "$f" ] && exit 0
-printf "d%s%s\0" '>' "$f" >"$sffpipe"
+printf ">%s\0" "$f" >"$sffpipe"

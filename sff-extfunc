@@ -47,13 +47,13 @@ unset LESS
 
 sffpipe_clear_sel()
 {
-	printf "d%s" '-' >"$sffpipe"
+	printf "." >"$sffpipe"
 }
 
 sffpipe_refresh()
 {
-	[ "$1" = '-c' ] && printf "d%s" '*-' >"$sffpipe" \
-	|| printf "d%s" '*' >"$sffpipe"
+	[ "$1" = '-c' ] && printf "*." >"$sffpipe" \
+	|| printf "*" >"$sffpipe"
 }
 
 sffpipe_sel_file()
@@ -61,12 +61,12 @@ sffpipe_sel_file()
 	local name="$1"
 	[ "$1" = "$exbuf1" -o "$1" = "$exbuf2" ] \
 	&& name=$(tr '\n\0' '\035\n' <"$1" | head -n 1 | tr -d '\n' | tr '\035' '\n')
-	printf "d%s%s\0" '@' "$name" >"$sffpipe"
+	printf "@%s\0" "$name" >"$sffpipe"
 }
 
 sffpipe_enter()
 {
-	printf "d%s%s\0" '>' "$1" >"$sffpipe"
+	printf ">%s\0" "$1" >"$sffpipe"
 }
 
 sffpipe_get_sel()
@@ -408,7 +408,7 @@ sff_find()
 	read -p ": " -r y
 	echo "Searching in $PWD/ ..."
 
-	{ printf "d%s" '?'; find ./ $y -name "$x" 2>/dev/null | sed -e 's/^\.\///' | tr '\n' '\0'; } >"$sffpipe"
+	{ printf "?"; find ./ $y -name "$x" 2>/dev/null | sed -e 's/^\.\///' | tr '\n' '\0'; } >"$sffpipe"
 }
 
 sff_file_stat()
