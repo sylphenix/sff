@@ -50,7 +50,7 @@ clean:
 
 dist:
 	mkdir -p sff-${VERSION}
-	cp -R LICENSE Makefile README.md ${SRC} ${EXTFNNAME} config.h sff.1 sff-${VERSION}/
+	cp -R LICENSE Makefile README.md ${SRC} ${EXTFNNAME} plugins config.h sff.1 sff-${VERSION}/
 	tar -cf sff-${VERSION}.tar sff-${VERSION}
 	gzip sff-${VERSION}.tar
 	rm -rf sff-${VERSION}
@@ -68,8 +68,8 @@ install: all
 	chmod 644 ${DESTDIR}${MANPREFIX}/man1/sff.1.gz
 
 uninstall:
-	rm -f ${DESTDIR}${PREFIX}/bin/sff\
-		${DESTDIR}${EXTFNPREFIX}/${EXTFNNAME}\
+	rm -rf ${DESTDIR}${PREFIX}/bin/sff\
+		${DESTDIR}${EXTFNPREFIX}\
 		${DESTDIR}${MANPREFIX}/man1/sff.1.gz
 
 .PHONY: all options clean dist install uninstall

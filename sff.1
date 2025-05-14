@@ -55,9 +55,9 @@ does not use a runtime configuration file. To customize
 you need to edit \fBconfig.h\fR and recompile the program. \fBconfig.h\fR is a source code file which is included by \fBsff.c\fR (the main source code module). It is a C language header file, and serves as the configuration file for default settings, key bindings, and colors. 
 .Sh EXTENSION SCRIPT
 The extension functions are provided by a POSIX-compliant shell script named \fBsff-extfunc\fR, which is installed by default in 
-.Pa /usr/libexec/
+.Pa /usr/libexec/sff/
 (Linux) or 
-.Pa /usr/local/libexec/
+.Pa /usr/local/libexec/sff/
 (FreeBSD). You can easily customize key bindings for extension functions, modify existing functions, or add your own functions by editing this file. It is generally not recommended to directly modify the system-wide \fBsff-extfunc\fR. Instead, copy it to the user's config directory and make modifications there.
 .Pp
 The user's config directory is required for executing extension functions. This directory is either 
@@ -74,7 +74,7 @@ determines the location of \fBsff-extfunc\fR by checking the following directori
     2. The directory where the 
 .Nm 
 executable resides
-    3. /usr/libexec/ (Linux) or /usr/local/libexec/ (FreeBSD)
+    3. /usr/libexec/sff/ (Linux) or /usr/local/libexec/sff/ (FreeBSD)
 .Sh TABS
 The tab status is displayed in the top-left corner of the screen. Five tab indicators are shown, with the current tab highlighted in reverse video. Tabs 1 through 4 are regular tabs and are indicated by '*' when inactive. When switching to an inactive tab, the new tab will be activated and use the current directory path as its starting path. The fifth tab is a special tab, indicated by '#', dedicated to handling search results.
 .Sh SELECTION
