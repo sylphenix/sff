@@ -49,7 +49,7 @@ preview_loop_tui()
 check_fifo()
 {
 	if [ -p "$pvfifo" ]; then
-		printf "d%sq" '#' >"$sffpipe"
+		printf "#q" >"$sffpipe"
 		rm -f "$pvfifo"
 		exit 0
 	fi
@@ -88,7 +88,7 @@ case "$2" in
 		esac
 	fi
 	wait_for_fifo
-	printf "d%sp" '#' >"$sffpipe"
+	printf "#p" >"$sffpipe"
 	;;
 
 'gui') :
