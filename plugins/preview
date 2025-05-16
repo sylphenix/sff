@@ -1,8 +1,11 @@
 #!/usr/bin/env sh
 
-sffpipe="$1"
+sffpipe=$1
 pvfifo="${sffpipe}.pv"
-[ -w /dev/shm ] && tmpdir="/dev/shm" || tmpdir="/tmp"
+sffdir=${sffpipe%/*}
+tmpdir=${TMPDIR:-/tmp}
+[ ! -w "$tmpdir" ] && tmpdir=$sffdir
+tmppvfile="${tmpdir}/sff-tmppv-$(id -u)"
 
 preview_loop_tui()
 {
@@ -18,11 +21,11 @@ preview_loop_tui()
 		case "$mime" in
 		image/*) dest="$f"
 			;;
-		application/pdf) dest="${tmpdir}/sff-pv-tmp"
+		application/pdf) dest=$tmppvfile
 			pdftoppm -jpeg -f 1 -singlefile -scale-to 800 "$f" "$dest" >/dev/null 2>&1 \
 			&& dest="${dest}.jpg" || dest=''
 			;;
-		video/*) dest="${tmpdir}/sff-pv-tmp.jpg"
+		video/*) dest="${tmppvfile}.jpg"
 			ffmpegthumbnailer -m -s 0 -i "$f" -o "$dest" >/dev/null 2>&1 \
 			|| dest=''
 			;;
@@ -73,7 +76,7 @@ case "$2" in
 	else
 		if [ -z "$SFF_PV_TERM" ]; then
 			echo "SFF_PV_TERM is not set"
-			read -p "Specify terminal emulator for preview (press Enter to cancel): " -r x
+			read -p "Specify terminal emulator for preview or press Enter to cancel: " -r x
 			[ -z "$x" ] && exit 0
 			SFF_PV_TERM="$x"
 		fi

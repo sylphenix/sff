@@ -1,0 +1,136 @@
+#!/usr/bin/env sh
+
+sffpipe=$1
+sffdir=${sffpipe%/*}
+tmpdir=${TMPDIR:-/tmp}
+[ ! -w "$tmpdir" ] && tmpdir=$sffdir
+tsel="${tmpdir}/sff-tmpsel-$(id -u)"
+tbuf1="${tmpdir}/sff-tmpbuf1-$(id -u)"
+tbuf2="${tmpdir}/sff-tmpbuf2-$(id -u)"
+err=''
+
+sffpipe_sel_file()
+{
+	printf "@%s\0" "$1" >"$sffpipe"
+}
+
+sffpipe_get_sel()
+{
+	printf "%s" "$$" >"$sffpipe"
+	sel=$sffpipe
+}
+
+extract_archive()
+{
+	sffpipe_get_sel
+	tr '\n\0' '\035\n' <"$sel" >"$tsel"
+	[ ! -s "$tsel" ] && exit 0
+
+	printf "\n(l)ist contents / (e)xtract / (q)uit [L]: "
+	read -r x
+	[ "$x" = 'q' ] && exit 0
+
+	resname=''
+	while IFS='' read -r path <&3; do
+		path=$(printf "%s" "$path" | tr '\035' '\n')
+		wdir=${path%/*}
+		name=${path##*/}
+		bname=${name%.?*}
+		bname=${bname%.tar}
+
+		case "$x" in
+		'e') if [ -e "$bname" ]; then
+				printf "\n'%s' " "$bname"
+				read -p "exists! Overwrite? (y/n) [N]: " -r xx
+				[ "$xx" != 'y' ] && continue
+			fi
+			tdir=$(mktemp -d "${wdir}/tmp.XXXXXX")
+			[ -e "$bname" ] && rm -rf "$bname"
+
+			case "$(printf "%s" "$name" | tr '[:upper:]' '[:lower:]')" in
+			*?.tar.?*) cd "$tdir" && tar -xvf "$path";;
+			*?.gz) gunzip -k "$path";;
+			*?.bz2) bunzip2 -k "$path";;
+			*?.xz) unxz -k "$path";;
+			*?.zip) cd "$tdir" && unzip "$path";;
+			*?.7z) cd "$tdir" && 7z e "$path";;
+			*?.rar) cd "$tdir" && unrar e "$path";;
+			*?.?*) cd "$tdir" && tar -xvf "$path";;
+			esac || err=1
+
+			if [ -z "$err" ]; then
+				num=$(find "$tdir"/ -mindepth 1 -maxdepth 1 ! -name . ! -name .. -exec echo '1' \; | wc -l)
+				if [ -d "${tdir}/$bname" ] && [ "$num" -eq 1 ]; then
+					mv "${tdir}/$bname" "$wdir"/
+				elif [ "$num" -ge 1 ]; then
+					mv "$tdir" "${wdir}/$bname"
+				fi
+				resname="$bname"
+			fi
+			[ -e "$tdir" ] && rm -rf "$tdir"
+			;;
+
+		*) case "$(printf "%s" "$name" | tr '[:upper:]' '[:lower:]')" in
+			*?.tar.?*) tar -tvf "$path" | less;;
+			*?.gz) zcat "$path" | less;;
+			*?.bz2) bzcat "$path" | less;;
+			*?.xz) xzcat "$path" | less;;
+			*?.zip) unzip -l "$path" | less;;
+			*?.7z) 7z l "$path" | less;;
+			*?.rar) unrar l "$path" | less;;
+			*?.?*) tar -tvf "$path" | less;;
+			esac
+			;;
+		esac
+	done 3<"$tsel"
+
+	[ "$resname" ] && sffpipe_sel_file "$resname"
+	[ "$err" ] && read -p "Press Enter to continue " -r x
+}
+
+create_archive()
+{
+	sffpipe_get_sel
+	tr '\n\0' '\035\n' <"$sel" >"$tsel"
+	[ ! -s "$tsel" ] && exit 0
+	printf "%s.tar.gz\n" "$(tail -n 1 "$tsel" | sed 's/^.*\///')" >"$tbuf1"
+
+	while true; do
+		"$EDITOR" "$tbuf1"
+		name=$(head -n 1 "$tbuf1")
+		[ -z "$name" ] && exit 0
+		if [ -e "$name" ]; then
+			printf "\n'%s' " "$name"
+			read -p "exists! Overwrite? (y/N): " -r x
+			[ "$x" = 'y' ] && break
+		else
+			break
+		fi
+	done
+
+	wdir=$(printf "%s" "$PWD" | tr '\n' '\035')
+	sed "s^$wdir/" "$tsel" | tr '\n\035' '\0\n' >"$tbuf2"
+	[ -e "$name" ] && rm -f "$name"
+
+	case "$(printf "%s" "$name" | tr '[:upper:]' '[:lower:]')" in
+	*?.tar.?*|*?.t?*) xargs -0 tar -cavf "$name" -- <"$tbuf2";;
+	*.gz) xargs -0 gzip -k -- <"$tbuf2";;
+	*.bz2) xargs -0 bzip2 -k -- <"$tbuf2";;
+	*.xz) xargs -0 xz -k -- <"$tbuf2";;
+	*?.zip) xargs -0 zip -r "$name" -- <"$tbuf2";;
+	*?.7z) xargs -0 7z a "$name" -- <"$tbuf2";;
+	*) printf "\nUnknown archive format\n"; false;;
+	esac
+
+	if [ "$?" -eq 0 ]; then
+		 sffpipe_sel_file "$name"
+	else
+		read -p "Press Enter to continue " -r x
+	fi
+}
+
+case "$2" in
+'e') extract_archive;;
+'c') create_archive;;
+esac
+rm -f "$tsel" "$tbuf1" "$tbuf2"

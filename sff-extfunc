@@ -439,98 +439,6 @@ sff_disk_usage()
 	read -p "Press Enter to continue " -r x
 }
 
-sff_extract()
-{
-	sffpipe_get_sel
-	rm -f "$tsel"; tr '\n\0' '\035\n' <"$sel" >"$tsel"
-	[ ! -s "$tsel" ] && exit 0
-
-	printf "\nx) extract archive(s)\n"
-	echo "l) show the contents"
-	echo "q) cancel"
-	read -p "(x/l/q) [default=l]: " -r x
-	[ "$x" = 'q' ] && exit 0
-	sffpipe_refresh -c
-
-	local pa ppa name bname
-	while IFS='' read -r pa; do
-		pa=$(printf "%s" "$pa" | tr '\035' '\n')
-		ppa=${pa%/*}
-		name=${pa##*/}
-		bname=${name%.?*}
-		bname=${bname%.tar}
-
-		case "$x" in
-		'x') case "$(printf "%s" "$name" | tr '[A-Z]' '[a-z]')" in
-			*?.tar.?*) mkdir -p "${ppa}/$bname" && cd "${ppa}/$bname" && tar -xvf "$pa" || err=1;;
-			*?.gz) gunzip -k "$pa" || err=1;;
-			*?.bz2) bunzip2 -k "$pa" || err=1;;
-			*?.xz) unxz -k "$pa" || err=1;;
-			*?.zip) mkdir -p "${ppa}/$bname" && cd "${ppa}/$bname" && unzip "$pa" || err=1;;
-			*?.7z) mkdir -p "${ppa}/$bname" && cd "${ppa}/$bname" && 7z e "$pa" || err=1;;
-			*?.rar) mkdir -p "${ppa}/$bname" && cd "${ppa}/$bname" && unrar e "$pa" || err=1;;
-			*?.?*) mkdir -p "${ppa}/$bname" && cd "${ppa}/$bname" && tar -xvf "$pa" || err=1;;
-			esac
-			;;
-		*) case "$(printf "%s" "$name" | tr '[A-Z]' '[a-z]')" in
-			*?.tar.?*) tar -tvf "$pa" | less;;
-			*?.gz) zcat "$pa" | less;;
-			*?.bz2) bzcat "$pa" | less;;
-			*?.xz) xzcat "$pa" | less;;
-			*?.zip) unzip -l "$pa" | less;;
-			*?.7z) 7z l "$pa" | less;;
-			*?.rar) unrar l "$pa" | less;;
-			*?.?*) tar -tvf "$pa" | less;;
-			esac
-			;;
-		esac
-	done <"$tsel"
-
-	rm -f "$tsel"
-	[ "$err" ] && read -p "Press Enter to continue " -r x
-}
-
-sff_archive()
-{
-	sff_pwd_perm
-	sffpipe_get_sel
-	rm -f "$tsel" "$tbuf1" "$tbuf2"
-	tr '\n\0' '\035\n' <"$sel" >"$tsel"
-	[ ! -s "$tsel" ] && exit 0
-
-	local tname name wd
-	tname=$(tail -n 1 "$tsel" | sed 's/^.*\///')
-	printf "%s.tar.gz\n" "$tname" >"$tbuf1"
-
-	while true; do
-		"$EDITOR" "$tbuf1"
-		name=$(head -n 1 "$tbuf1")
-		[ -z "$name" ] && sff_abort
-		[ ! -e "$name" ] && break
-		printf "\nFile exist. Overwrite?\n"
-		read -p "(y/n/q) [default=n]: " -r x
-		[ "$x" = 'y' ] && break
-		[ "$x" = 'q' ] && sff_abort
-	done
-	sffpipe_sel_file "$name"
-
-	wd=$(printf "%s" "$PWD" | tr '\n' '\035')
-	sed "s^$wd/" "$tsel" | tr '\n\035' '\0\n' >"$tbuf2"
-
-	case "$(printf "%s" "$name" | tr '[A-Z]' '[a-z]')" in
-	*?.tar.?*|*?.t?*) xargs -0 tar -cavf "$name" -- <"$tbuf2" || err=1;;
-	*?.gz) xargs -0 gzip -k -- <"$tbuf2" || err=1;;
-	*?.bz2) xargs -0 bzip2 -k -- <"$tbuf2" || err=1;;
-	*?.xz) xargs -0 xz -k -- <"$tbuf2" || err=1;;
-	*?.zip) xargs -0 zip -r "$name" -- <"$tbuf2" || err=1;;
-	*?.7z) xargs -0 7z a "$name" -- <"$tbuf2" || err=1;;
-	*) echo "Unsupported file format"; err=1;;
-	esac
-
-	rm -f "$tsel" "$tbuf1" "$tbuf2"
-	[ "$err" ] && read -p "Press Enter to continue " -r x
-}
-
 sff_undo()
 {
 	[ ! -s "$lastop" ] && exit 0
@@ -564,8 +472,12 @@ run_pl()
 {
 	plugin="${sffdir}/plugins/$1"
 	[ ! -e "$plugin" ] && plugin="${0%/*}/plugins/$1"
-	[ ! -e "$plugin" ] && { read -p "Plugin '$1' not found. Press Enter to continue " -r x; exit 0; }
-	"$plugin" "$sffpipe" "$2" || read -p "Press Enter to continue " -r x
+	if [ ! -e "$plugin" ]; then
+		printf "\nPlugin '%s' not found\n" "$1"
+		read -p "Press Enter to continue " -r x
+	else
+		"$plugin" "$sffpipe" "$2"
+	fi
 }
 
 # === custom functions ===
@@ -587,12 +499,12 @@ case "$1" in                  #?> Extension functions:
 'f') sff_find;;               #?>     Alt-f  Advanced search
 'i') sff_file_stat;;          #?>     Alt-i  Show file status
 'I') sff_disk_usage;;         #?>     Alt-I  Show disk usage
-'z') sff_extract;;            #?>     Alt-z  Extract
-'Z') sff_archive;;            #?>     Alt-Z  Archive
 'u') sff_undo;;               #?>     Alt-u  Undo last operation
 'U') sff_redo;;               #?>     Alt-U  Redu last operation
 '/') sff_help;;               #?>     Alt-/  Show this help
                               #?> Plugins:
 'F') run_pl 'fzf-find';;      #?>     Alt-F  Search with 'fzf'
 '=') run_pl 'preview' 'tui';; #?>     Alt-=  Toggle preview
+'z') run_pl 'archive' 'e';;   #?>     Alt-z  Extract archives
+'Z') run_pl 'archive' 'c';;   #?>     Alt-Z  Create archive
 esac                          #?> Press 'q' to leave this page.
