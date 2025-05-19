@@ -2,6 +2,14 @@
 
 sffpipe="$1"
 
-f=$(fzf)
-[ -z "$f" ] && exit 0
-printf ">%s\0" "$f" >"$sffpipe"
+sffpipe_enter()
+{
+	printf ">%s\0" "$1" >"$sffpipe"
+}
+
+if ! fzf --version >/dev/null; then
+	printf "Press Enter to continue "; read -r x
+	exit 0
+fi
+path=$(fzf)
+[ "$path" ] && sffpipe_enter "$path"

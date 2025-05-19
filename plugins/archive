@@ -4,9 +4,10 @@ sffpipe=$1
 sffdir=${sffpipe%/*}
 tmpdir=${TMPDIR:-/tmp}
 [ ! -w "$tmpdir" ] && tmpdir=$sffdir
-tsel="${tmpdir}/sff-tmpsel-$(id -u)"
-tbuf1="${tmpdir}/sff-tmpbuf1-$(id -u)"
-tbuf2="${tmpdir}/sff-tmpbuf2-$(id -u)"
+uid=$(id -u)
+tsel="${tmpdir}/sff-tmpsel-$uid"
+tbuf1="${tmpdir}/sff-tmpbuf1-$uid"
+tbuf2="${tmpdir}/sff-tmpbuf2-$uid"
 err=''
 
 sffpipe_sel_file()
@@ -26,11 +27,10 @@ extract_archive()
 	tr '\n\0' '\035\n' <"$sel" >"$tsel"
 	[ ! -s "$tsel" ] && exit 0
 
-	printf "\n(l)ist contents / (e)xtract / (q)uit [L]: "
-	read -r x
-	[ "$x" = 'q' ] && exit 0
+	printf "\n(l)ist contents / (e)xtract / (c)ancel [l]: "; read -r x
+	[ "$x" = 'c' ] && exit 0
 
-	resname=''
+	selfile=''
 	while IFS='' read -r path <&3; do
 		path=$(printf "%s" "$path" | tr '\035' '\n')
 		wdir=${path%/*}
@@ -39,13 +39,12 @@ extract_archive()
 		bname=${bname%.tar}
 
 		case "$x" in
-		'e') if [ -e "$bname" ]; then
-				printf "\n'%s' " "$bname"
-				read -p "exists! Overwrite? (y/n) [N]: " -r xx
-				[ "$xx" != 'y' ] && continue
+		'e') if [ -e "${wdir}/$bname" ]; then
+				printf "\n'%s' exists. Overwrite? (y/n) [n]: " "$bname"; read -r y
+				[ "$y" != 'y' ] && continue
 			fi
 			tdir=$(mktemp -d "${wdir}/tmp.XXXXXX")
-			[ -e "$bname" ] && rm -rf "$bname"
+			[ -e "${wdir}/$bname" ] && rm -rf "${wdir}/$bname"
 
 			case "$(printf "%s" "$name" | tr '[:upper:]' '[:lower:]')" in
 			*?.tar.?*) cd "$tdir" && tar -xvf "$path";;
@@ -58,16 +57,14 @@ extract_archive()
 			*?.?*) cd "$tdir" && tar -xvf "$path";;
 			esac || err=1
 
-			if [ -z "$err" ]; then
-				num=$(find "$tdir"/ -mindepth 1 -maxdepth 1 ! -name . ! -name .. -exec echo '1' \; | wc -l)
-				if [ -d "${tdir}/$bname" ] && [ "$num" -eq 1 ]; then
-					mv "${tdir}/$bname" "$wdir"/
-				elif [ "$num" -ge 1 ]; then
-					mv "$tdir" "${wdir}/$bname"
-				fi
-				resname="$bname"
+			num=$(find "$tdir"/ -mindepth 1 -maxdepth 1 ! -name . ! -name .. -exec echo '1' \; | wc -l)
+			if [ -d "${tdir}/$bname" ] && [ "$num" -eq 1 ]; then
+				mv "${tdir}/$bname" "$wdir"/
+			elif [ ! -e "${wdir}/$bname" ]; then
+				mv "$tdir" "${wdir}/$bname"
 			fi
 			[ -e "$tdir" ] && rm -rf "$tdir"
+			[ -z "$err" ] && selfile="$bname"
 			;;
 
 		*) case "$(printf "%s" "$name" | tr '[:upper:]' '[:lower:]')" in
@@ -84,8 +81,8 @@ extract_archive()
 		esac
 	done 3<"$tsel"
 
-	[ "$resname" ] && sffpipe_sel_file "$resname"
-	[ "$err" ] && read -p "Press Enter to continue " -r x
+	[ "$selfile" ] && sffpipe_sel_file "$selfile"
+	[ "$err" ] && { printf "Press Enter to continue "; read -r x; }
 }
 
 create_archive()
@@ -100,8 +97,7 @@ create_archive()
 		name=$(head -n 1 "$tbuf1")
 		[ -z "$name" ] && exit 0
 		if [ -e "$name" ]; then
-			printf "\n'%s' " "$name"
-			read -p "exists! Overwrite? (y/N): " -r x
+			printf "\n'%s' exists. Overwrite? (y/n) [n]: " "$name"; read -r x
 			[ "$x" = 'y' ] && break
 		else
 			break
@@ -114,18 +110,18 @@ create_archive()
 
 	case "$(printf "%s" "$name" | tr '[:upper:]' '[:lower:]')" in
 	*?.tar.?*|*?.t?*) xargs -0 tar -cavf "$name" -- <"$tbuf2";;
-	*.gz) xargs -0 gzip -k -- <"$tbuf2";;
-	*.bz2) xargs -0 bzip2 -k -- <"$tbuf2";;
-	*.xz) xargs -0 xz -k -- <"$tbuf2";;
+	*.gz) xargs -0 gzip -fk -- <"$tbuf2";;
+	*.bz2) xargs -0 bzip2 -fk -- <"$tbuf2";;
+	*.xz) xargs -0 xz -fk -- <"$tbuf2";;
 	*?.zip) xargs -0 zip -r "$name" -- <"$tbuf2";;
 	*?.7z) xargs -0 7z a "$name" -- <"$tbuf2";;
-	*) printf "\nUnknown archive format\n"; false;;
+	*) printf "\nUnsupported archive format\n"; false;;
 	esac
 
 	if [ "$?" -eq 0 ]; then
 		 sffpipe_sel_file "$name"
 	else
-		read -p "Press Enter to continue " -r x
+		printf "Press Enter to continue "; read -r x
 	fi
 }
 
