@@ -28,18 +28,20 @@
 
 EDITOR=${EDITOR:-vi}
 PWD=${PWD:-$(pwd)}
-sffpipe="$2"
+sffpipe=$2
 sffdir=${sffpipe%/*}
+tmpdir=${TMPDIR:-/tmp}
+[ ! -w "$tmpdir" ] && tmpdir=$sffdir
+uid=$(id -u)
 
 exbuf1="${sffdir}/.exec-buf1"
 exbuf2="${sffdir}/.exec-buf2"
 lastop="${sffdir}/.last-operation"
 cpbuf="${sffdir}/.copy-buf"
-tsel="${sffdir}/.tmpsel"
-tbuf1="${sffdir}/.tmpbuf1"
-tbuf2="${sffdir}/.tmpbuf2"
+tsel="${tmpdir}/sff-tmpsel-$uid"
+tbuf1="${tmpdir}/sff-tmpbuf1-$uid"
+tbuf2="${tmpdir}/sff-tmpbuf2-$uid"
 
-err=''
 unset LESS
 [ ! -p "$sffpipe" ] && exit 0
 
@@ -52,16 +54,13 @@ sffpipe_clear_sel()
 
 sffpipe_refresh()
 {
-	[ "$1" = '-c' ] && printf "*." >"$sffpipe" \
-	|| printf "*" >"$sffpipe"
+	[ "$1" = '-c' ] && x='.' || x=''
+	printf "*%s" "$x" >"$sffpipe"
 }
 
 sffpipe_sel_file()
 {
-	local name="$1"
-	[ "$1" = "$exbuf1" -o "$1" = "$exbuf2" ] \
-	&& name=$(tr '\n\0' '\035\n' <"$1" | head -n 1 | tr -d '\n' | tr '\035' '\n')
-	printf "@%s\0" "$name" >"$sffpipe"
+	printf "@%s\0" "$1" >"$sffpipe"
 }
 
 sffpipe_enter()
@@ -72,7 +71,7 @@ sffpipe_enter()
 sffpipe_get_sel()
 {
 	printf "%s" "$$" >"$sffpipe"
-	sel="$sffpipe"
+	sel=$sffpipe
 }
 
 sff_init_bufs()
@@ -80,20 +79,13 @@ sff_init_bufs()
 	[ -e "$exbuf1" ] && [ -e "$exbuf2" ] && [ -e "$lastop" ] && [ -e "$cpbuf" ] && return 0
 	touch -a "$exbuf1" "$exbuf2" "$lastop" "$cpbuf"
 	chmod 600 "$exbuf1" "$exbuf2" "$lastop" "$cpbuf"
-
-	if [ ! -O "$sffdir" ]; then
-		stat --version >/dev/null 2>&1 \
-		&& local uid=$(stat -c %u "$sffdir") \
-		|| local uid=$(stat -f %u "$sffdir")
-		chown "$uid" "$exbuf1" "$exbuf2" "$lastop" "$cpbuf"
-	fi
+	[ "$uid" -eq 0 ] && ls -nd "$sffpipe" | { read -r _ _ x _; chown "$x" "$exbuf1" "$exbuf2" "$lastop" "$cpbuf"; }
 }
 
 sff_abort()
 {
 	rm -f "$tsel" "$tbuf1" "$tbuf2"
 	[ "$1" ] && rm -f "$1"
-	: >"$lastop"
 	exit 0
 }
 
@@ -101,7 +93,7 @@ sff_pwd_perm()
 {
 	if [ ! -w "$PWD" ]; then
 		printf "\n%s: Permission denied\n" "$PWD"
-		read -p "Press Enter to continue " -r x
+		printf "Press Enter to continue "; read -r x
 		exit 0
 	fi
 }
@@ -110,8 +102,8 @@ sff_new()
 {
 	sff_pwd_perm
 	sff_init_bufs
-	local tlist="${sffdir}/.Create-Files"
-	rm -f "$tlist" "$tbuf1" "$tbuf2"
+	tlist="${tmpdir}/sff-create-files-$uid"
+	: >"$tlist"
 
 	while true; do
 		"$EDITOR" "$tlist"
@@ -119,15 +111,13 @@ sff_new()
 		[ ! -s "$tbuf1" ] && sff_abort "$tlist"
 
 		sed -e 's/\/.*$//' "$tbuf1" | sort -u >"$tbuf2"
-		local dlin=$(xargs ls -1d -- 2>/dev/null <"$tbuf2" | head -n 80)
-		[ -z "$dlin" ] && break
+		existf=$(xargs ls -1d -- 2>/dev/null <"$tbuf2" | head -n 80)
+		[ -z "$existf" ] && break
 
-		printf "\n%s\n" "$dlin"
-		echo "^^^: File(s) already exist"
-		echo "e) edit the list"
-		echo "q) abort"
-		read -p "(e/q) [default=e]: " -r x
-		[ "$x" = 'q' ] && sff_abort "$tlist"
+		printf "\n%s\n" "$existf"
+		echo "^^^: file exists"
+		printf "(e)dit list / (c)ancel [e]: "; read -r x
+		[ "$x" = 'c' ] && sff_abort "$tlist"
 	done
 
 	sed -e "s^$PWD/" "$tbuf2" | tr '\n' '\0' >"$exbuf2"
@@ -142,29 +132,31 @@ sff_new()
 sff_do_new()
 {
 	printf "new" >"$lastop"
-	sffpipe_sel_file "$exbuf2"
+	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr -d '\n' | tr '\035' '\n')"
 
-	cut -d '' -f1 "$exbuf1" | tr -d '\n' | xargs -r -0 mkdir -p -- || err=1
-	cut -d '' -f2 "$exbuf1" | tr -d '\n' | xargs -r -0 touch -- || err=1
-	[ "$err" ] && read -p "Press Enter to continue " -r x
+	err=''
+	cut -d '' -f1 "$exbuf1" | tr -d '\n' | xargs -r -0 mkdir -p || err=1
+	cut -d '' -f2 "$exbuf1" | tr -d '\n' | xargs -r -0 touch || err=1
+	[ "$err" ] && { printf "Press Enter to continue "; read -r x; }
 }
 
 sff_undo_new()
 {
 	[ ! -s "$exbuf2" ] && exit 0
-	local op=$(cat "$lastop")
+	op=$(cat "$lastop")
 
 	echo ""
 	tr '\0' '\n' <"$exbuf2" | head -n 160
-	echo "^^^:" $(tr '\n\0' '\035\n' <"$exbuf2" | wc -l) "file(s) will be permanently deleted!"
-	read -p "Undo '${op}' operation? (y/n) [default=n]: " -r x
+	num=$(tr '\n\0' '\035\n' <"$exbuf2" | wc -l)
+	echo "^^^: ${num##* } files will be deleted"
+	printf "Undo '%s' operation? (y/n) [n]: " "$op"; read -r x
 	[ "$x" != 'y' ] && exit 0
 
 	printf "un%s" "$op" >"$lastop"
 	sffpipe_refresh
 
-	xargs -0 rm -rf -- <"$exbuf2" || err=1
-	[ "$err" ] && read -p "Press Enter to continue " -r x
+	xargs -0 rm -rf <"$exbuf2" \
+	|| { printf "Press Enter to continue "; read -r x; }
 }
 
 sff_write_cbuf()
@@ -181,11 +173,12 @@ sff_view_cbuf()
 	echo ""
 	if [ -s "$cpbuf" ]; then
 		head -n 160 "$cpbuf"
-		echo $(wc -l <"$cpbuf") "file(s) in buffer"
+		num=$(wc -l <"$cpbuf")
+		echo "${num##* } file(s) in buffer"
 	else
 		echo "Buffer is empty"
 	fi
-	read -p "Press Enter to continue " -r x
+	printf "Press Enter to continue "; read -r x
 }
 
 sff_clear_cbuf()
@@ -195,23 +188,18 @@ sff_clear_cbuf()
 
 sff_paste()
 {
-	[ ! -s "$cpbuf" ] && exit 0
-	[ "$(find "$cpbuf" -mmin +30)" ] && exit 0
+	[ ! -s "$cpbuf" ] || [ "$(find "$cpbuf" -mmin +30)" ] && exit 0
 	sff_pwd_perm
 
-	local x='' op='copy'
-	ls -l "$cpbuf" | grep -q '^...[sS]' && op='move' && chmod u-s "$cpbuf"
+	x=''; op='copy'
+	[ -u "$cpbuf" ] && { op='move'; chmod u-s "$cpbuf"; }
 
-	local dlin=$(sed 's/^.*\///' "$cpbuf" | tr '\n\035' '\0\n' | xargs -0 ls -1d -- 2>/dev/null | head -n 80)
-	if [ "$dlin" ]; then
-		printf "\n%s\n" "$dlin"
-		echo "^^^: File(s) already exist"
-		echo "s) skip all (cannot be undone)"
-		echo "i) prompt before overwrite (cannot be undone)"
-		echo "w) overwrite all (cannot be undone)"
-		echo "q) abort"
-		read -p "(s/i/w/q) [default=q]: " -r x
-		[ "${x%[siw]}" -o ! "$x" ] && sff_abort
+	existf=$(sed 's/^.*\///' "$cpbuf" | tr '\n\035' '\0\n' | xargs -0 ls -1d -- 2>/dev/null | head -n 80)
+	if [ "$existf" ]; then
+		printf "\n%s\n" "$existf"
+		echo "^^^: files exist"
+		printf "(s)kip all / (i)nteractive / (o)verwrite all / (c)ancel [c]: "; read -r x
+		[ "${x%[sio]}" -o -z "$x" ] && sff_abort
 	fi
 
 	sed -e "s$\n$PWD/" "$cpbuf" | tr '\n\035' '\0\n' >"$exbuf1"
@@ -223,45 +211,46 @@ sff_paste()
 		: >"$cpbuf";;
 	esac
 
-	x=${x:-'0'}
+	x=${x:-'w'}
 	sff_do_paste "$op" "$x"
 }
 
 sff_do_paste()
 {
 	printf "%s" "$1" >"$lastop"
-	[ "$2" != '0' ] && touch -mt 202310011200.00 "$lastop"
-	sffpipe_sel_file "$exbuf2"
+	[ "$2" != 'w' ] && touch -mt 202310011200.00 "$lastop"
+	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr -d '\n' | tr '\035' '\n')"
 
 	case "$1" in
 	'copy') case "$2" in
-		'0'|'w') xargs -0 -n 2 cp -afv -- <"$exbuf1" || err=1;;
-		's') xargs -0 -n 2 cp -anv -- <"$exbuf1" || err=1;;
-		'i') xargs -0 -n 2 -o cp -aiv -- <"$exbuf1" || err=1;;
+		'o'|'w') xargs -0 -n 2 cp -afv <"$exbuf1";;
+		's') xargs -0 -n 2 cp -anv <"$exbuf1";;
+		'i') xargs -0 -n 2 -o cp -aiv <"$exbuf1";;
 		esac
 		;;
 	'move') case "$2" in
-		'0'|'w') xargs -0 -n 2 mv -fv -- <"$exbuf1" || err=1;;
-		's') xargs -0 -n 2 mv -nv -- <"$exbuf1" || err=1;;
-		'i') xargs -0 -n 2 -o mv -iv -- <"$exbuf1" || err=1;;
+		'o'|'w') xargs -0 -n 2 mv -fv <"$exbuf1";;
+		's') xargs -0 -n 2 mv -nv <"$exbuf1";;
+		'i') xargs -0 -n 2 -o mv -iv <"$exbuf1";;
 		esac
 		;;
-	esac
-	[ "$err" ] && read -p "Press Enter to continue " -r x
+	esac || { printf "Press Enter to continue "; read -r x; }
 }
 
 sff_rename()
 {
 	sff_init_bufs
 	sffpipe_get_sel
-	rm -f "$tsel" "$tlist" "$tbuf1" "$tbuf2"
 	tr '\n\0' '\035\n' <"$sel" >"$tsel"
 	[ ! -s "$tsel" ] && exit 0
 
 	sed 's/\/[^/]*$//' "$tsel" >"$tbuf1"
-	local tlist="${sffdir}/.Rename"
-	[ $(sort -u "$tbuf1" | wc -l | tr -d ' ') = 1 ] \
-	&& sed 's/^.*\///' "$tsel" >"$tlist" || cat "$tsel" >"$tlist"
+	tlist="${tmpdir}/sff-rename-$uid"
+	if [ "$(sort -u "$tbuf1" | wc -l)" -eq 1 ]; then
+		sed 's/^.*\///' "$tsel" >"$tlist"
+	else
+		cat "$tsel" >"$tlist"
+	fi
 
 	while true; do
 		"$EDITOR" "$tlist"
@@ -269,17 +258,15 @@ sff_rename()
 		| sed -e '/^\(.*\)\1$/d' -e '/^/d' -e '/\/$/d' >"$tbuf2"
 		[ ! -s "$tbuf2" ] && sff_abort "$tlist"
 
-		local dlin1=$(cut -d '' -f 2 "$tbuf2" | sort | uniq -d | head -n 80)
-		[ "$dlin1" ] && printf "\n%s\n^^^: The list has duplicate names\n" "$dlin1"
+		dupnames=$(cut -d '' -f 2 "$tbuf2" | sort | uniq -d | head -n 80)
+		[ "$dupnames" ] && printf "\n%s\n^^^: duplicate names\n" "$dupnames"
 
-		local dlin2=$(cut -d '' -f 2 "$tbuf2" | tr '\n\035' '\0\n' | xargs -0 ls -1d -- 2>/dev/null | head -n 80)
-		[ "$dlin2" ] && printf "\n%s\n^^^: File(s) already exist\n" "$dlin2"
+		existf=$(cut -d '' -f 2 "$tbuf2" | tr '\n\035' '\0\n' | xargs -0 ls -1d -- 2>/dev/null | head -n 80)
+		[ "$existf" ] && printf "\n%s\n^^^: file exists\n" "$existf"
 
-		[ -z "$dlin1" ] && [ -z "$dlin2" ] && break
-		echo "e) edit the list"
-		echo "q) abort"
-		read -p "(e/q) [default=e]: " -r x
-		[ "$x" = 'q' ] && sff_abort "$tlist"
+		[ -z "$dupnames" ] && [ -z "$existf" ] && break
+		printf "(e)dit list / (c)ancel [e]: "; read -r x
+		[ "$x" = 'c' ] && sff_abort "$tlist"
 	done
 
 	tr '\037\n\035' '\0\0\n' <"$tbuf2" >"$exbuf1"
@@ -292,59 +279,56 @@ sff_rename()
 sff_do_rename()
 {
 	printf "rename" >"$lastop"
-	sffpipe_sel_file "$exbuf2"
+	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr -d '\n' | tr '\035' '\n')"
 
-	xargs -0 -n 2 mv -nv -- <"$exbuf1" || err=1
-	[ "$err" ] && read -p "Press Enter to continue " -r x
+	xargs -0 -n 2 mv -nv <"$exbuf1" \
+	|| { printf "Press Enter to continue "; read -r x; }
 }
 
 sff_undo_move()
 {
 	[ ! -s "$exbuf2" ] && exit 0
-	local op=$(cat "$lastop")
+	op=$(cat "$lastop")
 	echo ""
 	xargs -0 -n 2 printf "%s -> %s\n" <"$exbuf2" | head -n 160
-	read -p "Undo '$op' operation? (y/n) [default=n]: " -r x
+	printf "Undo '%s' operation? (y/n) [n]: " "$op"; read -r x
 	[ "$x" != 'y' ] && exit 0
 
 	printf "un%s" "$op" >"$lastop"
-	sffpipe_sel_file "$exbuf1"
+	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf1" | head -n 1 | tr -d '\n' | tr '\035' '\n')"
 
-	xargs -0 -n 2 mv -n -- <"$exbuf2" || err=1
-	[ "$err" ] && read -p "Press Enter to continue " -r x
+	xargs -0 -n 2 mv -n <"$exbuf2" \
+	|| { printf "Press Enter to continue "; read -r x; }
 }
 
 sff_duplicate()
 {
 	sff_init_bufs
 	sffpipe_get_sel
-	rm -f "$tsel"; tr '\n\0' '\035\n' <"$sel" >"$tsel"
+	tr '\n\0' '\035\n' <"$sel" >"$tsel"
 	[ ! -s "$tsel" ] && exit 0
 
-	printf "\nEnter the number of copies ('q' to cancel)\n"
-	read -p "(number/q) [default=1]: " -r x
-	x=${x%${x##*[![:space:]]}}
+	printf "\nnumber of copies / (c)ancel [1]: "; read -r x
 	x=$(printf "%s" "${x:-'1'}" | tr -cd '0-9')
-	x=${x#${x%%[!0]*}}
+	x=${x#"${x%%[!0]*}"}
 	[ -z "$x" ] && exit 0
 
-	local num pa npa k
 	: >"$exbuf1"; : >"$exbuf2"
-	while IFS='' read -r pa; do
+	while IFS='' read -r path; do
 		num=1
-		pa=$(printf "%s" "$pa" | tr '\035' '\n')
+		path=$(printf "%s" "$path" | tr '\035' '\n')
 
-		for i in $(seq "$x"); do
-			npa="${pa}_$num"
-			k=$num
-			while [ -e "$npa" ]; do
-				k=$((k+1))
-				npa="${pa}_$k"
+		for _ in $(seq "$x"); do
+			npath="${path}_$num"
+			i=$num
+			while [ -e "$npath" ]; do
+				i=$((i + 1))
+				npath="${path}_$i"
 			done
-			num=$((k+1))
+			num=$((i + 1))
 
-			printf "%s\0%s\0" "$pa" "$npa" >>"$exbuf1"
-			printf "%s\0" "$npa" >>"$exbuf2"
+			printf "%s\0%s\0" "$path" "$npath" >>"$exbuf1"
+			printf "%s\0" "$npath" >>"$exbuf2"
 		done
 	done <"$tsel"
 	rm -f "$tsel"
@@ -356,186 +340,91 @@ sff_duplicate()
 sff_do_duplicate()
 {
 	printf "duplicate" >"$lastop"
-	sffpipe_sel_file "$exbuf2"
+	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr -d '\n' | tr '\035' '\n')"
 
-	xargs -0 -n 2 cp -an -- <"$exbuf1" || err=1
-	[ "$err" ] && read -p "Press Enter to continue " -r x
+	xargs -0 -n 2 cp -an <"$exbuf1" \
+	|| { printf "Press Enter to continue "; read -r x; }
 }
 
 sff_delete()
 {
 	sffpipe_get_sel
-	rm -f "$tsel"; tr '\n\0' '\035\n' <"$sel" >"$tsel"
-	[ ! -s "$tsel" ] && exit 0
+	tr '\n\0' '\035\n' <"$sel" >"$tsel"
+	[ ! -s "$tsel" ] && sff_abort
 
 	echo ""
 	head -n 160 "$tsel"
-	echo "Permanently delete" $(wc -l <"$tsel") "file(s), this action cannot be undone"
-	read -p "Are you sure? (y/n) [default=n]: " -r x
+	num=$(wc -l <"$tsel")
+	printf "Permanently delete %s files? (y/n) [n]: " "${num##* }"; read -r x
 	[ "$x" != 'y' ] && exit 0
-	sffpipe_refresh -c
 
-	tr '\n\035' '\0\n' <"$tsel" | xargs -0 rm -rf -- || err=1
+	if tr '\n\035' '\0\n' <"$tsel" | xargs -0 rm -rf; then
+		sffpipe_refresh -c
+	else
+		sffpipe_refresh
+		printf "Press Enter to continue "; read -r x
+	fi
 	rm -f "$tsel"
-	[ "$err" ] && read -p "Press Enter to continue " -r x
 }
 
 sff_chmod_chown()
 {
-	printf "\nEnter permissions (e.g., 644, a+x) or owner and group (e.g., cat:wheel)\n"
-	echo "Add -R at the beginning to apply changes recursively"
-	echo "Press Enter to cancel"
-	read -p ": " -r x
-	x=${x%${x##*[![:space:]]}}
+	printf "\nEnter permission ([-R] 644/a+x) or user:group ([-R] cat:wheel)\n"
+	printf "mode / owner:group (empty to cancel): "; read -r x
 	[ -z "$x" ] && exit 0
 
 	sffpipe_get_sel
 	case "$x" in
-	*:*) xargs -r -0 chown $x <"$sel" || err=1;;
-	*) xargs -r -0 chmod $x <"$sel" || err=1;;
-	esac
+	*:*) xargs -r -0 chown $x <"$sel";;
+	*) xargs -r -0 chmod $x <"$sel";;
+	esac || { printf "Press Enter to continue "; read -r x; }
 	sffpipe_refresh
-	[ "$err" ] && read -p "Press Enter to continue " -r x
 }
 
 sff_find()
 {
-	printf "\nType a name pattern or press Enter to cancel\n"
-	read -p "find ./ -name " -r x
+	printf "\nEnter name pattern (empty to cancel)\n"
+	printf "find ./ -name "; read -r x
 	[ -z "$x" ] && exit 0
-
-	echo "Optionally, add more options (e.g., -type d, -size +4k)"
-	read -p ": " -r y
+	printf "More options (optional): "; read -r y
 	echo "Searching in $PWD/ ..."
-
-	{ printf "?"; find ./ $y -name "$x" 2>/dev/null | sed -e 's/^\.\///' | tr '\n' '\0'; } >"$sffpipe"
+	{ printf "?"; find ./ $y -name "$x" ! -name . ! -name .. 2>/dev/null | sed -e 's/^\.\///' | tr '\n' '\0'; } >"$sffpipe"
 }
 
 sff_file_stat()
 {
 	sffpipe_get_sel
-	rm -f "$tsel"; tr '\n\0' '\035\n' <"$sel" >"$tsel"
-	[ ! -s "$tsel" ] && { rm -f "$tsel"; exit 0; }
+	tr '\n\0' '\035\n' <"$sel" >"$tsel"
+	[ ! -s "$tsel" ] && sff_abort
 
-	local f
-	while IFS='' read -r f; do
+	while IFS='' read -r path; do
 		echo ""
-		f="$(printf "%s" "$f" | tr '\035' '\n')"
-		stat --version >/dev/null 2>&1 && stat "$f" || stat -x "$f"
-		file -bi "$f"
-		file -b "$f"
+		path=$(printf "%s" "$path" | tr '\035' '\n')
+		if stat --version >/dev/null 2>&1; then
+			stat "$path"
+		else
+			stat -x "$path"
+		fi
+		file -bi "$path"
+		file -b "$path"
 	done <"$tsel"
 	rm -f "$tsel"
-	read -p "Press Enter to continue " -r x
+	printf "Press Enter to continue "; read -r x
 }
 
 sff_disk_usage()
 {
 	sffpipe_get_sel
 	echo ""
-	xargs -r -0 du -shc -- <"$sel" | sort -h
+	xargs -r -0 du -shc <"$sel" | sort -h
 	echo ""
 	df -h "$PWD"
-	read -p "Press Enter to continue " -r x
-}
-
-sff_extract()
-{
-	sffpipe_get_sel
-	rm -f "$tsel"; tr '\n\0' '\035\n' <"$sel" >"$tsel"
-	[ ! -s "$tsel" ] && exit 0
-
-	printf "\nx) extract archive(s)\n"
-	echo "l) show the contents"
-	echo "q) cancel"
-	read -p "(x/l/q) [default=l]: " -r x
-	[ "$x" = 'q' ] && exit 0
-	sffpipe_refresh -c
-
-	local pa ppa name bname
-	while IFS='' read -r pa; do
-		pa=$(printf "%s" "$pa" | tr '\035' '\n')
-		ppa=${pa%/*}
-		name=${pa##*/}
-		bname=${name%.?*}
-		bname=${bname%.tar}
-
-		case "$x" in
-		'x') case "$(printf "%s" "$name" | tr '[A-Z]' '[a-z]')" in
-			*?.tar.?*) mkdir -p "${ppa}/$bname" && cd "${ppa}/$bname" && tar -xvf "$pa" || err=1;;
-			*?.gz) gunzip -k "$pa" || err=1;;
-			*?.bz2) bunzip2 -k "$pa" || err=1;;
-			*?.xz) unxz -k "$pa" || err=1;;
-			*?.zip) mkdir -p "${ppa}/$bname" && cd "${ppa}/$bname" && unzip "$pa" || err=1;;
-			*?.7z) mkdir -p "${ppa}/$bname" && cd "${ppa}/$bname" && 7z e "$pa" || err=1;;
-			*?.rar) mkdir -p "${ppa}/$bname" && cd "${ppa}/$bname" && unrar e "$pa" || err=1;;
-			*?.?*) mkdir -p "${ppa}/$bname" && cd "${ppa}/$bname" && tar -xvf "$pa" || err=1;;
-			esac
-			;;
-		*) case "$(printf "%s" "$name" | tr '[A-Z]' '[a-z]')" in
-			*?.tar.?*) tar -tvf "$pa" | less;;
-			*?.gz) zcat "$pa" | less;;
-			*?.bz2) bzcat "$pa" | less;;
-			*?.xz) xzcat "$pa" | less;;
-			*?.zip) unzip -l "$pa" | less;;
-			*?.7z) 7z l "$pa" | less;;
-			*?.rar) unrar l "$pa" | less;;
-			*?.?*) tar -tvf "$pa" | less;;
-			esac
-			;;
-		esac
-	done <"$tsel"
-
-	rm -f "$tsel"
-	[ "$err" ] && read -p "Press Enter to continue " -r x
-}
-
-sff_archive()
-{
-	sff_pwd_perm
-	sffpipe_get_sel
-	rm -f "$tsel" "$tbuf1" "$tbuf2"
-	tr '\n\0' '\035\n' <"$sel" >"$tsel"
-	[ ! -s "$tsel" ] && exit 0
-
-	local tname name wd
-	tname=$(tail -n 1 "$tsel" | sed 's/^.*\///')
-	printf "%s.tar.gz\n" "$tname" >"$tbuf1"
-
-	while true; do
-		"$EDITOR" "$tbuf1"
-		name=$(head -n 1 "$tbuf1")
-		[ -z "$name" ] && sff_abort
-		[ ! -e "$name" ] && break
-		printf "\nFile exist. Overwrite?\n"
-		read -p "(y/n/q) [default=n]: " -r x
-		[ "$x" = 'y' ] && break
-		[ "$x" = 'q' ] && sff_abort
-	done
-	sffpipe_sel_file "$name"
-
-	wd=$(printf "%s" "$PWD" | tr '\n' '\035')
-	sed "s^$wd/" "$tsel" | tr '\n\035' '\0\n' >"$tbuf2"
-
-	case "$(printf "%s" "$name" | tr '[A-Z]' '[a-z]')" in
-	*?.tar.?*|*?.t?*) xargs -0 tar -cavf "$name" -- <"$tbuf2" || err=1;;
-	*?.gz) xargs -0 gzip -k -- <"$tbuf2" || err=1;;
-	*?.bz2) xargs -0 bzip2 -k -- <"$tbuf2" || err=1;;
-	*?.xz) xargs -0 xz -k -- <"$tbuf2" || err=1;;
-	*?.zip) xargs -0 zip -r "$name" -- <"$tbuf2" || err=1;;
-	*?.7z) xargs -0 7z a "$name" -- <"$tbuf2" || err=1;;
-	*) echo "Unsupported file format"; err=1;;
-	esac
-
-	rm -f "$tsel" "$tbuf1" "$tbuf2"
-	[ "$err" ] && read -p "Press Enter to continue " -r x
+	printf "Press Enter to continue "; read -r x
 }
 
 sff_undo()
 {
-	[ ! -s "$lastop" ] && exit 0
-	[ "$(find "$lastop" -mmin +360)" ] && exit 0
-
+	[ ! -s "$lastop" ] || [ "$(find "$lastop" -mmin +360)" ] && exit 0
 	case "$(cat "$lastop")" in
 	'new'|'copy'|'duplicate') sff_undo_new;;
 	'move'|'rename') sff_undo_move;;
@@ -545,11 +434,10 @@ sff_undo()
 sff_redo()
 {
 	[ ! -s "$lastop" ] && exit 0
-
 	case "$(cat "$lastop")" in
 	'unnew') sff_do_new;;
-	'uncopy') sff_do_paste 'copy' '0';;
-	'unmove') sff_do_paste 'move' '0';;
+	'uncopy') sff_do_paste 'copy' 'w';;
+	'unmove') sff_do_paste 'move' 'w';;
 	'unrename') sff_do_rename;;
 	'unduplicate') sff_do_duplicate;;
 	esac
@@ -564,8 +452,12 @@ run_pl()
 {
 	plugin="${sffdir}/plugins/$1"
 	[ ! -e "$plugin" ] && plugin="${0%/*}/plugins/$1"
-	[ ! -e "$plugin" ] && { read -p "Plugin '$1' not found. Press Enter to continue " -r x; exit 0; }
-	"$plugin" "$sffpipe" "$2" || read -p "Press Enter to continue " -r x
+	if [ ! -e "$plugin" ]; then
+		printf "\nPlugin '%s' not found\n" "$1"
+		printf "Press Enter to continue "; read -r x
+	else
+		"$plugin" "$sffpipe" "$2"
+	fi
 }
 
 # === custom functions ===
@@ -587,12 +479,12 @@ case "$1" in                  #?> Extension functions:
 'f') sff_find;;               #?>     Alt-f  Advanced search
 'i') sff_file_stat;;          #?>     Alt-i  Show file status
 'I') sff_disk_usage;;         #?>     Alt-I  Show disk usage
-'z') sff_extract;;            #?>     Alt-z  Extract
-'Z') sff_archive;;            #?>     Alt-Z  Archive
 'u') sff_undo;;               #?>     Alt-u  Undo last operation
 'U') sff_redo;;               #?>     Alt-U  Redu last operation
 '/') sff_help;;               #?>     Alt-/  Show this help
                               #?> Plugins:
 'F') run_pl 'fzf-find';;      #?>     Alt-F  Search with 'fzf'
 '=') run_pl 'preview' 'tui';; #?>     Alt-=  Toggle preview
+'z') run_pl 'archive' 'e';;   #?>     Alt-z  Extract archive
+'Z') run_pl 'archive' 'c';;   #?>     Alt-Z  Create archive
 esac                          #?> Press 'q' to leave this page.

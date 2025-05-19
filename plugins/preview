@@ -1,37 +1,41 @@
 #!/usr/bin/env sh
 
-sffpipe="$1"
+sffpipe=$1
 pvfifo="${sffpipe}.pv"
-[ -w /dev/shm ] && tmpdir="/dev/shm" || tmpdir="/tmp"
+sffdir=${sffpipe%/*}
+tmpdir=${TMPDIR:-/tmp}
+[ ! -w "$tmpdir" ] && tmpdir=$sffdir
+tmppvfile="${tmpdir}/sff-tmppv-$(id -u)"
 
 preview_loop_tui()
 {
 	mkfifo "$pvfifo" || exit 0
-	while IFS='' read -r f; do
+	while IFS='' read -r path; do
 		while x=$(timeout 0.005 sh -c 'IFS="" read -r x && printf "%s" "$x"'); do
-			f="$x"
+			path=$x
 		done
 		clear
 		dest=''
-		mime="$(file -bL --mime-type "$f" 2>&1)"
+		mime=$(file -bL --mime-type "$path")
 
 		case "$mime" in
-		image/*) dest="$f"
+		image/*) dest=$path
 			;;
-		application/pdf) dest="${tmpdir}/sff-pv-tmp"
-			pdftoppm -jpeg -f 1 -singlefile -scale-to 800 "$f" "$dest" >/dev/null 2>&1 \
+		application/pdf) dest=$tmppvfile
+			pdftoppm -jpeg -f 1 -singlefile -scale-to 800 "$path" "$dest" >/dev/null 2>&1 \
 			&& dest="${dest}.jpg" || dest=''
 			;;
-		video/*) dest="${tmpdir}/sff-pv-tmp.jpg"
-			ffmpegthumbnailer -m -s 0 -i "$f" -o "$dest" >/dev/null 2>&1 \
+		video/*) dest="${tmppvfile}.jpg"
+			ffmpegthumbnailer -m -s 0 -i "$path" -o "$dest" >/dev/null 2>&1 \
 			|| dest=''
 			;;
 		*) rows=$(tput lines); cols=$(tput cols)
 			case "$mime" in
-			text/*) { printf "    --- %s ---\n" "$mime"; head -n $rows "$f"; } | less -SX +gq
+			text/*) { printf "    --- %s ---\n" "$mime"; head -n "$rows" "$path"; } | less -SX +gq
 				continue ;;
-			inode/directory) { printf "    --- %s ---  (%s files)\n" "$mime" $(find "$f" -mindepth 1 -maxdepth 1 | wc -l); \
-					ls -1Ap "$f"; } | head -n $((rows - 1)) | cut -c 1-$cols
+			inode/directory) { printf "    --- %s ---  (%s files)\n" "$mime" \
+					$(find "$path"/ -mindepth 1 -maxdepth 1 ! -name . ! -name .. -exec echo '1' \; | wc -l); \
+					ls -1Ap "$path"; } | head -n "$((rows - 1))" | cut -c 1-"$cols"
 				continue ;;
 			esac
 			;;
@@ -72,8 +76,8 @@ case "$2" in
 		tmux split-window -d"$layout" "$0" "$sffpipe" 'loop'
 	else
 		if [ -z "$SFF_PV_TERM" ]; then
-			echo "SFF_PV_TERM is not set"
-			read -p "Specify terminal emulator for preview (press Enter to cancel): " -r x
+			printf "\nSFF_PV_TERM: not set\n"
+			printf "Terminal emulator for preview (empty to cancel): "; read -r x
 			[ -z "$x" ] && exit 0
 			SFF_PV_TERM="$x"
 		fi
