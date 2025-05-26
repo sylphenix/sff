@@ -27,76 +27,93 @@ has been extensively tested on GNU/Linux and FreeBSD.
 
 ## Installation
 
+### Dependencies
+
+| Library/Package                                 | Install?  | Notes                                     |
+|-------------------------------------------------|-----------|-------------------------------------------|
+| libc, curses (wide character support)           | Required* | Essential runtime libraries               |
+| coreutils (Linux), findutils (Linux), sed, file | Required* | For file operations                       |
+| vi/vim                                          | Required* | Default text editor                       |
+| sudo                                            | Optional* | Sudo mode                                 |
+| xdg-utils                                       | Optional* | File opening via default applications     |
+| tar, gzip, bzip2, xz, 7zip                      | Optional  | Archive handling (archive plugin)         |
+| fzf                                             | Optional  | File search with fzf (fzf-find plugin)    |
+| chafa                                           | Optional  | Image preview (preview plugin)            |
+| poppler-utils                                   | Optional  | PDF preview (preview plugin)              |
+| ffmpegthumbnailer                               | Optional  | Video thumbnail preview (preview plugin)  |
+
+_* These dependencies are part of the base system in most environments and generally don't require manual installation._
+
+
+You can install all dependencies using the following commands:
+- Debian/Ubuntu:
+   ```
+   sudo apt install 7zip fzf chafa poppler-utils ffmpegthumbnailer
+   ```
+- Arch Linux:
+   ```
+   sudo pacman -S 7zip fzf chafa poppler-utils ffmpegthumbnailer
+   ```
+- Fedora:
+   ```
+   sudo dnf install 7zip fzf chafa poppler-utils ffmpegthumbnailer
+   ```
+- FreeBSD:
+   ```
+   sudo pkg install 7-zip fzf chafa poppler-utils ffmpegthumbnailer
+   ```
+
+
 ### Install from binary packages
 1. [Download](https://codeberg.org/sylphenix/sff/releases) the appropriate package for your system.
 
-2. Navigate to the directory where the downloaded package is located.
-
-3. Install the package using the package manager specific to your system.
+2. Install the package using the package manager specific to your system.
 - Debian/Ubuntu:
    ```
-   sudo apt install ./sff_xxx_amd64.deb
+   sudo apt install /PATH/TO/sff_VERSION_amd64.deb
    ```
 - Arch Linux:
    ```
-   sudo pacman -U ./sff-xxx-x86_64.pkg.tar.zst
+   sudo pacman -U /PATH/TO/sff-VERSION-x86_64.pkg.tar.zst
    ```
 - Fedora:
    ```
-   sudo dnf install ./sff-xxx.86_64.rpm
-   ```
-- FreeBSD
-   ```
-   sudo pkg add ./sff-xxx.pkg
+   sudo dnf install /PATH/TO/sff-VERSION.86_64.rpm
    ```
 
-### Install from source
-For Linux users, ensure that `gcc` and `make` are already installed on your system.  
-
-1. Install dependencies. (Linux only)
+### Build and install from source
+0. For Linux users, ensure that a C compiler, build tools, and the ncurses header files are installed. You can install them using the following commands:
 - Debian/Ubuntu:
    ```
-   sudo apt install libncurses-dev
+   sudo apt install gcc make libncurses-dev
    ```
 - Arch Linux:
    ```
-   sudo pacman -S ncurses
+   sudo pacman -S gcc make ncurses
    ```
-   *Note: On Arch Linux, this step is usually unnecessary since ncurses is part of the base installation.*
-
 - Fedora:
    ```
-   sudo dnf install ncurses-devel
-   ```
-- openSUSE:
-   ```
-   sudo zypper install ncurses-devel
-   [ -e /usr/include/ncursesw/curses.h ] && sudo ln -fs ncursesw/curses.h /usr/include/curses.h
+   sudo dnf install gcc make ncurses-devel
    ```
 
-2. Download or clone the source code repository.
+1. [Download](https://codeberg.org/sylphenix/sff/releases) and extract the latest release, or clone the repository to get the development version.
 
-3. Navigate to the root directory of the project.
+2. Change to the root directory of the project.
 
-4. Run the following command to build and install sff:
-- Linux:
-   ```
-   sudo make install PREFIX=/usr
-   ```
-- FreeBSD
+3. Run the following command to build and install sff:
    ```
    sudo make install
    ```
+`PREFIX` is supported, in case you want to install to a different location.
+
 
 ## Usage
 
 Simply run `sff` to start the application from the current directory.
 
-Run `sff -h` to see command line options.
-
 While sff is running:
 - Press `?` or `F1` to see the list of key bindings for built-in functions.
-- Press `alt`+`/` to see the list of key bindings for extension functions.
+- Press `alt`+`/` to see the list of key bindings for extension functions and plugins.
 - Press `Q` to quit sff.
 
 For more details, run `man sff` to see the documentation, or visit the [wiki](https://codeberg.org/sylphenix/sff/wiki/Home) for useful tips and tricks.
@@ -104,6 +121,7 @@ For more details, run `man sff` to see the documentation, or visit the [wiki](ht
 
 ## Philosophy
 sff is built on the belief that simplicity ensures reliability. It follows a minimalist design, divided into two parts: the core program and the extension script. The core program is a lightweight file browser and selector, sticking to features that are simple, necessary, and straightforward to implement. The extension script, a POSIX-compliant shell script, handles file operations such as copying, moving, and deleting. This modular design allows users to easily customize or extend functionality while keeping the core simple and efficient.
+
 
 ## License
 

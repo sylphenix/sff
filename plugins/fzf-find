@@ -1,6 +1,14 @@
 #!/usr/bin/env sh
 
-sffpipe="$1"
+# Description: Search file with fzf
+#
+# Dependencies: fzf
+#
+# Shell: POSIX compliant
+#
+# Author: Shi Yanling
+
+sffpipe=$1
 
 sffpipe_enter()
 {
@@ -8,8 +16,8 @@ sffpipe_enter()
 }
 
 if ! fzf --version >/dev/null; then
-	printf "Press Enter to continue "; read -r x
+	printf "Press Enter to continue "; read -r _x
 	exit 0
 fi
-path=$(fzf)
-[ "$path" ] && sffpipe_enter "$path"
+_path=$(fzf)
+[ "$_path" ] && sffpipe_enter "$_path"
