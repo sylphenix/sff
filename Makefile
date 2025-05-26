@@ -43,7 +43,6 @@ config.h:
 
 sff: ${OBJ}
 	${CC} -o $@ ${OBJ} ${LDFLAGS}
-	rm sff.o
 
 clean:
 	rm -f sff ${OBJ} sff.1.gz sff-${VERSION}.tar.gz
