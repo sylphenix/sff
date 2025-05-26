@@ -13,7 +13,7 @@ INCS =
 LIBS = -lncursesw
 
 # flags
-CPPFLAGS = -D_DEFAULT_SOURCE -D_BSD_SOURCE -DEXTFNNAME=\"${EXTFNNAME}\" -DEXTFNPREFIX=\"${EXTFNPREFIX}\" -DVERSION=\"${VERSION}\"
+CPPFLAGS = -D_DEFAULT_SOURCE -DVERSION=\"${VERSION}\" -DEXTFNNAME=\"${EXTFNNAME}\" -DEXTFNPREFIX=\"${EXTFNPREFIX}\" -I/usr/include/ncursesw
 CFLAGS   = -std=c11 -pedantic -Wall -Wextra -Wshadow -Wno-deprecated-declarations -Os ${CPPFLAGS}
 LDFLAGS  = ${LIBS} -s
 
