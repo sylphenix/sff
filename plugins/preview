@@ -1,5 +1,31 @@
 #!/usr/bin/env sh
 
+# Description: File preview
+#
+# Dependencies:
+#   - Image preview: chafa
+#   - PDF preview: poppler-utils
+#   - Video thumbnail preview: ffmpegthumbnailertar
+#
+# Usage:
+#   When sff is running inside tmux:
+#     Enabling preview will split a new pane for display.
+#
+#   When sff is running outside tmux:
+#     If SFF_PV_TERM is set, enabling preview will launch the terminal emulator
+#     specified by this variable as the previewer.
+#
+#     If SFF_PV_TERM is not set, enabling preview will prompt you to enter
+#     the name of a terminal emulator to use temporarily as the previewer.
+#
+#   The SFF_PV_TERM environment variable defines the default terminal emulator
+#   to be used as the previewer. You can set SFF_PV_TERM like this:
+#     $ export SFF_PV_TERM=xterm
+#
+# Shell: POSIX compliant
+#
+# Author: Shi Yanling
+
 sffpipe=$1
 pvfifo="${sffpipe}.pv"
 sffdir=${sffpipe%/*}
@@ -10,42 +36,42 @@ tmppvfile="${tmpdir}/sff-tmppv-$(id -u)"
 preview_loop_tui()
 {
 	mkfifo "$pvfifo" || exit 0
-	while IFS='' read -r path; do
-		while x=$(timeout 0.005 sh -c 'IFS="" read -r x && printf "%s" "$x"'); do
-			path=$x
+	while IFS='' read -r _path; do
+		while _x=$(timeout 0.005 sh -c 'IFS="" read -r _x && printf "%s" "$_x"'); do
+			_path=$_x
 		done
 		clear
-		dest=''
-		mime=$(file -bL --mime-type "$path")
+		_dest=''
+		_mime=$(file -bL --mime-type "$_path")
 
-		case "$mime" in
-		image/*) dest=$path
+		case "$_mime" in
+		image/*) _dest=$_path
 			;;
-		application/pdf) dest=$tmppvfile
-			pdftoppm -jpeg -f 1 -singlefile -scale-to 800 "$path" "$dest" >/dev/null 2>&1 \
-			&& dest="${dest}.jpg" || dest=''
+		application/pdf) _dest=$tmppvfile
+			pdftoppm -jpeg -f 1 -singlefile -scale-to 800 "$_path" "$_dest" >/dev/null 2>&1 \
+			&& _dest="${_dest}.jpg" || _dest=''
 			;;
-		video/*) dest="${tmppvfile}.jpg"
-			ffmpegthumbnailer -m -s 0 -i "$path" -o "$dest" >/dev/null 2>&1 \
-			|| dest=''
+		video/*) _dest="${tmppvfile}.jpg"
+			ffmpegthumbnailer -m -s 0 -i "$_path" -o "$_dest" >/dev/null 2>&1 \
+			|| _dest=''
 			;;
-		*) rows=$(tput lines); cols=$(tput cols)
-			case "$mime" in
-			text/*) { printf "    --- %s ---\n" "$mime"; head -n "$rows" "$path"; } | less -SX +gq
+		*) _rows=$(tput lines); _cols=$(tput cols)
+			case "$_mime" in
+			text/*) { printf "    --- %s ---\n" "$_mime"; head -n "$_rows" "$_path"; } | less -SX +gq
 				continue ;;
-			inode/directory) { printf "    --- %s ---  (%s files)\n" "$mime" \
-					$(find "$path"/ -mindepth 1 -maxdepth 1 ! -name . ! -name .. -exec echo '1' \; | wc -l); \
-					ls -1Ap "$path"; } | head -n "$((rows - 1))" | cut -c 1-"$cols"
+			inode/directory) { printf "    --- %s ---  (%s files)\n" "$_mime" \
+					$(find "$_path"/ -mindepth 1 -maxdepth 1 ! -name . ! -name .. -exec echo '1' \; | wc -l); \
+					ls -1Ap "$_path"; } | head -n "$((_rows - 1))" | cut -c 1-"$_cols"
 				continue ;;
 			esac
 			;;
 		esac
 
-		if [ "$dest" ]; then
-			chafa "$dest"
+		if [ "$_dest" ]; then
+			chafa "$_dest"
 			tput civis
 		else
-			printf "    --- %s ---" "$mime"
+			printf "    --- %s ---" "$_mime"
 		fi
 	done <"$pvfifo"
 }
@@ -61,25 +87,25 @@ check_fifo()
 
 wait_for_fifo()
 {
-	i=1
+	_i=1
 	while [ ! -p "$pvfifo" ]; do
 		sleep 0.1
-		i=$((i + 1))
-		[ "$i" -gt 20 ] && exit 0
+		_i=$((_i + 1))
+		[ "$_i" -gt 20 ] && exit 0
 	done
 }
 
 case "$2" in
 'tui') check_fifo
 	if [ "$TMUX" ]; then
-		[ $(($(tput lines) * 2)) -gt "$(tput cols)" ] && layout='v' || layout='h'
-		tmux split-window -d"$layout" "$0" "$sffpipe" 'loop'
+		[ $(($(tput lines) * 2)) -gt "$(tput cols)" ] && _layout='v' || _layout='h'
+		tmux split-window -d"$_layout" "$0" "$sffpipe" 'loop'
 	else
 		if [ -z "$SFF_PV_TERM" ]; then
 			printf "\nSFF_PV_TERM: not set\n"
-			printf "Terminal emulator for preview (empty to cancel): "; read -r x
-			[ -z "$x" ] && exit 0
-			SFF_PV_TERM="$x"
+			printf "Terminal emulator for preview (empty to cancel): "; read -r _x
+			[ -z "$_x" ] && exit 0
+			SFF_PV_TERM=$_x
 		fi
 
 		case "$SFF_PV_TERM" in

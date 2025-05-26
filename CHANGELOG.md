@@ -4,7 +4,7 @@
 ## Unreleased
 ### Added
 
-* Plugins support
+* Add plugins support
 * New preview plugin ([#3][3])
 
 [3]: https://codeberg.org/sylphenix/sff/issues/3
@@ -12,7 +12,11 @@
 
 ### Changed
 
+* Changed sff-extfunc installation path from libexec/ to libexec/sff/
+* Simplified the control sequence sent from sff-extfunc to sff
 * 'Search with fzf' now provided as a plugin
+* 'Extract and create archives' now provided as a plugin
+* Optimized and simplified prompt text for extension functions
 
 
 ### Deprecated

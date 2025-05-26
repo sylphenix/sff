@@ -1,14 +1,30 @@
 #!/usr/bin/env sh
 
+# Description: Extract and create archives
+#
+# Supported creation:
+#   bz2, gz, tar (with gz, bz2, xz), xz, zip, 7z
+#
+# Supported extraction:
+#    ar, arj, bz2, cab, chm, cpio, cramfs, deb, dmg, gz, iso, lzh, lzma,
+#    msi, nsis, qcow2, rar, rpm, squashfs, tar (with gz, bz2, xz), wim,
+#    xar, xz, zip, Z, 7z
+#
+# Dependencies:
+#   - tar, gzip, bzip2, xz
+#   - 7zip
+#
+# Shell: POSIX compliant
+#
+# Author: Shi Yanling
+
 sffpipe=$1
 sffdir=${sffpipe%/*}
 tmpdir=${TMPDIR:-/tmp}
 [ ! -w "$tmpdir" ] && tmpdir=$sffdir
 uid=$(id -u)
 tsel="${tmpdir}/sff-tmpsel-$uid"
-tbuf1="${tmpdir}/sff-tmpbuf1-$uid"
-tbuf2="${tmpdir}/sff-tmpbuf2-$uid"
-err=''
+tbuf1="${tmpdir}/sff-tmpbuf2-$uid"
 
 sffpipe_sel_file()
 {
@@ -25,103 +41,98 @@ extract_archive()
 {
 	sffpipe_get_sel
 	tr '\n\0' '\035\n' <"$sel" >"$tsel"
-	[ ! -s "$tsel" ] && exit 0
+	[ ! -s "$tsel" ] && return 0
 
-	printf "\n(l)ist contents / (e)xtract / (c)ancel [l]: "; read -r x
-	[ "$x" = 'c' ] && exit 0
+	printf "\n(l)ist contents / (e)xtract / (c)ancel [l]: "; read -r _x
+	[ "$_x" = 'c' ] && return 0
 
-	selfile=''
-	while IFS='' read -r path <&3; do
-		path=$(printf "%s" "$path" | tr '\035' '\n')
-		wdir=${path%/*}
-		name=${path##*/}
-		bname=${name%.?*}
-		bname=${bname%.tar}
+	_err=''
+	_selfile=''
+	while IFS='' read -r _path <&3; do
+		_path=$(printf "%s" "$_path" | tr '\035' '\n')
+		_wdir=${_path%/*}
+		_name=${_path##*/}
+		_bname=${_name%.?*}
+		_bname=${_bname%.tar}
 
-		case "$x" in
-		'e') if [ -e "${wdir}/$bname" ]; then
-				printf "\n'%s' exists. Overwrite? (y/n) [n]: " "$bname"; read -r y
-				[ "$y" != 'y' ] && continue
+		case "$_x" in
+		'e') if [ -e "${_wdir}/$_bname" ]; then
+				printf "\n'%s' exists. Overwrite? (y/n) [n]: " "$_bname"; read -r _y
+				[ "$_y" != 'y' ] && continue
 			fi
-			tdir=$(mktemp -d "${wdir}/tmp.XXXXXX")
-			[ -e "${wdir}/$bname" ] && rm -rf "${wdir}/$bname"
+	 		_tdir=$(mktemp -d "${_wdir}/tmp.XXXXXX")
+			[ -e "${_wdir}/$_bname" ] && rm -rf "${_wdir}/$_bname"
 
-			case "$(printf "%s" "$name" | tr '[:upper:]' '[:lower:]')" in
-			*?.tar.?*) cd "$tdir" && tar -xvf "$path";;
-			*?.gz) gunzip -k "$path";;
-			*?.bz2) bunzip2 -k "$path";;
-			*?.xz) unxz -k "$path";;
-			*?.zip) cd "$tdir" && unzip "$path";;
-			*?.7z) cd "$tdir" && 7z e "$path";;
-			*?.rar) cd "$tdir" && unrar e "$path";;
-			*?.?*) cd "$tdir" && tar -xvf "$path";;
-			esac || err=1
+			echo "Extracting..."
+			case "$(printf "%s" "$_name" | tr 'A-Z' 'a-z')" in
+			*?.tar.?*) cd "$_tdir" && tar -xvf "$_path";;
+			*?.gz) gunzip -k "$_path";;
+			*?.bz2) bunzip2 -k "$_path";;
+			*?.xz) unxz -k "$_path";;
+			*?.?*) cd "$_tdir" && { tar -xvf "$_path" || 7zz x -aoa "$_path"; };;
+			esac || _err=1
 
-			num=$(find "$tdir"/ -mindepth 1 -maxdepth 1 ! -name . ! -name .. -exec echo '1' \; | wc -l)
-			if [ -d "${tdir}/$bname" ] && [ "$num" -eq 1 ]; then
-				mv "${tdir}/$bname" "$wdir"/
-			elif [ ! -e "${wdir}/$bname" ]; then
-				mv "$tdir" "${wdir}/$bname"
+			_num=$(find "$_tdir"/ -mindepth 1 -maxdepth 1 ! -name . ! -name .. -exec echo '1' \; | wc -l)
+			if [ -d "${_tdir}/$_bname" ] && [ "$_num" -eq 1 ]; then
+				mv "${_tdir}/$_bname" "$_wdir"/
+			elif [ ! -e "${_wdir}/$_bname" ]; then
+				mv "$_tdir" "${_wdir}/$_bname"
 			fi
-			[ -e "$tdir" ] && rm -rf "$tdir"
-			[ -z "$err" ] && selfile="$bname"
+			[ -e "$_tdir" ] && rm -rf "$_tdir"
+			[ -z "$_err" ] && _selfile="$_bname"
 			;;
 
-		*) case "$(printf "%s" "$name" | tr '[:upper:]' '[:lower:]')" in
-			*?.tar.?*) tar -tvf "$path" | less;;
-			*?.gz) zcat "$path" | less;;
-			*?.bz2) bzcat "$path" | less;;
-			*?.xz) xzcat "$path" | less;;
-			*?.zip) unzip -l "$path" | less;;
-			*?.7z) 7z l "$path" | less;;
-			*?.rar) unrar l "$path" | less;;
-			*?.?*) tar -tvf "$path" | less;;
+		*) echo ""
+			case "$(printf "%s" "$_name" | tr 'A-Z' 'a-z')" in
+			*?.tar.?*) tar -tvf "$_path";;
+			*?.gz) zcat "$_path";;
+			*?.bz2) bzcat "$_path";;
+			*?.xz) xzcat "$_path";;
+			*?.?*) tar -tvf "$_path" 2>/dev/null || 7zz l "$_path";;
 			esac
+			printf "Press Enter to continue "; read -r _x
 			;;
 		esac
 	done 3<"$tsel"
 
-	[ "$selfile" ] && sffpipe_sel_file "$selfile"
-	[ "$err" ] && { printf "Press Enter to continue "; read -r x; }
+	[ "$_selfile" ] && sffpipe_sel_file "$_selfile"
+	[ "$_err" ] && { printf "Press Enter to continue "; read -r _x; }
 }
 
 create_archive()
 {
 	sffpipe_get_sel
 	tr '\n\0' '\035\n' <"$sel" >"$tsel"
-	[ ! -s "$tsel" ] && exit 0
-	printf "%s.tar.gz\n" "$(tail -n 1 "$tsel" | sed 's/^.*\///')" >"$tbuf1"
+	[ ! -s "$tsel" ] && return 0
 
 	while true; do
-		"$EDITOR" "$tbuf1"
-		name=$(head -n 1 "$tbuf1")
-		[ -z "$name" ] && exit 0
-		if [ -e "$name" ]; then
-			printf "\n'%s' exists. Overwrite? (y/n) [n]: " "$name"; read -r x
-			[ "$x" = 'y' ] && break
+		printf "\nArchive name (empty to cancel): "; read -r _name
+		[ -z "$_name" ] && return 0
+		if [ -e "$_name" ]; then
+			printf "\n'%s' exists. Overwrite? (y/n) [n]: " "$_name"; read -r _x
+			[ "$_x" = 'y' ] && break
 		else
 			break
 		fi
 	done
 
-	wdir=$(printf "%s" "$PWD" | tr '\n' '\035')
-	sed "s^$wdir/" "$tsel" | tr '\n\035' '\0\n' >"$tbuf2"
-	[ -e "$name" ] && rm -f "$name"
+	_wdir=$(printf "%s" "$PWD" | tr '\n' '\035')
+	sed "s^$_wdir/" "$tsel" | tr '\n\035' '\0\n' >"$tbuf1"
+	[ -e "$_name" ] && rm -f "$_name"
 
-	case "$(printf "%s" "$name" | tr '[:upper:]' '[:lower:]')" in
-	*?.tar.?*|*?.t?*) xargs -0 tar -cavf "$name" -- <"$tbuf2";;
-	*.gz) xargs -0 gzip -fk -- <"$tbuf2";;
-	*.bz2) xargs -0 bzip2 -fk -- <"$tbuf2";;
-	*.xz) xargs -0 xz -fk -- <"$tbuf2";;
-	*?.zip) xargs -0 zip -r "$name" -- <"$tbuf2";;
-	*?.7z) xargs -0 7z a "$name" -- <"$tbuf2";;
+	case "$(printf "%s" "$_name" | tr 'A-Z' 'a-z')" in
+	*?.tar.?*|*?.t?*) xargs -0 tar -cavf "$_name" -- <"$tbuf1";;
+	*.gz) xargs -0 gzip -fk -- <"$tbuf1";;
+	*.bz2) xargs -0 bzip2 -fk -- <"$tbuf1";;
+	*.xz) xargs -0 xz -fk -- <"$tbuf1";;
+	*?.7z|*?.zip) xargs -0 7zz a "$_name" -- <"$tbuf1";;
 	*) printf "\nUnsupported archive format\n"; false;;
 	esac
 
 	if [ "$?" -eq 0 ]; then
-		 sffpipe_sel_file "$name"
+		 sffpipe_sel_file "$_name"
 	else
-		printf "Press Enter to continue "; read -r x
+		printf "Press Enter to continue "; read -r _x
 	fi
 }
 
@@ -129,4 +140,4 @@ case "$2" in
 'e') extract_archive;;
 'c') create_archive;;
 esac
-rm -f "$tsel" "$tbuf1" "$tbuf2"
+rm -f "$tsel" "$tbuf1"
