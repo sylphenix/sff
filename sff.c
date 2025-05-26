@@ -50,7 +50,15 @@
 #endif
 #include <curses.h>
 
+#ifndef VERSION
 #define VERSION         "1.0"
+#endif
+#ifndef EXTFNNAME
+#define EXTFNNAME       "sff-extfunc"
+#endif
+#ifndef EXTFNPREFIX
+#define EXTFNPREFIX     "/usr/local/libexec/sff"
+#endif
 #ifndef PATH_MAX
 #define PATH_MAX        4096
 #endif
@@ -62,12 +70,6 @@
 #define NAME_INCR       4096 // 128 entries * avg. 32 chars per name = 4KB
 #define FILT_MAX        128 // Maximum length of filter string
 #define HSTAT_INCR      16 // Number of Histstat structures to allocate each time
-#ifndef EXTFNNAME
-#define EXTFNNAME       "sff-extfunc"
-#endif
-#ifndef EXTFNPREFIX
-#define EXTFNPREFIX     "/usr/local/libexec/sff"
-#endif
 
 #define LENGTH(X)       (sizeof X / sizeof X[0])
 #define MIN(x, y)       ((x) < (y) ? (x) : (y))
