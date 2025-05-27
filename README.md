@@ -32,7 +32,7 @@ has been extensively tested on GNU/Linux and FreeBSD.
 | Library/Package                                 | Install?  | Notes                                     |
 |-------------------------------------------------|-----------|-------------------------------------------|
 | libc, curses (wide character support)           | Required* | Essential runtime libraries               |
-| coreutils (Linux), findutils (Linux), sed, file | Required* | For file operations                       |
+| coreutils (Linux), findutils (Linux), sed, file | Required* | File operations                           |
 | vi/vim                                          | Required* | Default text editor                       |
 | sudo                                            | Optional* | Sudo mode                                 |
 | xdg-utils                                       | Optional* | File opening via default applications     |
@@ -101,11 +101,14 @@ You can install all dependencies using the following commands:
 2. Change to the root directory of the project.
 
 3. Run the following command to build and install sff:
+- Linux:
+   ```
+   sudo make install PREFIX=/usr
+   ```
+- FreeBSD
    ```
    sudo make install
    ```
-`PREFIX` is supported, in case you want to install to a different location.
-
 
 ## Usage
 
