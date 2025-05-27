@@ -57,19 +57,17 @@ dist:
 
 install: all
 	mkdir -p ${DESTDIR}${PREFIX}/bin
-	cp -f sff ${DESTDIR}${PREFIX}/bin/
-	chmod 755 ${DESTDIR}${PREFIX}/bin/sff
+	install -m 755 sff ${DESTDIR}${PREFIX}/bin/
 	mkdir -p ${DESTDIR}${EXTFNPREFIX}
 	cp -fR ${EXTFNNAME} plugins ${DESTDIR}${EXTFNPREFIX}/
 	chmod -R 755 ${DESTDIR}${EXTFNPREFIX}
 	mkdir -p ${DESTDIR}${MANPREFIX}/man1
 	gzip -fk sff.1
-	cp -f sff.1.gz ${DESTDIR}${MANPREFIX}/man1/
-	chmod 644 ${DESTDIR}${MANPREFIX}/man1/sff.1.gz
+	install -m 644 sff.1.gz ${DESTDIR}${MANPREFIX}/man1/
 
 uninstall:
-	rm -rf ${DESTDIR}${PREFIX}/bin/sff\
-		${DESTDIR}${EXTFNPREFIX}\
+	rm -rf ${DESTDIR}${PREFIX}/bin/sff \
+		${DESTDIR}${EXTFNPREFIX} \
 		${DESTDIR}${MANPREFIX}/man1/sff.1.gz
 
 .PHONY: all options clean dist install uninstall
