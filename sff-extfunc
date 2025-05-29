@@ -115,7 +115,7 @@ sff_new()
 		[ -z "$_existf" ] && break
 
 		printf "\n%s\n" "$_existf"
-		echo "^^^: file exists"
+		echo "^^^ file exists"
 		printf "(e)dit list / (c)ancel [e]: "; read -r _x
 		[ "$_x" = 'c' ] && sff_abort "$_tlist"
 	done
@@ -148,8 +148,8 @@ sff_undo_new()
 	echo ""
 	tr '\0' '\n' <"$exbuf2" | head -n 160
 	_num=$(tr '\n\0' '\035\n' <"$exbuf2" | wc -l)
-	echo "^^^: ${_num##* } files will be deleted"
-	printf "Undo '%s' operation? (y/n) [n]: " "$_op"; read -r _x
+	echo "^^^ ${_num##* } files will be deleted"
+	printf "Undo '%s'? (y/n) [n]: " "$_op"; read -r _x
 	[ "$_x" != 'y' ] && exit 0
 
 	printf "un%s" "$_op" >"$lastop"
@@ -197,12 +197,12 @@ sff_paste()
 	_existf=$(sed 's/^.*\///' "$cpbuf" | tr '\n\035' '\0\n' | xargs -0 ls -1d -- 2>/dev/null | head -n 80)
 	if [ "$_existf" ]; then
 		printf "\n%s\n" "$_existf"
-		echo "^^^: files exist"
+		echo "^^^ files exist"
 		printf "(s)kip all / (i)nteractive / (o)verwrite all / (c)ancel [c]: "; read -r _x
 		[ "${_x%[sio]}" -o -z "$_x" ] && sff_abort
 	fi
 
-	sed -e "s$\n$PWD/" "$cpbuf" | tr '\n\035' '\0\n' >"$exbuf1"
+ 	sed -e "s$\n$PWD/" "$cpbuf" | tr '\n\035' '\0\n' >"$exbuf1"
 
 	case "$_op" in
 	'copy') sed "s^.*/$PWD/" "$cpbuf" | tr '\n\035' '\0\n' >"$exbuf2"
@@ -259,10 +259,10 @@ sff_rename()
 		[ ! -s "$tbuf2" ] && sff_abort "$_tlist"
 
 		_dupnames=$(cut -d '' -f 2 "$tbuf2" | sort | uniq -d | head -n 80)
-		[ "$_dupnames" ] && printf "\n%s\n^^^: duplicate names\n" "$_dupnames"
+		[ "$_dupnames" ] && printf "\n%s\n^^^ duplicate names\n" "$_dupnames"
 
 		_existf=$(cut -d '' -f 2 "$tbuf2" | tr '\n\035' '\0\n' | xargs -0 ls -1d -- 2>/dev/null | head -n 80)
-		[ "$_existf" ] && printf "\n%s\n^^^: file exists\n" "$_existf"
+		[ "$_existf" ] && printf "\n%s\n^^^ file exists\n" "$_existf"
 
 		[ -z "$_dupnames" ] && [ -z "$_existf" ] && break
 		printf "(e)dit list / (c)ancel [e]: "; read -r _x
@@ -291,7 +291,7 @@ sff_undo_move()
 	_op=$(cat "$lastop")
 	echo ""
 	xargs -0 -n 2 printf "%s -> %s\n" <"$exbuf2" | head -n 160
-	printf "Undo '%s' operation? (y/n) [n]: " "$_op"; read -r _x
+	printf "Undo '%s'? (y/n) [n]: " "$_op"; read -r _x
 	[ "$_x" != 'y' ] && exit 0
 
 	printf "un%s" "$_op" >"$lastop"
@@ -308,7 +308,7 @@ sff_duplicate()
 	tr '\n\0' '\035\n' <"$sel" >"$tsel"
 	[ ! -s "$tsel" ] && exit 0
 
-	printf "\nnumber of copies / (c)ancel [1]: "; read -r _x
+	printf "\nNumber of copies / (c)ancel [1]: "; read -r _x
 	_x=$(printf "%s" "${_x:-'1'}" | tr -cd '0-9')
 	_x=${_x#"${_x%%[!0]*}"}
 	[ -z "$_x" ] && exit 0
@@ -369,8 +369,8 @@ sff_delete()
 
 sff_chmod_chown()
 {
-	printf "\nEnter permission ([-R] 644/a+x) or user:group ([-R] cat:wheel)\n"
-	printf "mode / owner:group (empty to cancel): "; read -r _x
+	printf "\nPermission or user:group (e.g. 644, -R a+x, root:wheel)\n"
+	printf "(empty to cancel): "; read -r _x
 	[ -z "$_x" ] && exit 0
 
 	sffpipe_get_sel
@@ -383,8 +383,8 @@ sff_chmod_chown()
 
 sff_find()
 {
-	printf "\nEnter name pattern (empty to cancel)\n"
-	printf "find ./ -name "; read -r _x
+	printf "\nSearch filename (e.g. *.jpg, lib???)\n"
+	printf "(empty to cancel): "; read -r _x
 	[ -z "$_x" ] && exit 0
 	printf "More options (optional): "; read -r _x2
 	echo "Searching in $PWD/ ..."
@@ -476,14 +476,14 @@ case "$1" in                  #?> Extension functions:
 'r') sff_rename;;             #?>     Alt-r  Rename
 'Y') sff_duplicate;;          #?>     Alt-Y  Duplicate
 'm') sff_chmod_chown;;        #?>     Alt-m  Change permissions or owner
-'f') sff_find;;               #?>     Alt-f  Advanced search
+'f') sff_find;;               #?>     Alt-f  Advanced search via 'find'
 'i') sff_file_stat;;          #?>     Alt-i  Show file status
 'I') sff_disk_usage;;         #?>     Alt-I  Show disk usage
 'u') sff_undo;;               #?>     Alt-u  Undo last operation
 'U') sff_redo;;               #?>     Alt-U  Redu last operation
 '/') sff_help;;               #?>     Alt-/  Show this help
                               #?> Plugins:
-'F') run_pl 'fzf-find';;      #?>     Alt-F  Search with 'fzf'
+'F') run_pl 'fzf-find';;      #?>     Alt-F  Search via 'fzf'
 '=') run_pl 'preview' 'tui';; #?>     Alt-=  Toggle preview
 'z') run_pl 'archive' 'e';;   #?>     Alt-z  Extract archive
 'Z') run_pl 'archive' 'c';;   #?>     Alt-Z  Create archive
