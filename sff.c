@@ -51,29 +51,29 @@
 #include <curses.h>
 
 #ifndef VERSION
-#define VERSION         "1.0"
+#define VERSION        "1.0"
 #endif
 #ifndef EXTFNNAME
-#define EXTFNNAME       "sff-extfunc"
+#define EXTFNNAME      "sff-extfunc"
 #endif
 #ifndef EXTFNPREFIX
-#define EXTFNPREFIX     "/usr/local/libexec/sff"
+#define EXTFNPREFIX    "/usr/local/libexec/sff"
 #endif
 #ifndef PATH_MAX
-#define PATH_MAX        4096
+#define PATH_MAX       4096
 #endif
 #ifndef NAME_MAX
-#define NAME_MAX        255
+#define NAME_MAX       255
 #endif
-#define TABS_MAX         4 // Number of tabs, the range of acceptable values is 1-7
-#define ENTRY_INCR      128 // Number of Entry structures to allocate per shot
-#define NAME_INCR       4096 // 128 entries * avg. 32 chars per name = 4KB
-#define FILT_MAX        128 // Maximum length of filter string
-#define HSTAT_INCR      16 // Number of Histstat structures to allocate each time
+#define TABS_MAX       4 // Number of tabs, the range of acceptable values is 1-7
+#define ENTRY_INCR     128 // Number of Entry structures to allocate per shot
+#define NAME_INCR      4096 // 128 entries * avg. 32 chars per name = 4KB
+#define FILT_MAX       128 // Maximum length of filter string
+#define HSTAT_INCR     16 // Number of Histstat structures to allocate each time
 
-#define LENGTH(X)       (sizeof X / sizeof X[0])
-#define MIN(x, y)       ((x) < (y) ? (x) : (y))
-#define MAX(x, y)       ((x) > (y) ? (x) : (y))
+#define LENGTH(X)      (sizeof X / sizeof X[0])
+#define MIN(x, y)      ((x) < (y) ? (x) : (y))
+#define MAX(x, y)      ((x) > (y) ? (x) : (y))
 
 enum entryflag {
 	E_REG_FILE = 0x01, E_DIR_DIRLNK = 0x02,
@@ -2404,7 +2404,7 @@ static void setupcurses(void)
 	nonl();
 	curs_set(FALSE);
 	keypad(stdscr, TRUE);
-	set_escdelay(20);
+	set_escdelay(50);
 
 	define_key("\033[1;5A", CTRL_UP);
 	define_key("\033[1;5B", CTRL_DOWN);
