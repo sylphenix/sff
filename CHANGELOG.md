@@ -24,7 +24,7 @@
 ### Fixed
 
 * Fixed SIGWINCH/SIGTSTP signal interference during the extension script execution
-
+* Fixed handling of paths with special characters (e.g. `\` `&`) during file operations
 
 ### Security
 ### Contributors
