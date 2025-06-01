@@ -22,6 +22,8 @@
 #   to be used as the previewer. You can set SFF_PV_TERM like this:
 #     $ export SFF_PV_TERM=xterm
 #
+#   Note: This plugin cannot handle paths containing line breaks.
+#
 # Shell: POSIX compliant
 #
 # Author: Shi Yanling
@@ -60,7 +62,7 @@ preview_loop_tui()
 			text/*) { printf "    --- %s ---\n" "$_mime"; head -n "$_rows" "$_path"; } | less -SX +gq
 				continue ;;
 			inode/directory) { printf "    --- %s ---  (%s files)\n" "$_mime" \
-					$(find "$_path"/ -mindepth 1 -maxdepth 1 ! -name . ! -name .. -exec echo '1' \; | wc -l); \
+					$(find "$_path"/ -mindepth 1 -maxdepth 1 ! -name . ! -name .. | wc -l); \
 					ls -1Ap "$_path"; } | head -n "$((_rows - 1))" | cut -c 1-"$_cols"
 				continue ;;
 			esac
