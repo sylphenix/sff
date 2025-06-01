@@ -14,6 +14,14 @@
 #   - tar, gzip, bzip2, xz
 #   - 7zip
 #
+# Usage:
+#   You can select multiple archives for batch extraction or content preview.
+#
+#   When creating archives, enter a filename with extension (e.g., foo.tar.gz,
+#   foo.tgz, foo.zip) to package files together in that format. If you enter
+#   just .gz, .bz2, or .xz as the filename, each selected file will be
+#   individually compressed in the specified format.
+#
 # Shell: POSIX compliant
 #
 # Author: Shi Yanling
@@ -25,6 +33,12 @@ tmpdir=${TMPDIR:-/tmp}
 uid=$(id -u)
 tsel="${tmpdir}/sff-tmpsel-$uid"
 tbuf1="${tmpdir}/sff-tmpbuf2-$uid"
+
+sffpipe_refresh()
+{
+	[ "$1" = '-c' ] && _x='.' || _x=''
+	printf "*%s" "$_x" >"$sffpipe"
+}
 
 sffpipe_sel_file()
 {
@@ -43,8 +57,7 @@ extract_archive()
 	tr '\n\0' '\035\n' <"$sel" >"$tsel"
 	[ ! -s "$tsel" ] && return 0
 
-	printf "\n(l)ist contents / (e)xtract / (c)ancel [l]: "; read -r _x
-	[ "$_x" = 'c' ] && return 0
+	printf "\n(l)ist contents / (e)xtract / (c)ancel [c]: "; read -r _x
 
 	_err=''
 	_selfile=''
@@ -72,7 +85,7 @@ extract_archive()
 			*?.?*) cd "$_tdir" && { tar -xvf "$_path" || 7zz x -aoa "$_path"; };;
 			esac || _err=1
 
-			_num=$(find "$_tdir"/ -mindepth 1 -maxdepth 1 ! -name . ! -name .. -exec echo '1' \; | wc -l)
+			_num=$(find "$_tdir"/ -mindepth 1 -maxdepth 1 ! -name . ! -name .. -print0 | tr '\n\0' '\035\n' | wc -l)
 			if [ -d "${_tdir}/$_bname" ] && [ "$_num" -eq 1 ]; then
 				mv "${_tdir}/$_bname" "$_wdir"/
 			elif [ ! -e "${_wdir}/$_bname" ]; then
@@ -82,7 +95,7 @@ extract_archive()
 			[ -z "$_err" ] && _selfile="$_bname"
 			;;
 
-		*) echo ""
+		'l') echo ""
 			case "$(printf "%s" "$_name" | tr 'A-Z' 'a-z')" in
 			*?.tar.?*) tar -tvf "$_path";;
 			*?.gz) zcat "$_path";;
@@ -91,6 +104,8 @@ extract_archive()
 			*?.?*) tar -tvf "$_path" 2>/dev/null || 7zz l "$_path";;
 			esac
 			printf "Press Enter to continue "; read -r _x
+			;;
+		*) return 0
 			;;
 		esac
 	done 3<"$tsel"
@@ -116,8 +131,8 @@ create_archive()
 		fi
 	done
 
-	_wdir=$(printf "%s" "$PWD" | tr '\n' '\035')
-	sed "s^$_wdir/" "$tsel" | tr '\n\035' '\0\n' >"$tbuf1"
+	_pwd=$(printf '%s' "$PWD" | tr '\n' '\035' | sed -e 's/[^^]/[&]/g' -e 's/\^/\\^/g')
+	sed "s|^$_pwd/||" "$tsel" | tr '\n\035' '\0\n' >"$tbuf1"
 	[ -e "$_name" ] && rm -f "$_name"
 
 	case "$(printf "%s" "$_name" | tr 'A-Z' 'a-z')" in
@@ -132,6 +147,7 @@ create_archive()
 	if [ "$?" -eq 0 ]; then
 		 sffpipe_sel_file "$_name"
 	else
+		sffpipe_refresh
 		printf "Press Enter to continue "; read -r _x
 	fi
 }
