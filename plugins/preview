@@ -29,8 +29,8 @@
 # Author: Shi Yanling
 
 sffpipe=$1
-pvfifo="${sffpipe}.pv"
 sffdir=${sffpipe%/*}
+pvfifo="${sffpipe}.pv"
 tmpdir=${TMPDIR:-/tmp}
 [ ! -w "$tmpdir" ] && tmpdir=$sffdir
 tmppvfile="${tmpdir}/sff-tmppv-$(id -u)"
@@ -62,7 +62,7 @@ preview_loop_tui()
 			text/*) { printf "    --- %s ---\n" "$_mime"; head -n "$_rows" "$_path"; } | less -SX +gq
 				continue ;;
 			inode/directory) { printf "    --- %s ---  (%s files)\n" "$_mime" \
-					$(find "$_path"/ -mindepth 1 -maxdepth 1 ! -name . ! -name .. | wc -l); \
+					$(find "$_path"/ -mindepth 1 -maxdepth 1 ! -name . ! -name .. 2>/dev/null | wc -l); \
 					ls -1Ap "$_path"; } | head -n "$((_rows - 1))" | cut -c 1-"$_cols"
 				continue ;;
 			esac

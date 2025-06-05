@@ -1,9 +1,9 @@
 # sff
 
-`sff` (simple file finder) is a simple, fast, and feature-rich terminal file
-manager inspired by `nnn` and guided by the suckless philosophy. It aims to 
+sff (simple file finder) is a simple, fast, and feature-rich terminal file
+manager inspired by nnn and guided by the suckless philosophy. It aims to 
 provide a reliable, efficient, and user-friendly file management experience with 
-high extensibility. `sff` is fully compatible with POSIX-compliant systems. It 
+high extensibility. sff is fully compatible with POSIX-compliant systems. It 
 has been extensively tested on GNU/Linux and FreeBSD.
 
 
@@ -14,8 +14,8 @@ has been extensively tested on GNU/Linux and FreeBSD.
 - Extensible with shell scripts
 - Customizable detail columns
 - Type-to-navigate
-- Advanced search with `find`
-- Fast file search with `fzf`
+- Advanced search via 'find'
+- Fast file search via 'fzf'
 - Convenient temporary sudo mode
 - Undo/Redo for the last file operation
 - Batch file and directory creation
@@ -37,7 +37,7 @@ has been extensively tested on GNU/Linux and FreeBSD.
 | sudo                                            | Optional* | Sudo mode                                 |
 | xdg-utils                                       | Optional* | File opening via default applications     |
 | tar, gzip, bzip2, xz, 7zip                      | Optional  | Archive handling (archive plugin)         |
-| fzf                                             | Optional  | File search with fzf (fzf-find plugin)    |
+| fzf                                             | Optional  | File search via fzf (fzf-find plugin)     |
 | chafa                                           | Optional  | Image preview (preview plugin)            |
 | poppler-utils                                   | Optional  | PDF preview (preview plugin)              |
 | ffmpegthumbnailer                               | Optional  | Video thumbnail preview (preview plugin)  |
@@ -52,11 +52,11 @@ You can install all dependencies using the following commands:
    ```
 - Arch Linux:
    ```
-   sudo pacman -S 7zip fzf chafa poppler-utils ffmpegthumbnailer
+   sudo pacman -S 7zip fzf chafa poppler ffmpegthumbnailer
    ```
 - Fedora:
    ```
-   sudo dnf install 7zip fzf chafa poppler-utils ffmpegthumbnailer
+   sudo dnf install p7zip fzf chafa poppler-utils ffmpegthumbnailer
    ```
 - FreeBSD:
    ```
@@ -65,7 +65,7 @@ You can install all dependencies using the following commands:
 
 
 ### Install from binary packages
-1. [Download](https://codeberg.org/sylphenix/sff/releases) the appropriate package for your system.
+1. Download the appropriate package for your system from [OpenBuildService](https://software.opensuse.org//download.html?project=home%3Asylphenix%3Asff&package=sff).
 
 2. Install the package using the package manager specific to your system.
 - Debian/Ubuntu:
@@ -78,11 +78,11 @@ You can install all dependencies using the following commands:
    ```
 - Fedora:
    ```
-   sudo dnf install /PATH/TO/sff-VERSION.86_64.rpm
+   sudo dnf install /PATH/TO/sff-VERSION.x86_64.rpm
    ```
 
 ### Build and install from source
-0. For Linux users, ensure that a C compiler, build tools, and the ncurses header files are installed. You can install them using the following commands:
+0. For Linux users, ensure that a C compiler, make utility, and the ncurses headers are installed. You can install them using the following commands:
 - Debian/Ubuntu:
    ```
    sudo apt install gcc make libncurses-dev
@@ -100,12 +100,12 @@ You can install all dependencies using the following commands:
 
 2. Change to the root directory of the project.
 
-3. Run the following command to build and install sff:
-- Linux:
+3. Build and install sff.
+- To install under `/usr` (recommended for Linux):
    ```
    sudo make install PREFIX=/usr
    ```
-- FreeBSD
+- To install under `/usr/local` (recommended for FreeBSD):
    ```
    sudo make install
    ```

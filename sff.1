@@ -59,12 +59,12 @@ The extension functions are provided by a POSIX-compliant shell script named \fB
  or 
 .Pa /usr/local/libexec/sff/ .
 .Pp
-You can easily customize key bindings for extension functions, modify existing functions, or add your own functions by editing this file. It is generally not recommended to directly modify the system-wide \fBsff-extfunc\fR. Instead, copy it to the user's config directory and make modifications there.
+You can easily customize key bindings for extension functions and plugins, modify existing functions, or add your own functions by editing this file. It is generally not recommended to directly modify the system-wide \fBsff-extfunc\fR. Instead, copy it to the user's config directory and make modifications there.
 .Pp
 The user's config directory is required for executing extension functions. This directory is either 
-.Pa $XDG_CONFIG_HOME/sff/ 
+.Pa $XDG_CONFIG_HOME/sff 
 or 
-.Pa ~/.config/sff/  ,
+.Pa ~/.config/sff  ,
 whichever is encountered first. If this directory does not exist, the program will attempt to create it when calling an extension function.
 .Pp
 During initialization, 
@@ -140,15 +140,15 @@ and listed in the fifth tab, where you can further process them.
 .Nm 
 supports undoing or redoing the last file operation. Supported operations include:
 .Pp
-    - Create new files/directories
+    - Create new files
     - Copy-paste (when none of the pasted files already exist)
     - Cut-paste (when none of the pasted files already exist)
     - Rename
     - Duplicate
 .Pp
-Undo and redo actions apply across different tabs and even different
+Undo/redo actions apply across different tabs and even different
 .Nm 
-instances. For example, a file operation performed in one 
+instances. A file operation performed in one 
 .Nm 
 instance can be undone or redone in another instance.
 .Sh RUNNING MODE
@@ -190,7 +190,7 @@ Plugins are shell scripts used to extend functionality. They are invoked by the 
 or
 .Pa /usr/local/libexec/sff/plugins/ .
 .Pp
-Detailed information about a plugin should be provided as comments at the beginning of the script. To view this information, refer directly to the plugin file.
+Detailed information about a plugin should usually be provided as comments at the beginning of the script. To view this information, refer directly to the plugin file.
 .Pp
 If you wish to modify or add your own plugins, it is recommended to do so in the \fBplugins\fR directory within the user's config directory. For details on the user's config directory, see the \fIEXTENSION SCRIPT\fR section. When the extension script invokes a plugin, it searches for the plugin in the following locations in order and uses the first match found:
 .Pp

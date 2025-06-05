@@ -28,7 +28,7 @@
 
 EDITOR=${EDITOR:-vi}
 PWD=${PWD:-$(pwd)}
-sffpipe=$2
+sffpipe=$1
 sffdir=${sffpipe%/*}
 tmpdir=${TMPDIR:-/tmp}
 [ ! -w "$tmpdir" ] && tmpdir=$sffdir
@@ -387,8 +387,8 @@ sff_find()
 	[ -z "$_x" ] && exit 0
 	printf "More options (optional): "; read -r _x2
 	echo "Searching in $PWD/ ..."
-	{ printf "?"; find ./ $_x2 -name "$_x" ! -name . ! -name .. -print0 2>/dev/null \
-		| tr '\n\0' '\035\n' | sed 's|^\./||' | tr '\n\035' '\0\n'; } >"$sffpipe"
+	{ printf "?"; find ./ $_x2 -name "$_x" -print0 2>/dev/null | tr '\n\0' '\035\n' \
+		| sed -e 's|^\./||' -e '/^[./]$/d' -e '/^\.\.$/d' -e '/^$/d' | tr '\n\035' '\0\n'; } >"$sffpipe"
 }
 
 sff_file_stat()
@@ -464,7 +464,7 @@ run_pl()
 
 
 # === key bindings ===
-case "$1" in                  #?> Extension functions:
+case "$2" in                  #?> Extension functions:
 'n') sff_new;;                #?>     Alt-n  Create new files (ends with '/' for dirs)
 'd') sff_delete;;             #?>     Alt-d  Delete
 'y') sff_write_cbuf 'cp';;    #?>     Alt-y  Copy

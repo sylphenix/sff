@@ -51,7 +51,7 @@
 #include <curses.h>
 
 #ifndef VERSION
-#define VERSION        "1.0"
+#define VERSION        "1.1"
 #endif
 #ifndef EXTFNNAME
 #define EXTFNNAME      "sff-extfunc"
@@ -1650,7 +1650,7 @@ static int callextfunc(int c)
 		sigaction(SIGWINCH, &oldsigwinch, NULL);
 
 	} else if (pid == 0) {
-		spawn(extfunc, (char [2]){c, '\0'}, pipepath, FALSE, gcfg.mode == 1);
+		spawn(extfunc, pipepath, (char [2]){c, '\0'}, FALSE, gcfg.mode == 1);
 		if ((wfd = open(pipepath, O_WRONLY | O_NONBLOCK)) != -1) {
 			write(wfd, "/", 1);
 			close(wfd);
