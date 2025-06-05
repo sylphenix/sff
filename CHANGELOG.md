@@ -3,6 +3,17 @@
 
 ## Unreleased
 ### Added
+### Changed
+### Deprecated
+### Removed
+### Fixed
+### Security
+### Contributors
+
+
+## 1.1 <small>(2025-06-05)</small>
+
+### Added
 
 * Add plugins support
 * New preview plugin ([#3][3])
@@ -14,20 +25,15 @@
 
 * Changed sff-extfunc installation path from libexec/ to libexec/sff/
 * Simplified the control sequence sent from sff-extfunc to sff
-* 'Search with fzf' now provided as a plugin
+* 'Search via fzf' now provided as a plugin
 * 'Extract and create archives' now provided as a plugin
 * Optimized and simplified prompt text for extension functions
 
 
-### Deprecated
-### Removed
 ### Fixed
 
 * Fixed SIGWINCH/SIGTSTP signal interference during the extension script execution
 * Fixed handling of paths with special characters (e.g. `\` `&`) during file operations
-
-### Security
-### Contributors
 
 
 ## 1.0 <small>(2025-04-05)</small>
