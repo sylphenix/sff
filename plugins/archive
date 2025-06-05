@@ -3,24 +3,36 @@
 # Description: Extract and create archives
 #
 # Supported creation:
-#   bz2, gz, tar (with gz, bz2, xz), xz, zip, 7z
+#   gz, bz2, xz, tar (with gz, bz2, xz), zip, 7z
 #
 # Supported extraction:
 #    ar, arj, bz2, cab, chm, cpio, cramfs, deb, dmg, gz, iso, lzh, lzma,
-#    msi, nsis, qcow2, rar, rpm, squashfs, tar (with gz, bz2, xz), wim,
-#    xar, xz, zip, Z, 7z
+#    msi, nsis, qcow2, rpm, squashfs, tar (with gz, bz2, xz), wim, xar,
+#    xz, zip, Z, 7z
 #
 # Dependencies:
 #   - tar, gzip, bzip2, xz
 #   - 7zip
 #
 # Usage:
-#   You can select multiple archives for batch extraction or content preview.
+#   Extracting archives:
+#     You can select multiple archives for batch extraction or content preview.
 #
-#   When creating archives, enter a filename with extension (e.g., foo.tar.gz,
-#   foo.tgz, foo.zip) to package files together in that format. If you enter
-#   just .gz, .bz2, or .xz as the filename, each selected file will be
-#   individually compressed in the specified format.
+#   Creating archives:
+#     Enter a filename with extension (e.g., foo.tar.gz, foo.txz, foo.zip) to
+#     archive and compress selected files together.
+#
+#     For tar-based formats:
+#       Files will be archived using relative paths only if all selected files
+#       are located within the current directory or its subdirectories;
+#       otherwise, absolute paths will be used.
+#
+#     For zip or 7z formats:
+#       The directory hierarchy of the selected files will be ignored, and all
+#       files will be packed directly into the archive without preserving paths.
+#
+#     If you enter just .gz, .bz2, or .xz as the filename, each selected file will
+#     be individually compressed in the specified format.
 #
 # Shell: POSIX compliant
 #
@@ -33,6 +45,7 @@ tmpdir=${TMPDIR:-/tmp}
 uid=$(id -u)
 tsel="${tmpdir}/sff-tmpsel-$uid"
 tbuf1="${tmpdir}/sff-tmpbuf2-$uid"
+type 7zz >/dev/null 2>&1 && _7z='7zz' || _7z='7z'
 
 sffpipe_refresh()
 {
@@ -59,7 +72,6 @@ extract_archive()
 
 	printf "\n(l)ist contents / (e)xtract / (c)ancel [c]: "; read -r _x
 
-	_err=''
 	_selfile=''
 	while IFS='' read -r _path <&3; do
 		_path=$(printf "%s" "$_path" | tr '\035' '\n')
@@ -68,50 +80,57 @@ extract_archive()
 		_bname=${_name%.?*}
 		_bname=${_bname%.tar}
 
+		case "$_name" in
+		*?.?*) [ -d "$_path" ] && continue;;
+		*) continue;;
+		esac
+
 		case "$_x" in
 		'e') if [ -e "${_wdir}/$_bname" ]; then
-				printf "\n'%s' exists. Overwrite? (y/n) [n]: " "$_bname"; read -r _y
-				[ "$_y" != 'y' ] && continue
+				printf "\n'%s' exists. Overwrite? (y/n) [n]: " "$_bname"; read -r _x2
+				[ "$_x2" != 'y' ] && continue
 			fi
 	 		_tdir=$(mktemp -d "${_wdir}/tmp.XXXXXX")
 			[ -e "${_wdir}/$_bname" ] && rm -rf "${_wdir}/$_bname"
 
 			echo "Extracting..."
 			case "$(printf "%s" "$_name" | tr 'A-Z' 'a-z')" in
-			*?.tar.?*) cd "$_tdir" && tar -xvf "$_path";;
+			*?.tar.?*|*?.t?*) cd "$_tdir" && tar -xvf "$_path";;
 			*?.gz) gunzip -k "$_path";;
 			*?.bz2) bunzip2 -k "$_path";;
 			*?.xz) unxz -k "$_path";;
-			*?.?*) cd "$_tdir" && { tar -xvf "$_path" || 7zz x -aoa "$_path"; };;
-			esac || _err=1
+			*?.?*) cd "$_tdir" && "$_7z" x -aoa "$_path";;
+			esac && _selfile="$_bname" || { printf "Press Enter to continue "; read -r _x2; }
 
 			_num=$(find "$_tdir"/ -mindepth 1 -maxdepth 1 ! -name . ! -name .. -print0 | tr '\n\0' '\035\n' | wc -l)
 			if [ -d "${_tdir}/$_bname" ] && [ "$_num" -eq 1 ]; then
 				mv "${_tdir}/$_bname" "$_wdir"/
-			elif [ ! -e "${_wdir}/$_bname" ]; then
+			elif [ ! -e "${_wdir}/$_bname" ] && [ "$_num" -gt 0 ]; then
 				mv "$_tdir" "${_wdir}/$_bname"
 			fi
 			[ -e "$_tdir" ] && rm -rf "$_tdir"
-			[ -z "$_err" ] && _selfile="$_bname"
 			;;
 
 		'l') echo ""
 			case "$(printf "%s" "$_name" | tr 'A-Z' 'a-z')" in
-			*?.tar.?*) tar -tvf "$_path";;
+			*?.tar.?*|*?.t?*) tar -tvf "$_path";;
 			*?.gz) zcat "$_path";;
 			*?.bz2) bzcat "$_path";;
 			*?.xz) xzcat "$_path";;
-			*?.?*) tar -tvf "$_path" 2>/dev/null || 7zz l "$_path";;
+			*?.?*) "$_7z" l "$_path";;
 			esac
-			printf "Press Enter to continue "; read -r _x
+			printf "Press Enter to continue "; read -r _x2
 			;;
 		*) return 0
 			;;
 		esac
 	done 3<"$tsel"
 
-	[ "$_selfile" ] && sffpipe_sel_file "$_selfile"
-	[ "$_err" ] && { printf "Press Enter to continue "; read -r _x; }
+	if [ "$_selfile" ]; then
+		sffpipe_sel_file "$_selfile"
+	else
+		sffpipe_refresh
+	fi
 }
 
 create_archive()
@@ -132,7 +151,11 @@ create_archive()
 	done
 
 	_pwd=$(printf '%s' "$PWD" | tr '\n' '\035' | sed -e 's/[^^]/[&]/g' -e 's/\^/\\^/g')
-	sed "s|^$_pwd/||" "$tsel" | tr '\n\035' '\0\n' >"$tbuf1"
+	if [ "$(sed "/^$_pwd\//d" "$tsel")" ]; then
+		tr '\n\035' '\0\n' <"$tsel" >"$tbuf1"
+	else
+		sed "s|^$_pwd/||" "$tsel" | tr '\n\035' '\0\n' >"$tbuf1"
+	fi
 	[ -e "$_name" ] && rm -f "$_name"
 
 	case "$(printf "%s" "$_name" | tr 'A-Z' 'a-z')" in
@@ -140,7 +163,7 @@ create_archive()
 	*.gz) xargs -0 gzip -fk -- <"$tbuf1";;
 	*.bz2) xargs -0 bzip2 -fk -- <"$tbuf1";;
 	*.xz) xargs -0 xz -fk -- <"$tbuf1";;
-	*?.7z|*?.zip) xargs -0 7zz a "$_name" -- <"$tbuf1";;
+	*?.zip|*?.7z) xargs -0 "$_7z" a "$_name" -- <"$tbuf1";;
 	*) printf "\nUnsupported archive format\n"; false;;
 	esac
 
