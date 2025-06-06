@@ -1,16 +1,6 @@
 # Changelog
 
 
-## Unreleased
-### Added
-### Changed
-### Deprecated
-### Removed
-### Fixed
-### Security
-### Contributors
-
-
 ## 1.1 <small>(2025-06-05)</small>
 
 ### Added
