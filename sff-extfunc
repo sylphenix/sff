@@ -452,6 +452,8 @@ run_pl()
 {
 	_plugin="${sffdir}/plugins/$1"
 	[ ! -e "$_plugin" ] && _plugin="${0%/*}/plugins/$1"
+	[ ! -e "$_plugin" ] && _plugin="/usr/libexec/sff/plugins/$1"
+	[ ! -e "$_plugin" ] && _plugin="/usr/local/libexec/sff/plugins/$1"
 	if [ ! -e "$_plugin" ]; then
 		printf "\nPlugin '%s' not found\n" "$1"
 		printf "Press Enter to continue "; read -r _x
