@@ -2353,34 +2353,23 @@ static int initsff(char *arg0, char *argx)
 	// Set config path: xdgcfg+"/sff" or home+"/.config/sff"
 	if ((xdgcfg && xdgcfg[0] && makepath(xdgcfg, "sff", gpbuf))
 	|| (home && makepath(home, ".config/sff", gpbuf)))
-		cfgpath = gpbuf;
+		cfgpath = strdup(gpbuf);
 
 	// Set extfunc path, and check sff-extfunc file
-	if (cfgpath && makepath(cfgpath, EXTFNNAME, gmbuf)
-	&& access(gmbuf, R_OK | X_OK) == 0) // check it in config path
-		extfunc = gmbuf;
+	if ((cfgpath && makepath(cfgpath, EXTFNNAME, gmbuf) && access(gmbuf, R_OK | X_OK) == 0)
+	|| (realpath(arg0, gmbuf) && xdirname(gmbuf) && makepath(gmbuf, EXTFNNAME, gmbuf) && access(gmbuf, R_OK | X_OK) == 0)
+	|| (makepath(EXTFNPREFIX, EXTFNNAME, gmbuf) && access(gmbuf, R_OK | X_OK) == 0))
+		extfunc = strdup(gmbuf);
 
-	if (!extfunc && realpath(arg0, gmbuf)
-	&& makepath(xdirname(gmbuf), EXTFNNAME, gmbuf)
-	&& access(gmbuf, R_OK | X_OK) == 0) // check it in where sff is located
-		extfunc = gmbuf;
-
-	if (!extfunc && makepath(EXTFNPREFIX, EXTFNNAME, gmbuf)
-	&& access(gmbuf, R_OK | X_OK) == 0) // check it in EXTFNPREFIX
-		extfunc = gmbuf;
-
-	// Allocate memory for cfgpath + extfunc + pipepath and set these paths
+	// Set pipepath, pvfifo paths and set running mode
 	if (cfgpath && extfunc
-	&& (cfgpath = malloc(strlen(gpbuf) * 3 + strlen(gmbuf) + 64))) {
-		extfunc = memccpy(cfgpath, gpbuf, '\0', PATH_MAX);
-		pipepath = memccpy(extfunc, gmbuf, '\0', PATH_MAX);
-		strcat(strcat(gpbuf, "/.sff-pipe."), xitoa(getpid()));
-		pvfifo =  memccpy(pipepath, gpbuf, '\0', PATH_MAX);
-		memccpy(pvfifo, gpbuf, '\0', PATH_MAX);
-		strcat(pvfifo, ".pv");
+	&& strcat(strcat(gpbuf, "/.sff-pipe."), xitoa(getpid())) && (pipepath = strdup(gpbuf))
+	&& strcat(gpbuf, ".pv") && (pvfifo = strdup(gpbuf))) {
+		if (getuid() == 0 && gcfg.mode != 4)
+			gcfg.mode = 2;
 	} else {
-		cfgpath = NULL;
 		seterrnum(__LINE__, errno);
+		gcfg.mode = 4;
 	}
 
 	// Initialize first tab
@@ -2389,11 +2378,6 @@ static int initsff(char *arg0, char *argx)
 		perror(xitoa(__LINE__));
 		return FALSE;
 	}
-
-	if (getuid() == 0)
-		gcfg.mode = 2;
-	if (!cfgpath)
-		gcfg.mode = 4;
 	return TRUE;
 }
 
@@ -2432,10 +2416,13 @@ static void cleanup(void)
 		deleteallselstat(gtab[i].ss);
 	}
 
-	free(cfgpath);
 	free(pdents);
 	free(pnamebuf);
 	free(pfindbuf);
+	free(cfgpath);
+	free(extfunc);
+	free(pipepath);
+	free(pvfifo);
 }
 
 int main(int argc, char *argv[])
