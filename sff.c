@@ -565,7 +565,7 @@ static int movetoedge(int n)
 static inline void savehiststat(Histstat *hs)
 {
 	if (ndents > 0) {
-		strncpy(hs->name, pdents[cursel].name, NAME_MAX);
+		memccpy(hs->name, pdents[cursel].name, '\0', NAME_MAX);
 		hs->cur = cursel;
 		hs->scrl = curscroll;
 	}
@@ -612,7 +612,8 @@ static Histpath *inithistpath(Histpath *hp, char *path, int check)
 	hp->stat = hp->hs + hp->nhs - 1;
 	hp->stat->flag = S_VIS;
 	if (name) {
-		findname = strncpy(hp->stat->name, name, NAME_MAX);
+		memccpy(hp->stat->name, name, '\0', NAME_MAX);
+		findname = hp->stat->name;
 		if (*name == '.')
 			gcfg.showhidden = 1;
 	}
@@ -701,7 +702,7 @@ static int enterdir(int n __attribute__((unused)))
 	}
 
 	savehiststat(hp->stat - 1);
-	strncpy(hp->path, newpath, PATH_MAX - 1);
+	memccpy(hp->path, newpath, '\0', PATH_MAX - 1);
 	ptab->hp = hp;
 	return GO_RELOAD;
 }
@@ -721,7 +722,7 @@ static int gotoparent(int n __attribute__((unused)))
 	do {
 		--hs;
 		if (hs->flag == S_UNVIS) {
-			strncpy(hs->name, xbasename(path), NAME_MAX);
+			memccpy(hs->name, xbasename(path), '\0', NAME_MAX);
 			hs->flag = S_VIS;
 		}
 	} while (chdir(xdirname(path)) == -1 && path[1] != '\0' && hs->flag != S_SUBROOT);
@@ -801,7 +802,7 @@ static struct selstat *addselstat(struct selstat *ss, char *path)
 	n->prev = ss;
 	n->next = NULL;
 
-	strncpy(n->path, path, PATH_MAX - 1);
+	memccpy(n->path, path, '\0', PATH_MAX);
 	n->endp = n->nbuf;
 	n->buflen = NAME_INCR;
 	return n;
@@ -880,7 +881,7 @@ static int appendselection(Entry *ent)
 		ss->endp = len + ss->nbuf;
 	}
 
-	strncpy(ss->endp, ent->name, ent->nlen);
+	memccpy(ss->endp, ent->name, '\0', ent->nlen);
 	ss->endp += ent->nlen;
 	ent->flag |= E_SEL;
 	++gtab[gcfg.ct].nsel;
@@ -1574,7 +1575,7 @@ static int handlepipedata(int fd, int op)
 	case '@': // select specified file
 		if (read(fd, gpbuf, PATH_MAX) == -1 && seterrnum(__LINE__, errno))
 			return GO_STATBAR;
-		strncpy(ptab->hp->stat->name, xbasename(gpbuf), NAME_MAX);
+		memccpy(ptab->hp->stat->name, xbasename(gpbuf), '\0', NAME_MAX);
 		findname = ptab->hp->stat->name;
 		gcfg.newent = 1;
 		clearselection(0);
@@ -2212,7 +2213,6 @@ static int qfindinput(int c)
 		return GO_REDRAW;
 
 	} else if (c == '/' && ptab->find[0] == '\0') { // go to root dir
-		ptab->find[0] = '\0';
 		ptab->fdlen = 1;
 		newhistpath("/");
 		return GO_RELOAD;
@@ -2376,7 +2376,7 @@ static int initsff(char *arg0, char *argx)
 		pipepath = memccpy(extfunc, gmbuf, '\0', PATH_MAX);
 		strcat(strcat(gpbuf, "/.sff-pipe."), xitoa(getpid()));
 		pvfifo =  memccpy(pipepath, gpbuf, '\0', PATH_MAX);
-		strcpy(pvfifo, gpbuf);
+		memccpy(pvfifo, gpbuf, '\0', PATH_MAX);
 		strcat(pvfifo, ".pv");
 	} else {
 		cfgpath = NULL;

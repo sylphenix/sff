@@ -14,7 +14,7 @@ LIBS = -lncursesw
 
 # flags
 CPPFLAGS = -D_DEFAULT_SOURCE -DVERSION=\"${VERSION}\" -DEXTFNNAME=\"${EXTFNNAME}\" -DEXTFNPREFIX=\"${EXTFNPREFIX}\" -I/usr/include/ncursesw
-CFLAGS   = -std=c11 -pedantic -Wall -Wextra -Wshadow -Wno-deprecated-declarations -Os ${CPPFLAGS}
+CFLAGS   = -std=c11 -pedantic -Wall -Wextra -Wshadow -O3 ${CPPFLAGS}
 LDFLAGS  = ${LIBS} -s
 
 # compiler and linker
