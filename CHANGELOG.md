@@ -1,6 +1,18 @@
 # Changelog
 
 
+## Unreleased
+
+### Changed
+
+* Switched compiler optimization flag from `-Os` to `-O3`
+
+
+### Fixed
+
+* Fixed `-b` option not working when running as superuser
+
+
 ## 1.1 <small>(2025-06-05)</small>
 
 ### Added
