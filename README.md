@@ -21,7 +21,7 @@ has been extensively tested on GNU/Linux and FreeBSD.
 - Batch file and directory creation
 - Batch rename
 - Multi-tab support, cross-directory selection
-- Extract, list, create archives
+- Extract and create archives
 - ... and more!
 
 
@@ -101,13 +101,18 @@ You can install all dependencies using the following commands:
 2. Change to the root directory of the project.
 
 3. Build and install sff.
-- To install under `/usr` (recommended for Linux):
+   ```
+   sudo make install
+   ```
+   By default, this will install under `/usr/local`. You can specify an installation prefix using `PREFIX`, for example:
    ```
    sudo make install PREFIX=/usr
    ```
-- To install under `/usr/local` (recommended for FreeBSD):
+   will install under `/usr`.
+
+   Note: If you used `PREFIX` during installation, you must specify the same `PREFIX` when uninstalling:
    ```
-   sudo make install
+   sudo make uninstall PREFIX=/usr
    ```
 
 ## Usage
