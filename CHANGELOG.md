@@ -1,6 +1,19 @@
 # Changelog
 
 
+## Unreleased
+
+### Changed
+
+* Switched compiler optimization flag from `-Os` to `-O3`
+* Clean up preview FIFO file on exit
+
+
+### Fixed
+
+* Fixed `-b` option not working when running as superuser
+
+
 ## 1.1 <small>(2025-06-05)</small>
 
 ### Added
@@ -26,7 +39,7 @@
 * Fixed handling of paths with special characters (e.g. `\` `&`) during file operations
 
 
-## 1.0 <small>(2025-04-05)</small>
+## 1.0 <small>(2025-04-03)</small>
 
 ### Changed
 

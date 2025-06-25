@@ -1,5 +1,4 @@
 # sff - simple file finder
-VERSION = 1.1
 
 # paths
 PREFIX = /usr/local
@@ -9,18 +8,18 @@ EXTFNNAME = sff-extfunc
 EXTFNPREFIX = ${PREFIX}/libexec/sff
 
 # includes and libs
-INCS =
+INCS = -I/usr/include/ncursesw
 LIBS = -lncursesw
 
 # flags
-CPPFLAGS = -D_DEFAULT_SOURCE -DVERSION=\"${VERSION}\" -DEXTFNNAME=\"${EXTFNNAME}\" -DEXTFNPREFIX=\"${EXTFNPREFIX}\" -I/usr/include/ncursesw
-CFLAGS   = -std=c11 -pedantic -Wall -Wextra -Wshadow -O3 ${CPPFLAGS}
+CPPFLAGS = -D_DEFAULT_SOURCE
+CFLAGS   = -std=c11 -pedantic -Wall -Wextra -Wshadow -O3 ${INCS} ${CPPFLAGS}
 LDFLAGS  = ${LIBS} -s
 
 # compiler and linker
 CC = cc
 
-#====================================
+# ===============================================================
 
 SRC = sff.c
 OBJ = ${SRC:.c=.o}
@@ -45,14 +44,14 @@ sff: ${OBJ}
 	${CC} -o $@ ${OBJ} ${LDFLAGS}
 
 clean:
-	rm -f sff ${OBJ} sff.1.gz sff-${VERSION}.tar.gz
+	rm -f sff ${OBJ} sff.1.gz sff*.tar.gz
 
 dist:
-	mkdir -p sff-${VERSION}
-	cp -R LICENSE Makefile README.md ${SRC} ${EXTFNNAME} plugins config.h sff.1 sff-${VERSION}/
-	tar -cf sff-${VERSION}.tar sff-${VERSION}
-	gzip sff-${VERSION}.tar
-	rm -rf sff-${VERSION}
+	mkdir -p sff
+	cp -R LICENSE Makefile README.md ${SRC} ${EXTFNNAME} plugins config.h sff.1 sff/
+	tar -cf sff.tar sff
+	gzip sff.tar
+	rm -rf sff
 
 install: all
 	mkdir -p ${DESTDIR}${PREFIX}/bin

@@ -50,15 +50,10 @@
 #endif
 #include <curses.h>
 
-#ifndef VERSION
 #define VERSION        "1.1"
-#endif
-#ifndef EXTFNNAME
 #define EXTFNNAME      "sff-extfunc"
-#endif
-#ifndef EXTFNPREFIX
 #define EXTFNPREFIX    "/usr/local/libexec/sff"
-#endif
+#define EXTFNPREFIX2   "/usr/libexec/sff"
 #ifndef PATH_MAX
 #define PATH_MAX       4096
 #endif
@@ -132,7 +127,7 @@ struct selstat {
 	struct selstat *next;
 	char *nbuf;
 	char *endp;
-	unsigned int buflen;
+	size_t buflen;
 };
 
 typedef struct {
@@ -179,10 +174,10 @@ typedef struct {
 
 /*** Global Variables ***/
 
-static int ndents = 0, cursel = 0, lastsel = -1, curscroll = 0, lastscroll = -1;
+static int ndents = 0, tdents = 0, cursel = 0, lastsel = -1, curscroll = 0, lastscroll = -1;
 static int markent = -1, errline = 0, errnum = 0;
 static int xlines, xcols, onscr, ncols;
-static unsigned int tdents = 0, namebuflen = 0;
+static size_t namebuflen = 0;
 static char *home, *editor;
 static char *cfgpath = NULL, *extfunc = NULL, *pipepath = NULL, *pvfifo = NULL;
 static char *pnamebuf = NULL, *pfindbuf = NULL, *pfindend = NULL, *findname = NULL;
@@ -230,7 +225,7 @@ static char *xbasename(char *path)
 	return p ? p + 1 : path;
 }
 
-/* Make path/name in buf. Ensure buf size is not less than PATH_MAX. */
+/* Make path/name in buf. Returns the number of bytes copied including the terminating '\0'. */
 static int makepath(const char *path, const char *name, char *buf)
 {
 	char *p;
@@ -435,15 +430,6 @@ static int seterrnum(int line, int err)
 	return TRUE;
 }
 
-static void *irealloc(void *ptr, unsigned int *len, int incr, size_t size)
-{
-	void *p = realloc(ptr, (*len += incr) * size);
-
-	if (p == NULL && seterrnum(__LINE__, errno))
-		*len -= incr;
-	return p;
-}
-
 /****** Key Functions ******/
 
 static int movecursor(int n);
@@ -575,7 +561,6 @@ static Histpath *inithistpath(Histpath *hp, char *path, int check)
 {
 	char *name = NULL;
 	struct stat sb;
-	Histstat *tmphs;
 
 	if (check) {
 		if (lstat(path, &sb) == -1 && seterrnum(__LINE__, errno)) {
@@ -594,7 +579,8 @@ static Histpath *inithistpath(Histpath *hp, char *path, int check)
 	for (char *p = path, *p2 = hp->path; ; ++p, ++p2) {
 		if (*p == '/' || (*p == '\0' && path[1] != '\0')) {
 			if (hp->nhs == hp->ths) {
-				if (!(tmphs = irealloc(hp->hs, &hp->ths, HSTAT_INCR, sizeof(Histstat)))) {
+				Histstat *tmphs = realloc(hp->hs, (hp->ths += HSTAT_INCR) * sizeof(Histstat));
+				if (!tmphs && seterrnum(__LINE__, errno)) {
 					free(hp->hs);
 					memset(hp, 0, sizeof(Histpath));
 					return NULL;
@@ -657,7 +643,7 @@ static int enterdir(int n __attribute__((unused)))
 {
 	Histpath *hp = ptab->hp;
 	Histpath *hp2 = ((hp - ghpath) & 1) ? hp - 1 : hp + 1;
-	Histstat *tmphs, *hs = hp->stat;
+	Histstat *hs = hp->stat;
 	unsigned int nhs = hs - hp->hs + 1;
 	char *newpath = gpbuf;
 	Entry *ent = &pdents[cursel];
@@ -677,8 +663,10 @@ static int enterdir(int n __attribute__((unused)))
 		return GO_STATBAR;
 
 	if (nhs == hp->ths) {
-		if (!(tmphs = irealloc(hp->hs, &hp->ths, HSTAT_INCR, sizeof(Histstat)))) {
+		Histstat *tmphs = realloc(hp->hs, (hp->ths += HSTAT_INCR) * sizeof(Histstat));
+		if (!tmphs && seterrnum(__LINE__, errno)) {
 			chdir(hp->path);
+			hp->ths -= HSTAT_INCR;
 			return GO_STATBAR;
 		}
 		hp->hs = tmphs;
@@ -868,15 +856,17 @@ static int appendselection(Entry *ent)
 {
 	size_t len;
 	struct selstat *ss = getselstat();
-	char *tmp;
 
 	if (!ss)
 		return FALSE;
 
 	len = ss->endp - ss->nbuf;
 	if (ent->nlen >= ss->buflen - len) {
-		if (!(tmp = irealloc(ss->nbuf, &ss->buflen, NAME_INCR, 1)))
+		char *tmp = realloc(ss->nbuf, ss->buflen += NAME_INCR);
+		if (!tmp && seterrnum(__LINE__, errno)) {
+			ss->buflen -= NAME_INCR;
 			return FALSE;
+		}
 		ss->nbuf = tmp;
 		ss->endp = len + ss->nbuf;
 	}
@@ -1498,6 +1488,8 @@ static void setpreview(int op)
 			close(fd);
 			fd = -1;
 		}
+		if (access(pvfifo, F_OK) == 0)
+			unlink(pvfifo);
 	}
 }
 
@@ -1531,12 +1523,12 @@ static int writeselection(int fd)
 static int readfindresult(int fd)
 {
 	ssize_t len = 1;
-	unsigned int buflen = 0, reslen = 0;
-	char *tmp;
+	size_t buflen = 0, reslen = 0;
 
 	while (len > 0) {
 		if (buflen - reslen < NAME_INCR) {
-			if (!(tmp = irealloc(pfindbuf, &buflen, NAME_INCR, 1))) {
+			char *tmp = realloc(pfindbuf, buflen += NAME_INCR);
+			if (!tmp && seterrnum(__LINE__, errno)) {
 				len = -1;
 				break;
 			}
@@ -1724,7 +1716,7 @@ static void loaddirentry(DIR *dirp, int fd)
 	struct dirent *dp;
 	struct stat sb;
 	time_t curtime = time(NULL);
-	Entry *ent,*tmpent;
+	Entry *ent, *tmpent;
 
 	while ((dp = readdir(dirp))) {
 		name = dp->d_name;
@@ -1736,15 +1728,21 @@ static void loaddirentry(DIR *dirp, int fd)
 		if (fstatat(fd, name, &sb, AT_SYMLINK_NOFOLLOW) == -1)
 			continue;
 
-		if ((unsigned int)ndents == tdents) {
-			if (!(tmpent = irealloc(pdents, &tdents, ENTRY_INCR, sizeof(Entry))))
+		if (ndents == tdents) {
+			tmpent = realloc(pdents, (tdents += ENTRY_INCR) * sizeof(Entry));
+			if (!tmpent && seterrnum(__LINE__, errno)) {
+				tdents -= ENTRY_INCR;
 				return;
+			}
 			pdents = tmpent;
 		}
 
 		if (namebuflen - off <= NAME_MAX) {
-			if (!(tmp = irealloc(pnamebuf, &namebuflen, NAME_INCR, 1)))
+			tmp = realloc(pnamebuf, namebuflen += NAME_INCR);
+			if (!tmp && seterrnum(__LINE__, errno)) {
+				namebuflen -= NAME_INCR;
 				return;
+			}
 
 			// Reset entry names if realloc() causes memory move
 			if (pnamebuf != tmp) {
@@ -1775,9 +1773,12 @@ static void loadsrchentry(int fd)
 		if (fstatat(fd, name, &sb, AT_SYMLINK_NOFOLLOW) == -1)
 			continue;
 
-		if ((unsigned int)ndents == tdents) {
-			if (!(tmpent = irealloc(pdents, &tdents, ENTRY_INCR, sizeof(Entry))))
+		if (ndents == tdents) {
+			tmpent = realloc(pdents, (tdents += ENTRY_INCR) * sizeof(Entry));
+			if (!tmpent && seterrnum(__LINE__, errno)) {
+				tdents -= ENTRY_INCR;
 				return;
+			}
 			pdents = tmpent;
 		}
 
@@ -2353,34 +2354,24 @@ static int initsff(char *arg0, char *argx)
 	// Set config path: xdgcfg+"/sff" or home+"/.config/sff"
 	if ((xdgcfg && xdgcfg[0] && makepath(xdgcfg, "sff", gpbuf))
 	|| (home && makepath(home, ".config/sff", gpbuf)))
-		cfgpath = gpbuf;
+		cfgpath = strdup(gpbuf);
 
 	// Set extfunc path, and check sff-extfunc file
-	if (cfgpath && makepath(cfgpath, EXTFNNAME, gmbuf)
-	&& access(gmbuf, R_OK | X_OK) == 0) // check it in config path
-		extfunc = gmbuf;
+	if ((cfgpath && makepath(cfgpath, EXTFNNAME, gmbuf) && access(gmbuf, R_OK | X_OK) == 0)
+	|| (realpath(arg0, gmbuf) && xdirname(gmbuf) && makepath(gmbuf, EXTFNNAME, gmbuf) && access(gmbuf, R_OK | X_OK) == 0)
+	|| (makepath(EXTFNPREFIX, EXTFNNAME, gmbuf) && access(gmbuf, R_OK | X_OK) == 0)
+	|| (makepath(EXTFNPREFIX2, EXTFNNAME, gmbuf) && access(gmbuf, R_OK | X_OK) == 0))
+		extfunc = strdup(gmbuf);
 
-	if (!extfunc && realpath(arg0, gmbuf)
-	&& makepath(xdirname(gmbuf), EXTFNNAME, gmbuf)
-	&& access(gmbuf, R_OK | X_OK) == 0) // check it in where sff is located
-		extfunc = gmbuf;
-
-	if (!extfunc && makepath(EXTFNPREFIX, EXTFNNAME, gmbuf)
-	&& access(gmbuf, R_OK | X_OK) == 0) // check it in EXTFNPREFIX
-		extfunc = gmbuf;
-
-	// Allocate memory for cfgpath + extfunc + pipepath and set these paths
+	// Set pipepath, pvfifo paths and set running mode
 	if (cfgpath && extfunc
-	&& (cfgpath = malloc(strlen(gpbuf) * 3 + strlen(gmbuf) + 64))) {
-		extfunc = memccpy(cfgpath, gpbuf, '\0', PATH_MAX);
-		pipepath = memccpy(extfunc, gmbuf, '\0', PATH_MAX);
-		strcat(strcat(gpbuf, "/.sff-pipe."), xitoa(getpid()));
-		pvfifo =  memccpy(pipepath, gpbuf, '\0', PATH_MAX);
-		memccpy(pvfifo, gpbuf, '\0', PATH_MAX);
-		strcat(pvfifo, ".pv");
+	&& strcat(strcat(gpbuf, "/.sff-pipe."), xitoa(getpid())) && (pipepath = strdup(gpbuf))
+	&& strcat(gpbuf, ".pv") && (pvfifo = strdup(gpbuf))) {
+		if (getuid() == 0 && gcfg.mode != 4)
+			gcfg.mode = 2;
 	} else {
-		cfgpath = NULL;
 		seterrnum(__LINE__, errno);
+		gcfg.mode = 4;
 	}
 
 	// Initialize first tab
@@ -2389,11 +2380,6 @@ static int initsff(char *arg0, char *argx)
 		perror(xitoa(__LINE__));
 		return FALSE;
 	}
-
-	if (getuid() == 0)
-		gcfg.mode = 2;
-	if (!cfgpath)
-		gcfg.mode = 4;
 	return TRUE;
 }
 
@@ -2432,10 +2418,13 @@ static void cleanup(void)
 		deleteallselstat(gtab[i].ss);
 	}
 
-	free(cfgpath);
 	free(pdents);
 	free(pnamebuf);
 	free(pfindbuf);
+	free(cfgpath);
+	free(extfunc);
+	free(pipepath);
+	free(pvfifo);
 }
 
 int main(int argc, char *argv[])
