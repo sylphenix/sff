@@ -81,8 +81,8 @@ preview_loop_tui()
 check_fifo()
 {
 	if [ -p "$pvfifo" ]; then
-		printf "#q" >"$sffpipe"
 		rm -f "$pvfifo"
+		printf "#q" >"$sffpipe"
 		exit 0
 	fi
 }

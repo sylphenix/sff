@@ -1493,6 +1493,8 @@ static void setpreview(int op)
 			close(fd);
 			fd = -1;
 		}
+		if (access(pvfifo, F_OK) == 0)
+			unlink(pvfifo);
 	}
 }
 
