@@ -50,15 +50,10 @@
 #endif
 #include <curses.h>
 
-#ifndef VERSION
 #define VERSION        "1.1"
-#endif
-#ifndef EXTFNNAME
 #define EXTFNNAME      "sff-extfunc"
-#endif
-#ifndef EXTFNPREFIX
 #define EXTFNPREFIX    "/usr/local/libexec/sff"
-#endif
+#define EXTFNPREFIX2   "/usr/libexec/sff"
 #ifndef PATH_MAX
 #define PATH_MAX       4096
 #endif
@@ -2364,7 +2359,8 @@ static int initsff(char *arg0, char *argx)
 	// Set extfunc path, and check sff-extfunc file
 	if ((cfgpath && makepath(cfgpath, EXTFNNAME, gmbuf) && access(gmbuf, R_OK | X_OK) == 0)
 	|| (realpath(arg0, gmbuf) && xdirname(gmbuf) && makepath(gmbuf, EXTFNNAME, gmbuf) && access(gmbuf, R_OK | X_OK) == 0)
-	|| (makepath(EXTFNPREFIX, EXTFNNAME, gmbuf) && access(gmbuf, R_OK | X_OK) == 0))
+	|| (makepath(EXTFNPREFIX, EXTFNNAME, gmbuf) && access(gmbuf, R_OK | X_OK) == 0)
+	|| (makepath(EXTFNPREFIX2, EXTFNNAME, gmbuf) && access(gmbuf, R_OK | X_OK) == 0))
 		extfunc = strdup(gmbuf);
 
 	// Set pipepath, pvfifo paths and set running mode
