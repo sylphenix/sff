@@ -1,10 +1,8 @@
 # sff
 
-sff (simple file finder) is a simple, fast, and feature-rich terminal file
-manager inspired by nnn and guided by the suckless philosophy. It aims to 
-provide a reliable, efficient, and user-friendly file management experience with 
-high extensibility. sff is fully compatible with POSIX-compliant systems. It 
-has been extensively tested on GNU/Linux and FreeBSD.
+sff (simple file finder) is a simple, fast, and feature-rich terminal file manager inspired by nnn and guided by the suckless philosophy.
+It aims to provide a reliable, efficient, and user-friendly file management experience with high extensibility.
+sff is fully compatible with POSIX-compliant systems. It has been extensively tested on GNU/Linux and FreeBSD.
 
 
 ## Features
@@ -100,7 +98,7 @@ You can install all dependencies using the following commands:
 
 2. Change to the root directory of the project.
 
-3. Build and install sff.
+3. Build and install sff:
    ```
    sudo make install
    ```
@@ -128,7 +126,11 @@ For more details, run `man sff` to see the documentation, or visit the [wiki](ht
 
 
 ## Philosophy
-sff is built on the belief that simplicity ensures reliability. It follows a minimalist design, divided into two parts: the core program and the extension script. The core program is a lightweight file browser and selector, sticking to features that are simple, necessary, and straightforward to implement. The extension script, a POSIX-compliant shell script, handles file operations such as copying, moving, and deleting. This modular design allows users to easily customize or extend functionality while keeping the core simple and efficient.
+sff is built on the belief that simplicity ensures reliability.
+It follows a minimalist design, divided into two parts: the core program and the extension script.
+The core program is a lightweight file browser and selector, sticking to features that are simple, necessary, and straightforward to implement.
+The extension script, a POSIX-compliant shell script, handles file operations such as copying, moving, and deleting.
+This modular design allows users to easily customize or extend functionality while keeping the core simple and efficient.
 
 
 ## License
