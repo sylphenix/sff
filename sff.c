@@ -39,15 +39,14 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <stdalign.h>
+#include <stddef.h>
 #include <ctype.h>
 #include <locale.h>
 #include <wchar.h>
 #include <grp.h>
 #include <pwd.h>
 #include <signal.h>
-#ifndef _XOPEN_SOURCE_EXTENDED
-#define _XOPEN_SOURCE_EXTENDED
-#endif
+#define NCURSES_WIDECHAR 1
 #include <curses.h>
 
 #define VERSION        "1.1"
