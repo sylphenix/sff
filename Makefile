@@ -13,7 +13,7 @@ LIBS = -lncursesw
 
 # flags
 CPPFLAGS =
-CFLAGS   = -std=c11 -pedantic -Wall -Wextra -Wshadow -O2 ${INCS} ${CPPFLAGS}
+CFLAGS   = -std=c11 -O2 -Wall -Wextra -fstack-protector-strong ${INCS} ${CPPFLAGS}
 LDFLAGS  = ${LIBS} -s
 
 # compiler and linker
