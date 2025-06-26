@@ -5,7 +5,7 @@
 
 ### Changed
 
-* Switched compiler optimization flag from `-Os` to `-O3`
+* Switched compiler optimization flag from `-Os` to `-O2`
 * Clean up preview FIFO file on exit
 
 

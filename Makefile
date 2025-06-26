@@ -13,7 +13,7 @@ LIBS = -lncursesw
 
 # flags
 CPPFLAGS = -DDEBUG
-CFLAGS   = -std=c11 -pedantic -Wall -Wextra -Wshadow -O3 ${INCS} ${CPPFLAGS}
+CFLAGS   = -std=c11 -pedantic -Wall -Wextra -Wshadow -O2 ${INCS} ${CPPFLAGS}
 LDFLAGS  = ${LIBS}
 
 # compiler and linker
