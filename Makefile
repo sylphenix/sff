@@ -12,7 +12,7 @@ INCS = -I/usr/include/ncursesw
 LIBS = -lncursesw
 
 # flags
-CPPFLAGS = -DDEBUG -D_DEFAULT_SOURCE
+CPPFLAGS = -DDEBUG
 CFLAGS   = -std=c11 -pedantic -Wall -Wextra -Wshadow -O3 ${INCS} ${CPPFLAGS}
 LDFLAGS  = ${LIBS}
 
@@ -47,9 +47,9 @@ sff: ${OBJ}
 clean:
 	rm -f sff ${OBJ} sff.1.gz sff*.tar.gz
 
-dist:
+dist: clean
 	mkdir -p sff
-	cp -R LICENSE Makefile README.md ${SRC} ${EXTFNNAME} plugins config.h sff.1 sff/
+	cp -R CHANGELOG.md LICENSE Makefile README.md config.h plugins sff.1 ${SRC} ${EXTFNNAME} sff/
 	tar -cf sff.tar sff
 	gzip sff.tar
 	rm -rf sff
