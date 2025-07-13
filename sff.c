@@ -1845,62 +1845,73 @@ static void setcurrentstat(Histpath *hp, struct selstat *ss)
 	} while ((ss = ss->prev));
 }
 
+static int xmbstowcs(wchar_t *dst, const char *str, int maxcols)
+{
+	wchar_t wc;
+	int nb, dstwidth = 0;
+
+	for (; *str; ++str, ++dst) {
+		if ((signed char)*str < 0) {
+			if ((nb = mbtowc(&wc, str, MB_CUR_MAX)) > 0) {
+				*dst = wc;
+				str += nb - 1;
+			} else
+				*dst = L'\uFFFD'; // invalid char
+		} else if ((signed char)*str < 0x20) {
+			*dst = L'?'; // Replace escape chars with '?'
+		} else {
+			*dst = (wchar_t)*str;
+		}
+
+		dstwidth += wcwidth(*dst);
+		if (maxcols != -1 && dstwidth > maxcols) {
+			*(dst - 1) = L'~';
+			break;
+		}
+	}
+	*dst = L'\0';
+	return dstwidth;
+}
+
 static wchar_t *fitnamecols(const char *str, int maxcols)
 {
 	wchar_t *wbuf = (wchar_t *)gpbuf;
-	int i, len = mbstowcs(wbuf, str, maxcols + 1); // Convert multi-byte to wide char
 
-	for (i = 0; i < len; ++i)
-		if (wbuf[i] <= L'\x1f')
-			wbuf[i] = L'?';  // Replace escape chars with '?'
-
-	if (len > maxcols >> 1) {
-		for (i = len; wcswidth(wbuf, i) > maxcols; --i) // Reduce wide chars to fit room
-			;
-		if (i < len)
-			wbuf[i - 1] = L'~';
-		wbuf[i] = L'\0';
-	}
+	xmbstowcs(wbuf, str, maxcols);
 	return wbuf;
 }
 
 static wchar_t *fitpathcols(const char *path, int maxcols)
 {
 	static int homelen = 0;
-	wchar_t *tbuf = (wchar_t *)gmbuf, *wbuf = (wchar_t *)gpbuf;
-	wchar_t *tbp = tbuf, *wbp = wbuf, *slash = NULL;
-	int i, len, fold = 0;
+	wchar_t *wbuf = (wchar_t *)gpbuf, *wbp = wbuf;
 
 	if (homelen == 0 && home)
 		homelen = strlen(home);
-	// Replace home path with '~'
 	if (home && strncmp(home, path, homelen) == 0) {
 		path += homelen;
-		*wbp++ = L'~';
+		*wbp++ = L'~'; // Replace home path with '~'
 	}
 
-	len = mbstowcs(tbp, path, PATH_MAX - 1);
+	if (xmbstowcs(wbp, path, -1) + (wbp - wbuf) > maxcols) {
+		++wbp; // When fold path, keep the first level
+		for (wchar_t *tbp = wbp, *slash = NULL; *tbp; ++tbp, ++wbp) {
+			if (*tbp == L'/') {
+				if (slash)
+					slash = wbp = slash + 2;
+				else
+					slash = wbp;
+			}
+			*wbp = *tbp;
+		}
 
-	if (wcswidth(tbuf, len) + (wbp - wbuf) > maxcols) {
-		fold = 1;
-		*wbp++ = *tbp++; // If fold path, keep the first level
+		int i, len;
+		for (i = len = wbp - wbuf; wcswidth(wbuf, i) > maxcols; --i) // Reduce wide chars to fit room
+			;
+		if (i < len)
+			wbuf[i - 1] = L'~';
+		wbuf[i] = L'\0';
 	}
-
-	for (; *tbp; ++tbp, ++wbp) {
-		if (fold && *tbp == L'/' && slash)
-			slash = wbp = slash + 2;
-		if (fold && *tbp == L'/' && !slash)
-			slash = wbp;
-
-		*wbp = (*tbp > L'\x1f') ? *tbp : L'?'; // Replace escape chars with '?'
-	}
-
-	len = wbp - wbuf;
-	for (i = len; wcswidth(wbuf, i) > maxcols; --i) // Reduce wide chars to fit room
-		;
-	if (i < len)
-		wbuf[i - 1] = L'~';
-	wbuf[i] = L'\0';
 	return wbuf;
 }
 
@@ -2465,11 +2476,11 @@ int main(int argc, char *argv[])
 	if (!initsff(argv[0], argc == optind ? NULL : argv[optind]))
 		return EXIT_FAILURE;
 
+	setlocale(LC_ALL, "");
+
 	if (!initscr())
 		return EXIT_FAILURE;
 	setupcurses();
-
-	setlocale(LC_ALL, "");
 
 	browse();
 

@@ -12,6 +12,7 @@
 ### Fixed
 
 * Fixed `-b` option not working when running as superuser
+* Properly handle paths containing invalid encoding characters
 
 
 ## 1.1 <small>(2025-06-05)</small>
