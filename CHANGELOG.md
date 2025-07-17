@@ -5,13 +5,15 @@
 
 ### Changed
 
-* Switched compiler optimization flag from `-Os` to `-O2`
+* Changed compiler flags from `-Os` to `-O2` and added `-fstack-protector-strong`
 * Clean up preview FIFO file on exit
+* When type-to-navigate fails to enter a directory, the input string is no longer cleared
 
 
 ### Fixed
 
 * Fixed `-b` option not working when running as superuser
+* Properly handle paths containing invalid encoding characters
 
 
 ## 1.1 <small>(2025-06-05)</small>

@@ -43,6 +43,7 @@ tbuf1="${tmpdir}/sff-tmpbuf1-$uid"
 tbuf2="${tmpdir}/sff-tmpbuf2-$uid"
 
 unset LESS
+export LC_ALL=C
 [ ! -p "$sffpipe" ] && exit 0
 
 # === sff extension functions ===
@@ -63,7 +64,7 @@ sffpipe_sel_file()
 	printf "@%s\0" "$1" >"$sffpipe"
 }
 
-sffpipe_enter()
+sffpipe_enter_dir()
 {
 	printf ">%s\0" "$1" >"$sffpipe"
 }
@@ -106,7 +107,7 @@ sff_new()
 	: >"$_tlist"
 
 	while true; do
-		"$EDITOR" "$_tlist"
+		LC_ALL='' "$EDITOR" "$_tlist"
 		[ -e "$_tlist" ] && sed -e 's|^/*||' -e 's|[ \t]*$||' -e '/^$/d' "$_tlist" >"$tbuf1"
 		[ ! -s "$tbuf1" ] && sff_abort "$_tlist"
 
@@ -133,7 +134,7 @@ sff_new()
 sff_do_new()
 {
 	printf "new" >"$lastop"
-	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr -d '\n' | tr '\035' '\n')"
+	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr '\035\n' '\n\0')"
 
 	_err=''
 	sed 's/.*$//' "$exbuf1" | tr '\035' '\n' | xargs -r -0 mkdir -p || _err=1
@@ -219,7 +220,7 @@ sff_do_paste()
 {
 	printf "%s" "$1" >"$lastop"
 	[ "$2" != 'w' ] && touch -mt 202310011200.00 "$lastop"
-	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr -d '\n' | tr '\035' '\n')"
+	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr '\035\n' '\n\0')"
 
 	case "$1" in
 	'copy') printf "\nCopying...\n"
@@ -255,7 +256,7 @@ sff_rename()
 	fi
 
 	while true; do
-		"$EDITOR" "$_tlist"
+		LC_ALL='' "$EDITOR" "$_tlist"
 		sed -e 's|^.*/||' -e 's|^[ \t]*$||' "$_tlist" | paste -d '/' "$tsel" "$tbuf1" - \
 		| sed -e '/^\(.*\)\1$/d' -e '/^/d' -e '/\/$/d' >"$tbuf2"
 		[ ! -s "$tbuf2" ] && sff_abort "$_tlist"
@@ -281,7 +282,7 @@ sff_rename()
 sff_do_rename()
 {
 	printf "rename" >"$lastop"
-	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr -d '\n' | tr '\035' '\n')"
+	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr '\035\n' '\n\0')"
 
 	xargs -0 -n 2 mv -nv <"$exbuf1" \
 	|| { printf "Press Enter to continue "; read -r _x; }
@@ -297,7 +298,7 @@ sff_undo_move()
 	[ "$_x" != 'y' ] && exit 0
 
 	printf "un%s" "$_op" >"$lastop"
-	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf1" | head -n 1 | tr -d '\n' | tr '\035' '\n')"
+	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf1" | head -n 1 | tr '\035\n' '\n\0')"
 
 	xargs -0 -n 2 mv -n <"$exbuf2" \
 	|| { printf "Press Enter to continue "; read -r _x; }
@@ -342,7 +343,7 @@ sff_duplicate()
 sff_do_duplicate()
 {
 	printf "duplicate" >"$lastop"
-	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr -d '\n' | tr '\035' '\n')"
+	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr '\035\n' '\n\0')"
 
 	echo "Duplicating..."
 	xargs -0 -n 2 cp -an <"$exbuf1" \
@@ -458,7 +459,7 @@ run_pl()
 		printf "\nPlugin '%s' not found\n" "$1"
 		printf "Press Enter to continue "; read -r _x
 	else
-		"$_plugin" "$sffpipe" "$2"
+		LC_ALL='' "$_plugin" "$sffpipe" "$2"
 	fi
 }
 
