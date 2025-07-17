@@ -30,7 +30,7 @@ sff is fully compatible with POSIX-compliant systems. It has been extensively te
 | Library/Package                                 | Install?  | Notes                                     |
 |-------------------------------------------------|-----------|-------------------------------------------|
 | libc, curses (wide character support)           | Required* | Essential runtime libraries               |
-| coreutils (Linux), findutils (Linux), sed, file | Required* | File operations                           |
+| coreutils (Linux), findutils (Linux), sed, file | Required* | For file operations                       |
 | vi/vim                                          | Required* | Default text editor                       |
 | sudo                                            | Optional* | Sudo mode                                 |
 | xdg-utils                                       | Optional* | File opening via default applications     |
@@ -41,7 +41,6 @@ sff is fully compatible with POSIX-compliant systems. It has been extensively te
 | ffmpegthumbnailer                               | Optional  | Video thumbnail preview (preview plugin)  |
 
 _* These dependencies are part of the base system in most environments and generally don't require manual installation._
-
 
 You can install all dependencies using the following commands:
 - Debian/Ubuntu:
@@ -61,25 +60,54 @@ You can install all dependencies using the following commands:
    sudo pkg install 7-zip fzf chafa poppler-utils ffmpegthumbnailer
    ```
 
-
 ### Install from binary packages
+
+#### Linux:
+
 1. Download the appropriate package for your system from [OpenBuildService](https://software.opensuse.org//download.html?project=home%3Asylphenix%3Asff&package=sff).
 
 2. Install the package using the package manager specific to your system.
 - Debian/Ubuntu:
    ```
-   sudo apt install /PATH/TO/sff_VERSION_amd64.deb
+   sudo apt install /path/to/sff_<VERSION>_amd64.deb
    ```
 - Arch Linux:
    ```
-   sudo pacman -U /PATH/TO/sff-VERSION-x86_64.pkg.tar.zst
+   sudo pacman -U /path/to/sff-<VERSION>-x86_64.pkg.tar.zst
    ```
 - Fedora:
    ```
-   sudo dnf install /PATH/TO/sff-VERSION.x86_64.rpm
+   sudo dnf install /path/to/sff-<VERSION>.x86_64.rpm
+   ```
+
+#### FreeBSD:
+
+- Install the package from the official repositories:
+   ```
+   sudo pkg install sff
+   ```
+
+### Installation from AUR (Arch User Repository)
+
+- Using `yay`:
+   ```
+   yay -S sff
+   ```
+
+- Using `paru`:
+   ```
+   paru -S sff
+   ```
+
+- Without AUR helpers:
+   ```
+   git clone https://aur.archlinux.org/sff.git
+   cd sff
+   makepkg -si
    ```
 
 ### Build and install from source
+
 0. For Linux users, ensure that a C compiler, make utility, and the ncurses headers are installed. You can install them using the following commands:
 - Debian/Ubuntu:
    ```
@@ -113,6 +141,7 @@ You can install all dependencies using the following commands:
    sudo make uninstall PREFIX=/usr
    ```
 
+
 ## Usage
 
 Simply run `sff` to start the application from the current directory.
@@ -126,6 +155,7 @@ For more details, run `man sff` to see the documentation, or visit the [wiki](ht
 
 
 ## Philosophy
+
 sff is built on the belief that simplicity ensures reliability.
 It follows a minimalist design, divided into two parts: the core program and the extension script.
 The core program is a lightweight file browser and selector, sticking to features that are simple, necessary, and straightforward to implement.
@@ -136,6 +166,7 @@ This modular design allows users to easily customize or extend functionality whi
 ## License
 
 sff is released under the 2-Clause BSD License. See the LICENSE file for more details.
+
 
 ## Acknowledgements
 
