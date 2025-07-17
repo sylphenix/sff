@@ -184,7 +184,6 @@ static Entry *pdents = NULL;
 static Tabs *ptab = NULL;
 
 alignas(max_align_t) static char gpbuf[PATH_MAX * sizeof(wchar_t)] = {0};
-alignas(max_align_t) static char gmbuf[PATH_MAX * sizeof(wchar_t)] = {0};
 alignas(max_align_t) static Tabs gtab[TABS_MAX + 1] = {0};
 alignas(max_align_t) static Histpath ghpath[(TABS_MAX + 1) * 2] = {0};
 
@@ -1574,8 +1573,8 @@ static int handlepipedata(int fd, int op)
 	case '>': // enter specified path
 		if (read(fd, gpbuf, PATH_MAX) == -1 && seterrnum(__LINE__, errno))
 			return GO_STATBAR;
-		if (gcfg.ct < TABS_MAX && abspath(gpbuf, gmbuf))
-			return newhistpath(gmbuf);
+		if (gcfg.ct < TABS_MAX && gpbuf[0] == '/')
+			return newhistpath(gpbuf);
 		break;
 
 	case '?': // load search result
@@ -1847,29 +1846,32 @@ static void setcurrentstat(Histpath *hp, struct selstat *ss)
 
 static int xmbstowcs(wchar_t *dst, const char *str, int maxcols)
 {
-	wchar_t wc;
+	wchar_t *wcp = dst;
 	int nb, dstwidth = 0;
 
-	for (; *str; ++str, ++dst) {
-		if ((signed char)*str < 0) {
-			if ((nb = mbtowc(&wc, str, MB_CUR_MAX)) > 0) {
-				*dst = wc;
-				str += nb - 1;
-			} else
-				*dst = L'\uFFFD'; // invalid char
-		} else if ((signed char)*str < 0x20) {
-			*dst = L'?'; // Replace escape chars with '?'
-		} else {
-			*dst = (wchar_t)*str;
-		}
+	if (maxcols > 0) {
+		for (wchar_t wc; *str; ++str, ++wcp) {
+			if ((signed char)*str < 0) {
+				if ((nb = mbtowc(&wc, str, MB_CUR_MAX)) > 0) {
+					*wcp = wc;
+					str += nb - 1;
+				} else
+					*wcp = L'\uFFFD'; // invalid char
+			} else if ((signed char)*str < 0x20) {
+				*wcp = L'?'; // Replace escape chars with '?'
+			} else {
+				*wcp = (wchar_t)*str;
+			}
 
-		dstwidth += wcwidth(*dst);
-		if (maxcols != -1 && dstwidth > maxcols) {
-			*(dst - 1) = L'~';
-			break;
+			dstwidth += wcwidth(*wcp);
+			if (dstwidth > maxcols) {
+				if (wcp != dst)
+					*(wcp - 1) = L'~';
+				break;
+			}
 		}
 	}
-	*dst = L'\0';
+	*wcp = L'\0';
 	return dstwidth;
 }
 
@@ -1886,6 +1888,11 @@ static wchar_t *fitpathcols(const char *path, int maxcols)
 	static int homelen = 0;
 	wchar_t *wbuf = (wchar_t *)gpbuf, *wbp = wbuf;
 
+	if (maxcols <= 0) {
+		wbuf[0] = L'\0';
+		return wbuf;
+	}
+
 	if (homelen == 0 && home)
 		homelen = strlen(home);
 	if (home && strncmp(home, path, homelen) == 0) {
@@ -1893,7 +1900,7 @@ static wchar_t *fitpathcols(const char *path, int maxcols)
 		*wbp++ = L'~'; // Replace home path with '~'
 	}
 
-	if (xmbstowcs(wbp, path, -1) + (wbp - wbuf) > maxcols) {
+	if (xmbstowcs(wbp, path, PATH_MAX) + (wbp - wbuf) > maxcols) {
 		++wbp; // When fold path, keep the first level
 		for (wchar_t *tbp = wbp, *slash = NULL; *tbp; ++tbp, ++wbp) {
 			if (*tbp == L'/') {
@@ -1937,22 +1944,6 @@ static inline void printenttime(const time_t *timep)
 	printw("%s-%02d-%02d %02d:%02d ", xitoa(t.tm_year + 1900), t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min);
 }
 
-static inline void printentname(const Entry *ent, int sel)
-{
-	int attr = COLOR_PAIR(ent->type)
-		| (ent->flag & E_DIR_DIRLNK ? A_BOLD : 0)
-		| ((ent->flag & E_SEL) || (sel && !ptab->cfg.selmode) ? A_REVERSE : 0)
-		| ((sel && ptab->cfg.selmode) ? A_UNDERLINE : 0);
-
-	attron(attr);
-	if (ptab->hp->stat->flag != S_ROOT)
-		addwstr(fitnamecols(ent->name, ncols));
-	else
-		addwstr(fitpathcols(ent->name, ncols));
-	attroff(attr);
-}
-
-
 static void printent(const Entry *ent, int sel, int mark)
 {
 	int attr = COLOR_PAIR(C_DETAIL)	| (mark || (sel && ptab->cfg.selmode) ? A_REVERSE : 0);
@@ -1983,8 +1974,17 @@ static void printent(const Entry *ent, int sel, int mark)
 	attroff(gcfg.newent && (ent->flag & E_NEW) ? (COLOR_PAIR(C_NEWFILE) | A_REVERSE) : 0);
 	attroff(attr);
 
-	if (ncols > 0)
-		printentname(ent, sel);
+	attr = COLOR_PAIR(ent->type)
+		| (ent->flag & E_DIR_DIRLNK ? A_BOLD : 0)
+		| ((ent->flag & E_SEL) || (sel && !ptab->cfg.selmode) ? A_REVERSE : 0)
+		| ((sel && ptab->cfg.selmode) ? A_UNDERLINE : 0);
+
+	attron(attr);
+	if (ptab->hp->stat->flag != S_ROOT)
+		addwstr(fitnamecols(ent->name, ncols));
+	else
+		addwstr(fitpathcols(ent->name, ncols));
+	attroff(attr);
 }
 
 static void redraw(char *path)
@@ -2013,8 +2013,7 @@ static void redraw(char *path)
 
 	// Print path
 	attron(COLOR_PAIR(C_PATHBAR) | A_UNDERLINE);
-	if (pcols > 0)
-		addwstr(fitpathcols(path, pcols));
+	addwstr(fitpathcols(path, pcols));
 	attroff(COLOR_PAIR(C_PATHBAR) | A_UNDERLINE);
 
 	// Print entries
@@ -2043,8 +2042,7 @@ static void redraw(char *path)
 		move(xlines - 2, 0);
 		attron(COLOR_PAIR(F_SOCK));
 		addstr("Filter: ");
-		mbstowcs((wchar_t *)gmbuf, ptab->filt, xcols - 12);
-		addwstr((wchar_t *)gmbuf);
+		addnstr(ptab->filt, xcols - 8);
 		attroff(COLOR_PAIR(F_SOCK));
 		addch(' ' | (ptab->ftlen > 0 ? A_REVERSE : 0));
 	}
@@ -2054,8 +2052,7 @@ static void redraw(char *path)
 		move(xlines - 2, 0);
 		attron(COLOR_PAIR(F_CHR));
 		addstr("Quick find: ");
-		mbstowcs((wchar_t *)gmbuf, ptab->find, xcols - 12);
-		addwstr((wchar_t *)gmbuf);
+		addnstr(ptab->find, xcols - 12);
 		attroff(COLOR_PAIR(F_CHR));
 		addch(' ' | A_REVERSE);
 	}
@@ -2146,19 +2143,20 @@ static void statusbar(void)
 			if ((x = readlink(ent->name, gpbuf, PATH_MAX)) > 1) {
 				gpbuf[x] = '\0';
 				addstr("->");
-				addwstr(fitpathcols(gpbuf, n - 2)); // Show symlink target
+				addnstr(gpbuf, n - 2); // Show symlink target
 			}
 
 		} else if ((ent->flag & E_REG_FILE) && n > 1) {
 			char *p = getextension(ent->name, ent->nlen);
 			if (p)
 				addnstr(p , n); // Show file extension
-		}
+		} else
+			addch(' ');
 	}
 
 	getyx(stdscr, n, x);
-	if (xcols - x >= 8)
-		mvaddstr(n, xcols - 8, " [?]help");
+	if (xcols - x > 7)
+		mvaddstr(n, xcols - 7, "[?]help");
 	attroff(COLOR_PAIR(C_STATBAR));
 }
 
@@ -2181,8 +2179,6 @@ static void filterentry(void)
 
 static int filterinput(int c)
 {
-	wchar_t *wbuf = (wchar_t *)gmbuf;
-
 	if (ptab->ftlen <= 0) // ftlen=0 no filter, ftlen<0 inactive, ftlen>0 active
 		return GO_NONE;
 
@@ -2196,10 +2192,10 @@ static int filterinput(int c)
 	} else if (c == KEY_BACKSPACE || c == KEY_DC) {
 		if (ptab->ftlen <= 1)
 			return GO_REDRAW;
-		size_t len = mbstowcs(wbuf, ptab->filt, ptab->ftlen);
-		wbuf[len - 1] = L'\0';
-		ptab->ftlen = wcstombs(ptab->filt, wbuf, ptab->ftlen) + 1;
-		ptab->filt[ptab->ftlen - 1] = '\0';
+		char *end = ptab->filt + ptab->ftlen - 1;
+		while (--end >= ptab->filt && (*end & 0xC0) == 0x80);
+		*end = '\0';
+		ptab->ftlen = end - ptab->filt + 1;
 		ndents = ptab->nde;
 
 	} else if (c > 31 && c < 256) {
@@ -2212,9 +2208,6 @@ static int filterinput(int c)
 
 static int qfindinput(int c)
 {
-	int cd = FALSE;
-	wchar_t *wbuf = (wchar_t *)gmbuf;
-
 	if (ptab->fdlen <= 0) // fdlen=0 no quick find, fdlen<0 invisible, fdlen>0 active
 		return GO_NONE;
 
@@ -2228,29 +2221,25 @@ static int qfindinput(int c)
 		return GO_RELOAD;
 
 	} else if (c == '\t' || c == '/') { // enter dir
+		if (enterdir(0) != GO_RELOAD)
+			return GO_REDRAW;
 		ptab->find[0] = '\0';
 		ptab->fdlen = 1;
-		cd = TRUE;
+		return GO_RELOAD;
 
 	} else if (c == KEY_BACKSPACE || c == KEY_DC) {
 		if (ptab->fdlen <= 1)
 			return GO_REDRAW;
-		size_t len = mbstowcs(wbuf, ptab->find, ptab->fdlen);
-		wbuf[len - 1] = L'\0';
-		ptab->fdlen = wcstombs(ptab->find, wbuf, ptab->fdlen) + 1;
-		ptab->find[ptab->fdlen - 1] = '\0';
+		char *end = ptab->find + ptab->fdlen - 1;
+		while (--end >= ptab->find && (*end & 0xC0) == 0x80);
+		*end = '\0';
+		ptab->fdlen = end - ptab->find + 1;
 
 	} else if (c > 31 && c < 256) {
 		ptab->find[ptab->fdlen - 1] = c;
 		ptab->find[ptab->fdlen == FILT_MAX - 1 ? ptab->fdlen : ++ptab->fdlen - 1] = '\0';
 	} else
 		return GO_NONE;
-
-	if (cd) {
-		if (enterdir(0) == GO_NONE)
-			return GO_REDRAW;
-		return GO_RELOAD;
-	}
 
 	if (ptab->find[0] == '\0')
 		return GO_REDRAW;
@@ -2366,15 +2355,15 @@ static int initsff(char *arg0, char *argx)
 		cfgpath = strdup(gpbuf);
 
 	// Set extfunc path, and check sff-extfunc file
-	if ((cfgpath && makepath(cfgpath, EXTFNNAME, gmbuf) && access(gmbuf, R_OK | X_OK) == 0)
-	|| (realpath(arg0, gmbuf) && xdirname(gmbuf) && makepath(gmbuf, EXTFNNAME, gmbuf) && access(gmbuf, R_OK | X_OK) == 0)
-	|| (makepath(EXTFNPREFIX, EXTFNNAME, gmbuf) && access(gmbuf, R_OK | X_OK) == 0)
-	|| (makepath(EXTFNPREFIX2, EXTFNNAME, gmbuf) && access(gmbuf, R_OK | X_OK) == 0))
-		extfunc = strdup(gmbuf);
+	if ((cfgpath && makepath(cfgpath, EXTFNNAME, gpbuf) && access(gpbuf, R_OK | X_OK) == 0)
+	|| (realpath(arg0, gpbuf) && xdirname(gpbuf) && makepath(gpbuf, EXTFNNAME, gpbuf) && access(gpbuf, R_OK | X_OK) == 0)
+	|| (makepath(EXTFNPREFIX, EXTFNNAME, gpbuf) && access(gpbuf, R_OK | X_OK) == 0)
+	|| (makepath(EXTFNPREFIX2, EXTFNNAME, gpbuf) && access(gpbuf, R_OK | X_OK) == 0))
+		extfunc = strdup(gpbuf);
 
 	// Set pipepath, pvfifo paths and set running mode
 	if (cfgpath && extfunc
-	&& strcat(strcat(gpbuf, "/.sff-pipe."), xitoa(getpid())) && (pipepath = strdup(gpbuf))
+	&& makepath(cfgpath, ".sff-pipe.", gpbuf) && strcat(gpbuf, xitoa(getpid())) && (pipepath = strdup(gpbuf))
 	&& strcat(gpbuf, ".pv") && (pvfifo = strdup(gpbuf))) {
 		if (getuid() == 0 && gcfg.mode != 4)
 			gcfg.mode = 2;

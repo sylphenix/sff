@@ -46,6 +46,7 @@ uid=$(id -u)
 tsel="${tmpdir}/sff-tmpsel-$uid"
 tbuf1="${tmpdir}/sff-tmpbuf2-$uid"
 type 7zz >/dev/null 2>&1 && _7z='7zz' || _7z='7z'
+export LC_ALL=C
 
 sffpipe_refresh()
 {
@@ -111,7 +112,8 @@ extract_archive()
 			[ -e "$_tdir" ] && rm -rf "$_tdir"
 			;;
 
-		'l') echo ""
+		'l') unset LC_ALL
+			echo ""
 			case "$(printf "%s" "$_name" | tr 'A-Z' 'a-z')" in
 			*?.tar.?*|*?.t?*) tar -tvf "$_path";;
 			*?.gz) zcat "$_path";;
