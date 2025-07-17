@@ -87,7 +87,7 @@ You can install all dependencies using the following commands:
    sudo pkg install sff
    ```
 
-### Installation from AUR (Arch User Repository)
+### Install from AUR (Arch User Repository)
 
 - Using `yay`:
    ```
