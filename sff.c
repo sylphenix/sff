@@ -106,24 +106,24 @@ typedef struct {
 } Entry;
 
 typedef struct {
-	char name[NAME_MAX + 1];
 	int cur;
 	int scrl;
+	char name[NAME_MAX + 1];
 	int flag;
 } Histstat;
 
 typedef struct {
-	char path[PATH_MAX];
 	Histstat *hs;
 	Histstat *stat;
+	char path[PATH_MAX];
 	unsigned int nhs;
 	unsigned int ths;
 } Histpath;
 
 struct selstat {
-	char path[PATH_MAX];
 	struct selstat *prev;
 	struct selstat *next;
+	char path[PATH_MAX];
 	char *nbuf;
 	char *endp;
 	size_t buflen;
@@ -184,8 +184,8 @@ static Entry *pdents = NULL;
 static Tabs *ptab = NULL;
 
 alignas(max_align_t) static char gpbuf[PATH_MAX * sizeof(wchar_t)] = {0};
-alignas(max_align_t) static Tabs gtab[TABS_MAX + 1] = {0};
-alignas(max_align_t) static Histpath ghpath[(TABS_MAX + 1) * 2] = {0};
+alignas(max_align_t) static Tabs gtab[TABS_MAX + 1] = {{0}};
+alignas(max_align_t) static Histpath ghpath[(TABS_MAX + 1) * 2] = {{0}};
 
 /****** Generic Functions ******/
 
@@ -203,10 +203,23 @@ static void dbgprint(char *vn, char *str, int n)
 }
 #endif
 
+static char *xmemrchr(const char *str, int c, size_t n)
+{
+	const unsigned char *cp = (unsigned char *)str + n;
+
+	if (n != 0) {
+		do {
+			if (*(--cp) == (unsigned char)c)
+				return (char *)cp;
+		} while (--n != 0);
+	}
+        return NULL;
+}
+
 /* Get directory portion of pathname. Source would be modified!!! */
 static char *xdirname(char *path)
 {
-	char *p = memrchr(path, '/', strlen(path));
+	char *p = xmemrchr(path, '/', strlen(path));
 
 	if (p == path)
 		path[1] = '\0';
@@ -218,7 +231,7 @@ static char *xdirname(char *path)
 /* Get filename portion of pathname. Source would be untouched. */
 static char *xbasename(char *path)
 {
-	char *p = memrchr(path, '/', strlen(path));
+	char *p = xmemrchr(path, '/', strlen(path));
 
 	return p ? p + 1 : path;
 }
@@ -245,7 +258,7 @@ static int makepath(const char *path, const char *name, char *buf)
 }
 
 /* Get file extension. Extensions longer than 8 chars will be ignored. */
-static char *getextension(char *name, int len)
+static char *getextension(char *name, size_t len)
 {
 	char *p;
 
@@ -295,7 +308,7 @@ static char *abspath(const char *path, char *buf)
 			src = (src[1] == '\0') ? src + 1 : src + 2;
 			continue;
 		} else if (dst[-1] == '/' && src[0] == '.' && src[1] == '.' && (src[2] == '/' || src[2] == '\0')) {
-			dst = (char *)memrchr(buf, '/', MAX(1, dst - buf - 1)) + 1;
+			dst = xmemrchr(buf, '/', MAX(1, dst - buf - 1)) + 1;
 			src = (src[2] == '\0') ? src + 2 : src + 3;
 			continue;
 		}
@@ -762,7 +775,11 @@ static int openfile(int n)
 	default :
 		if (ent->flag & E_DIR_DIRLNK)
 			return enterdir(0);
+#ifdef __APPLE__
+		spawn("/usr/bin/open", gpbuf, NULL, TRUE, FALSE);
+#else
 		spawn(OPENER, gpbuf, NULL, TRUE, FALSE);
+#endif
 	}
 	return GO_STATBAR;
 }
@@ -1654,17 +1671,23 @@ static int callextfunc(int c)
 	return ctl;
 }
 
+#ifdef __APPLE__
+#define STVNSEC(X)  X##timespec.tv_nsec
+#else
+#define STVNSEC(X)  X##tim.tv_nsec
+#endif
+
 static inline void fillentry(int fd, Entry *ent, struct stat sb, time_t curtime)
 {
 	switch (ptab->cfg.timetype) {
 	case 0: ent->sec = sb.st_atime;
-		ent->nsec = (unsigned int)sb.st_atim.tv_nsec;
+		ent->nsec = (unsigned int)STVNSEC(sb.st_a);
 		break;
 	case 1: ent->sec = sb.st_mtime;
-		ent->nsec = (unsigned int)sb.st_mtim.tv_nsec;
+		ent->nsec = (unsigned int)STVNSEC(sb.st_m);
 		break;
 	case 2: ent->sec = sb.st_ctime;
-		ent->nsec = (unsigned int)sb.st_ctim.tv_nsec;
+		ent->nsec = (unsigned int)STVNSEC(sb.st_c);
 	}
 
 	ent->size = sb.st_size;

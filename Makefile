@@ -8,8 +8,10 @@ EXTFNNAME = sff-extfunc
 EXTFNPREFIX = ${PREFIX}/libexec/sff
 
 # includes and libs
-INCS = -I/usr/include/ncursesw
-LIBS = -lncursesw
+OS = $(shell uname -s)
+INCS = $(shell [ '$(OS)' = "Linux" ] && echo "-I/usr/include/ncursesw"; \
+		[ '$(OS)' = "Darwin" ] && echo "-I/usr/local/opt/ncurses/include")
+LIBS = $(shell [ '$(OS)' = "Darwin" ] && echo "-L/usr/local/opt/ncurses/lib") -lncursesw
 
 # flags
 CPPFLAGS = -DDEBUG
@@ -19,7 +21,7 @@ LDFLAGS  = ${LIBS}
 # compiler and linker
 CC = cc
 
-# ===============================================================
+# ===========================================================================
 
 SRC = sff.c
 OBJ = ${SRC:.c=.o}
