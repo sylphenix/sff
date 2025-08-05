@@ -8,6 +8,7 @@
 * Changed compiler flags from `-Os` to `-O2` and added `-fstack-protector-strong`
 * Clean up preview FIFO file on exit
 * When type-to-navigate fails to enter a directory, the input string is no longer cleared
+* Symlink target paths no longer folded in status bar
 
 
 ### Fixed
