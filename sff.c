@@ -1181,44 +1181,44 @@ static int viewoptions(int n __attribute__((unused)))
 	box(dpo, 0, 0);
 	mvwaddstr(dpo, i = 0, 6, " View options ");
 	mvwaddstr(dpo, i += 2, 2, "[.]");
-	wattron(dpo, cfg->showhidden ? A_REVERSE : 0); waddstr(dpo, "show hidden"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, cfg->showhidden ? A_REVERSE : 0); waddstr(dpo, "show hidden"); wattrset(dpo, A_NORMAL);
 	waddstr(dpo, "  [/]");
-	wattron(dpo, cfg->dirontop ? A_REVERSE : 0); waddstr(dpo, "dirs on top"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, cfg->dirontop ? A_REVERSE : 0); waddstr(dpo, "dirs on top"); wattrset(dpo, A_NORMAL);
 
 	mvwaddstr(dpo, i += 2, 2, "Sort by:");
 	mvwaddstr(dpo, ++i, 2, "  (n)");
-	wattron(dpo, (cfg->sortby == 0) ? A_REVERSE : 0); waddstr(dpo, "name"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, (cfg->sortby == 0) ? A_REVERSE : 0); waddstr(dpo, "name"); wattrset(dpo, A_NORMAL);
 	waddstr(dpo, "  (s)");
-	wattron(dpo, (cfg->sortby == 1) ? A_REVERSE : 0); waddstr(dpo, "size"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, (cfg->sortby == 1) ? A_REVERSE : 0); waddstr(dpo, "size"); wattrset(dpo, A_NORMAL);
 	waddstr(dpo, "  (t)");
-	wattron(dpo, (cfg->sortby == 2) ? A_REVERSE : 0); waddstr(dpo, "time"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, (cfg->sortby == 2) ? A_REVERSE : 0); waddstr(dpo, "time"); wattrset(dpo, A_NORMAL);
 	waddstr(dpo, "  (e)");
-	wattron(dpo, (cfg->sortby == 3) ? A_REVERSE : 0); waddstr(dpo, "extension"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, (cfg->sortby == 3) ? A_REVERSE : 0); waddstr(dpo, "extension"); wattrset(dpo, A_NORMAL);
 	mvwaddstr(dpo, i += 2, 2, "  [c]");
-	wattron(dpo, !cfg->caseinsen ? A_REVERSE : 0); waddstr(dpo, "case-sensitive"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, !cfg->caseinsen ? A_REVERSE : 0); waddstr(dpo, "case-sensitive"); wattrset(dpo, A_NORMAL);
 	waddstr(dpo, "  [v]");
-	wattron(dpo, cfg->natural ? A_REVERSE : 0); waddstr(dpo, "natural"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, cfg->natural ? A_REVERSE : 0); waddstr(dpo, "natural"); wattrset(dpo, A_NORMAL);
 	waddstr(dpo, "  [r]");
-	wattron(dpo, cfg->reverse ? A_REVERSE : 0); waddstr(dpo, "reverse"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, cfg->reverse ? A_REVERSE : 0); waddstr(dpo, "reverse"); wattrset(dpo, A_NORMAL);
 
 	mvwaddstr(dpo, i += 2, 2, "Detail info:");
 	mvwaddstr(dpo, ++i, 2, "  [i]");
-	wattron(dpo, cfg->showtime ? A_REVERSE : 0); waddstr(dpo, "time"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, cfg->showtime ? A_REVERSE : 0); waddstr(dpo, "time"); wattrset(dpo, A_NORMAL);
 	waddstr(dpo, "  [u]");
-	wattron(dpo, cfg->showowner ? A_REVERSE : 0); waddstr(dpo, "owner"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, cfg->showowner ? A_REVERSE : 0); waddstr(dpo, "owner"); wattrset(dpo, A_NORMAL);
 	waddstr(dpo, "  [p]");
-	wattron(dpo, cfg->showperm ? A_REVERSE : 0); waddstr(dpo, "permissions"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, cfg->showperm ? A_REVERSE : 0); waddstr(dpo, "permissions"); wattrset(dpo, A_NORMAL);
 	waddstr(dpo, "  [z]");
-	wattron(dpo, cfg->showsize ? A_REVERSE : 0); waddstr(dpo, "size"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, cfg->showsize ? A_REVERSE : 0); waddstr(dpo, "size"); wattrset(dpo, A_NORMAL);
 	mvwaddstr(dpo, i += 2, 2, "  (d)default  (x)none");
 
 	mvwaddstr(dpo, i += 2, 2, "Time type:");
 	mvwaddstr(dpo, ++i, 2, "  (a)");
-	wattron(dpo, (cfg->timetype == 0) ? A_REVERSE : 0); waddstr(dpo, "access"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, (cfg->timetype == 0) ? A_REVERSE : 0); waddstr(dpo, "access"); wattrset(dpo, A_NORMAL);
 	waddstr(dpo, "  (m)");
-	wattron(dpo, (cfg->timetype == 1) ? A_REVERSE : 0); waddstr(dpo, "modify"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, (cfg->timetype == 1) ? A_REVERSE : 0); waddstr(dpo, "modify"); wattrset(dpo, A_NORMAL);
 	waddstr(dpo, "  (h)");
-	wattron(dpo, (cfg->timetype == 2) ? A_REVERSE : 0); waddstr(dpo, "change"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, (cfg->timetype == 2) ? A_REVERSE : 0); waddstr(dpo, "change"); wattrset(dpo, A_NORMAL);
 	mvwaddstr(dpo, i += 2, 2, "Press 'o' or Esc to close");
 
 	while (c == 0) {
@@ -1994,8 +1994,7 @@ static void printent(const Entry *ent, int sel, int mark)
 		addch('>' | A_BOLD);
 	else
 		addch(' ');
-	attroff(gcfg.newent && (ent->flag & E_NEW) ? (COLOR_PAIR(C_NEWFILE) | A_REVERSE) : 0);
-	attroff(attr);
+	attrset(A_NORMAL);
 
 	attr = COLOR_PAIR(ent->type)
 		| (ent->flag & E_DIR_DIRLNK ? A_BOLD : 0)
@@ -2007,7 +2006,7 @@ static void printent(const Entry *ent, int sel, int mark)
 		addwstr(fitnamecols(ent->name, ncols));
 	else
 		addwstr(fitpathcols(ent->name, ncols));
-	attroff(attr);
+	attrset(A_NORMAL);
 }
 
 static void redraw(char *path)
@@ -2037,7 +2036,7 @@ static void redraw(char *path)
 	// Print path
 	attron(COLOR_PAIR(C_PATHBAR) | A_UNDERLINE);
 	addwstr(fitpathcols(path, pcols));
-	attroff(COLOR_PAIR(C_PATHBAR) | A_UNDERLINE);
+	attrset(A_NORMAL);
 
 	// Print entries
 	move(++j, dcols);
@@ -2066,7 +2065,7 @@ static void redraw(char *path)
 		attron(COLOR_PAIR(F_SOCK));
 		addstr("Filter: ");
 		addnstr(ptab->filt, xcols - 8);
-		attroff(COLOR_PAIR(F_SOCK));
+		attrset(A_NORMAL);
 		addch(' ' | (ptab->ftlen > 0 ? A_REVERSE : 0));
 	}
 
@@ -2076,7 +2075,7 @@ static void redraw(char *path)
 		attron(COLOR_PAIR(F_CHR));
 		addstr("Quick find: ");
 		addnstr(ptab->find, xcols - 12);
-		attroff(COLOR_PAIR(F_CHR));
+		attrset(A_NORMAL);
 		addch(' ' | A_REVERSE);
 	}
 
@@ -2091,7 +2090,7 @@ static void redraw(char *path)
 	for (int i = 0; i < btm; ++i, ++j)
 		mvaddch(j, xcols - 1, ' ' | A_REVERSE);
 	mvaddch(xlines - 2, xcols - 1 , '=');
-	attroff(COLOR_PAIR(C_DETAIL));
+	attrset(A_NORMAL);
 	xcols = -xcols;
 }
 
@@ -2120,19 +2119,19 @@ static void statusbar(void)
 	if (gcfg.mode == 1 || gcfg.mode == 2) {
 		attron(COLOR_PAIR(C_WARN) | A_REVERSE | A_BOLD);
 		addstr(" S ");
-		attroff(COLOR_PAIR(C_WARN) | A_REVERSE | A_BOLD);
+		attrset(A_NORMAL);
 		addch(' ');
 	} else 	if (gcfg.mode > 2) {
 		attron(COLOR_PAIR(F_EXEC) | A_REVERSE | A_BOLD);
 		addstr(" B ");
-		attroff(COLOR_PAIR(F_EXEC) | A_REVERSE | A_BOLD);
+		attrset(A_NORMAL);
 		addch(' ');
 	}
 
 	if (errline != 0) {
 		attron(COLOR_PAIR(C_WARN));
 		printw("Failed (%s): %s", xitoa(errline), strerror(errnum));
-		attroff(COLOR_PAIR(C_WARN));
+		attrset(A_NORMAL);
 		errline = 0;
 		return;
 	}
@@ -2180,7 +2179,7 @@ static void statusbar(void)
 	getyx(stdscr, n, x);
 	if (xcols - x > 7)
 		mvaddstr(n, xcols - 7, "[?]help");
-	attroff(COLOR_PAIR(C_STATBAR));
+	attrset(A_NORMAL);
 }
 
 static void filterentry(void)
@@ -2309,7 +2308,6 @@ static void browse(void)
 			// fallthrough
 		case GO_NONE:
 			c = getinput(stdscr);
-			ctl = GO_NONE;
 
 			if (c == KEY_RESIZE) {
 				ctl = GO_REDRAW;
