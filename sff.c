@@ -88,7 +88,7 @@ enum histstatflag {
 };
 
 enum procctrl {
-	GO_NONE = 0, GO_FASTDRAW, GO_STATBAR, GO_REDRAW, GO_SORT, GO_RELOAD, GO_QUIT
+	GO_NONE = 0, GO_STATBAR, GO_FASTDRAW, GO_REDRAW, GO_SORT, GO_RELOAD, GO_QUIT
 };
 
 typedef struct {
@@ -173,7 +173,7 @@ typedef struct {
 
 /*** Global Variables ***/
 
-static int ndents = 0, tdents = 0, cursel = 0, lastsel = -1, curscroll = 0, lastscroll = -1;
+static int ndents = 0, tdents = 0, cursel = 0, lastsel = -1, curscroll = 0;
 static int markent = -1, errline = 0, errnum = 0;
 static int xlines, xcols, onscr, ncols;
 static size_t namebuflen = 0;
@@ -267,7 +267,7 @@ static char *getextension(char *name, size_t len)
 		len = (len > 11) ? 9 : len - 2;
 
 		 while (--len > 0)
-			if (*--p == '.')
+			if (*(--p) == '.')
 				return p;
 	}
 	return NULL;
@@ -379,7 +379,7 @@ static char *tohumansize(off_t size)
 	}
 
 	*sp = unit[i];
-	*++sp = '\0';
+	*(++sp) = '\0';
 	return sbuf;
 }
 
@@ -514,8 +514,9 @@ static void spawn(char *arg0, char *arg1, char *arg2, int detach, int sudo)
 
 static int shiftcursor(int step, int scrl)
 {
+	int lastscroll = curscroll;
+
 	lastsel = cursel;
-	lastscroll = curscroll;
 	cursel = MAX(0, MIN(ndents - 1, cursel + step));
 
 	if ((step == 1 || step == -1) && scrl == 0) {
@@ -670,19 +671,19 @@ static int enterdir(int n __attribute__((unused)))
 			return newhistpath(newpath);
 	}
 
-	if (chdir(newpath) == -1 && seterrnum(__LINE__, errno))
-		return GO_STATBAR;
-
 	if (nhs == hp->ths) {
 		Histstat *tmphs = realloc(hp->hs, (hp->ths += HSTAT_INCR) * sizeof(Histstat));
 		if (!tmphs && seterrnum(__LINE__, errno)) {
-			chdir(hp->path);
 			hp->ths -= HSTAT_INCR;
 			return GO_STATBAR;
 		}
 		hp->hs = tmphs;
+	}
 
-	} else if (nhs < hp->nhs) {
+	if (chdir(newpath) == -1 && seterrnum(__LINE__, errno))
+		return GO_STATBAR;
+
+	if (nhs < hp->nhs) {
 		if (strcmp(ent->name, hs->name) != 0) {
 			if ((strcmp(hp->path, hp2->path) == 0 && strcmp(ent->name, hp2->stat->name) == 0)
 			|| (gcfg.ct < TABS_MAX && inithistpath(hp2, hp->path, FALSE)))
@@ -1102,7 +1103,8 @@ static int switchtab(int n)
 	if (gcfg.ct < TABS_MAX)
 		gcfg.lt = gcfg.ct;
 	gcfg.ct = n;
-	chdir(gtab[n].hp->path);
+	if (chdir(gtab[n].hp->path) == -1)
+		seterrnum(__LINE__, errno);
 	return GO_RELOAD;
 }
 
@@ -1124,7 +1126,8 @@ static int closetab(int n __attribute__((unused)))
 			return GO_STATBAR;
 		gcfg.ct = 0;
 	} else {
-		chdir(gtab[lt].hp->path);
+		if (chdir(gtab[lt].hp->path) == -1)
+			seterrnum(__LINE__, errno);
 		gcfg.ct = lt;
 	}
 
@@ -1566,8 +1569,8 @@ static int readfindresult(int fd)
 
 static int handlepipedata(int fd, int op)
 {
-	if (op == 0)
-		read(fd, &op, 1);
+	if (op == 0 && read(fd, &op, 1) == -1 && seterrnum(__LINE__, errno))
+		return GO_STATBAR;
 
 	switch (op) {
 	case '.': // clear selection
@@ -1603,7 +1606,8 @@ static int handlepipedata(int fd, int op)
 		return GO_RELOAD;
 
 	case '#': // set preview
-		read(fd, &op, 1);
+		if (read(fd, &op, 1) == -1 && seterrnum(__LINE__, errno))
+			return GO_STATBAR;
 		if (op == 'p')
 			setpreview(0);
 		else if (op == 'q')
@@ -1632,13 +1636,13 @@ static int callextfunc(int c)
 		sigaction(SIGTSTP, &act, &oldsigtstp);
 		sigaction(SIGWINCH, &act, &oldsigwinch);
 		if ((rfd = open(pipepath, O_RDONLY)) != -1) {
-			len = read(rfd, gpbuf, 1);
-			if (isdigit(gpbuf[0])) {
-				len = read(rfd, &gpbuf[1], 8);
-				gpbuf[len + 1] = '\0';
-				gpid = (pid_t)strtol(gpbuf, NULL, 10);
-			} else if (len == 1)
-				ctl = handlepipedata(rfd, gpbuf[0]);
+			if (read(rfd, gpbuf, 1) == 1) {
+				if (isdigit(gpbuf[0]) && (len = read(rfd, &gpbuf[1], 8)) != -1) {
+					gpbuf[len + 1] = '\0';
+					gpid = (pid_t)strtol(gpbuf, NULL, 10);
+				} else
+					ctl = handlepipedata(rfd, gpbuf[0]);
+			}
 			close(rfd);
 
 			if (gpid > 9 && (wfd = open(pipepath, O_WRONLY)) != -1) {
@@ -1658,10 +1662,8 @@ static int callextfunc(int c)
 
 	} else if (pid == 0) {
 		spawn(extfunc, pipepath, (char [2]){c, '\0'}, FALSE, gcfg.mode == 1);
-		if ((wfd = open(pipepath, O_WRONLY | O_NONBLOCK)) != -1) {
-			write(wfd, "/", 1);
+		if ((wfd = open(pipepath, O_WRONLY | O_NONBLOCK)) != -1)
 			close(wfd);
-		}
 		_exit(EXIT_SUCCESS);
 
 	} else
@@ -2363,7 +2365,7 @@ static int initsff(char *arg0, char *argx)
 
 	// Get environment variables
 	home = getenv("HOME");
-	if (!home || !home[0] || access(home, R_OK | W_OK | X_OK) == -1)
+	if (!home || !home[0] || access(home, R_OK | X_OK) == -1)
 		home = NULL;
 
 	editor = getenv("EDITOR");
