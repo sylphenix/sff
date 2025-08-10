@@ -3,6 +3,13 @@
 
 ## Unreleased
 
+### Added
+
+* Added macOS support ([#12][12])
+
+[12]: https://codeberg.org/sylphenix/sff/issues/12
+
+
 ### Changed
 
 * Changed compiler flags from `-Os` to `-O2` and added `-fstack-protector-strong`
@@ -15,13 +22,14 @@
 
 * Fixed `-b` option not working when running as superuser
 * Properly handle paths containing invalid encoding characters
+* Now shows a warning when chdir fails during tab switching
 
 
 ## 1.1 <small>(2025-06-05)</small>
 
 ### Added
 
-* Add plugins support
+* Added plugins support
 * New preview plugin ([#3][3])
 
 [3]: https://codeberg.org/sylphenix/sff/issues/3
