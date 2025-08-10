@@ -88,7 +88,7 @@ enum histstatflag {
 };
 
 enum procctrl {
-	GO_NONE = 0, GO_FASTDRAW, GO_STATBAR, GO_REDRAW, GO_SORT, GO_RELOAD, GO_QUIT
+	GO_NONE = 0, GO_STATBAR, GO_FASTDRAW, GO_REDRAW, GO_SORT, GO_RELOAD, GO_QUIT
 };
 
 typedef struct {
@@ -106,24 +106,24 @@ typedef struct {
 } Entry;
 
 typedef struct {
-	char name[NAME_MAX + 1];
 	int cur;
 	int scrl;
+	char name[NAME_MAX + 1];
 	int flag;
 } Histstat;
 
 typedef struct {
-	char path[PATH_MAX];
 	Histstat *hs;
 	Histstat *stat;
+	char path[PATH_MAX];
 	unsigned int nhs;
 	unsigned int ths;
 } Histpath;
 
 struct selstat {
-	char path[PATH_MAX];
 	struct selstat *prev;
 	struct selstat *next;
+	char path[PATH_MAX];
 	char *nbuf;
 	char *endp;
 	size_t buflen;
@@ -173,7 +173,7 @@ typedef struct {
 
 /*** Global Variables ***/
 
-static int ndents = 0, tdents = 0, cursel = 0, lastsel = -1, curscroll = 0, lastscroll = -1;
+static int ndents = 0, tdents = 0, cursel = 0, lastsel = -1, curscroll = 0;
 static int markent = -1, errline = 0, errnum = 0;
 static int xlines, xcols, onscr, ncols;
 static size_t namebuflen = 0;
@@ -184,8 +184,8 @@ static Entry *pdents = NULL;
 static Tabs *ptab = NULL;
 
 alignas(max_align_t) static char gpbuf[PATH_MAX * sizeof(wchar_t)] = {0};
-alignas(max_align_t) static Tabs gtab[TABS_MAX + 1] = {0};
-alignas(max_align_t) static Histpath ghpath[(TABS_MAX + 1) * 2] = {0};
+alignas(max_align_t) static Tabs gtab[TABS_MAX + 1] = {{0}};
+alignas(max_align_t) static Histpath ghpath[(TABS_MAX + 1) * 2] = {{0}};
 
 /****** Generic Functions ******/
 
@@ -203,10 +203,23 @@ static void dbgprint(char *vn, char *str, int n)
 }
 #endif
 
+static char *xmemrchr(const char *str, int c, size_t n)
+{
+	const unsigned char *cp = (unsigned char *)str + n;
+
+	if (n != 0) {
+		do {
+			if (*(--cp) == (unsigned char)c)
+				return (char *)cp;
+		} while (--n != 0);
+	}
+        return NULL;
+}
+
 /* Get directory portion of pathname. Source would be modified!!! */
 static char *xdirname(char *path)
 {
-	char *p = memrchr(path, '/', strlen(path));
+	char *p = xmemrchr(path, '/', strlen(path));
 
 	if (p == path)
 		path[1] = '\0';
@@ -218,7 +231,7 @@ static char *xdirname(char *path)
 /* Get filename portion of pathname. Source would be untouched. */
 static char *xbasename(char *path)
 {
-	char *p = memrchr(path, '/', strlen(path));
+	char *p = xmemrchr(path, '/', strlen(path));
 
 	return p ? p + 1 : path;
 }
@@ -245,7 +258,7 @@ static int makepath(const char *path, const char *name, char *buf)
 }
 
 /* Get file extension. Extensions longer than 8 chars will be ignored. */
-static char *getextension(char *name, int len)
+static char *getextension(char *name, size_t len)
 {
 	char *p;
 
@@ -254,7 +267,7 @@ static char *getextension(char *name, int len)
 		len = (len > 11) ? 9 : len - 2;
 
 		 while (--len > 0)
-			if (*--p == '.')
+			if (*(--p) == '.')
 				return p;
 	}
 	return NULL;
@@ -295,7 +308,7 @@ static char *abspath(const char *path, char *buf)
 			src = (src[1] == '\0') ? src + 1 : src + 2;
 			continue;
 		} else if (dst[-1] == '/' && src[0] == '.' && src[1] == '.' && (src[2] == '/' || src[2] == '\0')) {
-			dst = (char *)memrchr(buf, '/', MAX(1, dst - buf - 1)) + 1;
+			dst = xmemrchr(buf, '/', MAX(1, dst - buf - 1)) + 1;
 			src = (src[2] == '\0') ? src + 2 : src + 3;
 			continue;
 		}
@@ -366,7 +379,7 @@ static char *tohumansize(off_t size)
 	}
 
 	*sp = unit[i];
-	*++sp = '\0';
+	*(++sp) = '\0';
 	return sbuf;
 }
 
@@ -501,8 +514,9 @@ static void spawn(char *arg0, char *arg1, char *arg2, int detach, int sudo)
 
 static int shiftcursor(int step, int scrl)
 {
+	int lastscroll = curscroll;
+
 	lastsel = cursel;
-	lastscroll = curscroll;
 	cursel = MAX(0, MIN(ndents - 1, cursel + step));
 
 	if ((step == 1 || step == -1) && scrl == 0) {
@@ -657,19 +671,19 @@ static int enterdir(int n __attribute__((unused)))
 			return newhistpath(newpath);
 	}
 
-	if (chdir(newpath) == -1 && seterrnum(__LINE__, errno))
-		return GO_STATBAR;
-
 	if (nhs == hp->ths) {
 		Histstat *tmphs = realloc(hp->hs, (hp->ths += HSTAT_INCR) * sizeof(Histstat));
 		if (!tmphs && seterrnum(__LINE__, errno)) {
-			chdir(hp->path);
 			hp->ths -= HSTAT_INCR;
 			return GO_STATBAR;
 		}
 		hp->hs = tmphs;
+	}
 
-	} else if (nhs < hp->nhs) {
+	if (chdir(newpath) == -1 && seterrnum(__LINE__, errno))
+		return GO_STATBAR;
+
+	if (nhs < hp->nhs) {
 		if (strcmp(ent->name, hs->name) != 0) {
 			if ((strcmp(hp->path, hp2->path) == 0 && strcmp(ent->name, hp2->stat->name) == 0)
 			|| (gcfg.ct < TABS_MAX && inithistpath(hp2, hp->path, FALSE)))
@@ -762,7 +776,11 @@ static int openfile(int n)
 	default :
 		if (ent->flag & E_DIR_DIRLNK)
 			return enterdir(0);
+#ifdef __APPLE__
+		spawn("/usr/bin/open", gpbuf, NULL, TRUE, FALSE);
+#else
 		spawn(OPENER, gpbuf, NULL, TRUE, FALSE);
+#endif
 	}
 	return GO_STATBAR;
 }
@@ -1085,7 +1103,8 @@ static int switchtab(int n)
 	if (gcfg.ct < TABS_MAX)
 		gcfg.lt = gcfg.ct;
 	gcfg.ct = n;
-	chdir(gtab[n].hp->path);
+	if (chdir(gtab[n].hp->path) == -1)
+		seterrnum(__LINE__, errno);
 	return GO_RELOAD;
 }
 
@@ -1107,7 +1126,8 @@ static int closetab(int n __attribute__((unused)))
 			return GO_STATBAR;
 		gcfg.ct = 0;
 	} else {
-		chdir(gtab[lt].hp->path);
+		if (chdir(gtab[lt].hp->path) == -1)
+			seterrnum(__LINE__, errno);
 		gcfg.ct = lt;
 	}
 
@@ -1164,44 +1184,44 @@ static int viewoptions(int n __attribute__((unused)))
 	box(dpo, 0, 0);
 	mvwaddstr(dpo, i = 0, 6, " View options ");
 	mvwaddstr(dpo, i += 2, 2, "[.]");
-	wattron(dpo, cfg->showhidden ? A_REVERSE : 0); waddstr(dpo, "show hidden"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, cfg->showhidden ? A_REVERSE : 0); waddstr(dpo, "show hidden"); wattrset(dpo, A_NORMAL);
 	waddstr(dpo, "  [/]");
-	wattron(dpo, cfg->dirontop ? A_REVERSE : 0); waddstr(dpo, "dirs on top"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, cfg->dirontop ? A_REVERSE : 0); waddstr(dpo, "dirs on top"); wattrset(dpo, A_NORMAL);
 
 	mvwaddstr(dpo, i += 2, 2, "Sort by:");
 	mvwaddstr(dpo, ++i, 2, "  (n)");
-	wattron(dpo, (cfg->sortby == 0) ? A_REVERSE : 0); waddstr(dpo, "name"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, (cfg->sortby == 0) ? A_REVERSE : 0); waddstr(dpo, "name"); wattrset(dpo, A_NORMAL);
 	waddstr(dpo, "  (s)");
-	wattron(dpo, (cfg->sortby == 1) ? A_REVERSE : 0); waddstr(dpo, "size"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, (cfg->sortby == 1) ? A_REVERSE : 0); waddstr(dpo, "size"); wattrset(dpo, A_NORMAL);
 	waddstr(dpo, "  (t)");
-	wattron(dpo, (cfg->sortby == 2) ? A_REVERSE : 0); waddstr(dpo, "time"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, (cfg->sortby == 2) ? A_REVERSE : 0); waddstr(dpo, "time"); wattrset(dpo, A_NORMAL);
 	waddstr(dpo, "  (e)");
-	wattron(dpo, (cfg->sortby == 3) ? A_REVERSE : 0); waddstr(dpo, "extension"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, (cfg->sortby == 3) ? A_REVERSE : 0); waddstr(dpo, "extension"); wattrset(dpo, A_NORMAL);
 	mvwaddstr(dpo, i += 2, 2, "  [c]");
-	wattron(dpo, !cfg->caseinsen ? A_REVERSE : 0); waddstr(dpo, "case-sensitive"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, !cfg->caseinsen ? A_REVERSE : 0); waddstr(dpo, "case-sensitive"); wattrset(dpo, A_NORMAL);
 	waddstr(dpo, "  [v]");
-	wattron(dpo, cfg->natural ? A_REVERSE : 0); waddstr(dpo, "natural"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, cfg->natural ? A_REVERSE : 0); waddstr(dpo, "natural"); wattrset(dpo, A_NORMAL);
 	waddstr(dpo, "  [r]");
-	wattron(dpo, cfg->reverse ? A_REVERSE : 0); waddstr(dpo, "reverse"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, cfg->reverse ? A_REVERSE : 0); waddstr(dpo, "reverse"); wattrset(dpo, A_NORMAL);
 
 	mvwaddstr(dpo, i += 2, 2, "Detail info:");
 	mvwaddstr(dpo, ++i, 2, "  [i]");
-	wattron(dpo, cfg->showtime ? A_REVERSE : 0); waddstr(dpo, "time"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, cfg->showtime ? A_REVERSE : 0); waddstr(dpo, "time"); wattrset(dpo, A_NORMAL);
 	waddstr(dpo, "  [u]");
-	wattron(dpo, cfg->showowner ? A_REVERSE : 0); waddstr(dpo, "owner"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, cfg->showowner ? A_REVERSE : 0); waddstr(dpo, "owner"); wattrset(dpo, A_NORMAL);
 	waddstr(dpo, "  [p]");
-	wattron(dpo, cfg->showperm ? A_REVERSE : 0); waddstr(dpo, "permissions"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, cfg->showperm ? A_REVERSE : 0); waddstr(dpo, "permissions"); wattrset(dpo, A_NORMAL);
 	waddstr(dpo, "  [z]");
-	wattron(dpo, cfg->showsize ? A_REVERSE : 0); waddstr(dpo, "size"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, cfg->showsize ? A_REVERSE : 0); waddstr(dpo, "size"); wattrset(dpo, A_NORMAL);
 	mvwaddstr(dpo, i += 2, 2, "  (d)default  (x)none");
 
 	mvwaddstr(dpo, i += 2, 2, "Time type:");
 	mvwaddstr(dpo, ++i, 2, "  (a)");
-	wattron(dpo, (cfg->timetype == 0) ? A_REVERSE : 0); waddstr(dpo, "access"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, (cfg->timetype == 0) ? A_REVERSE : 0); waddstr(dpo, "access"); wattrset(dpo, A_NORMAL);
 	waddstr(dpo, "  (m)");
-	wattron(dpo, (cfg->timetype == 1) ? A_REVERSE : 0); waddstr(dpo, "modify"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, (cfg->timetype == 1) ? A_REVERSE : 0); waddstr(dpo, "modify"); wattrset(dpo, A_NORMAL);
 	waddstr(dpo, "  (h)");
-	wattron(dpo, (cfg->timetype == 2) ? A_REVERSE : 0); waddstr(dpo, "change"); wattroff(dpo, A_REVERSE);
+	wattron(dpo, (cfg->timetype == 2) ? A_REVERSE : 0); waddstr(dpo, "change"); wattrset(dpo, A_NORMAL);
 	mvwaddstr(dpo, i += 2, 2, "Press 'o' or Esc to close");
 
 	while (c == 0) {
@@ -1549,8 +1569,8 @@ static int readfindresult(int fd)
 
 static int handlepipedata(int fd, int op)
 {
-	if (op == 0)
-		read(fd, &op, 1);
+	if (op == 0 && read(fd, &op, 1) == -1 && seterrnum(__LINE__, errno))
+		return GO_STATBAR;
 
 	switch (op) {
 	case '.': // clear selection
@@ -1586,7 +1606,8 @@ static int handlepipedata(int fd, int op)
 		return GO_RELOAD;
 
 	case '#': // set preview
-		read(fd, &op, 1);
+		if (read(fd, &op, 1) == -1 && seterrnum(__LINE__, errno))
+			return GO_STATBAR;
 		if (op == 'p')
 			setpreview(0);
 		else if (op == 'q')
@@ -1615,13 +1636,13 @@ static int callextfunc(int c)
 		sigaction(SIGTSTP, &act, &oldsigtstp);
 		sigaction(SIGWINCH, &act, &oldsigwinch);
 		if ((rfd = open(pipepath, O_RDONLY)) != -1) {
-			len = read(rfd, gpbuf, 1);
-			if (isdigit(gpbuf[0])) {
-				len = read(rfd, &gpbuf[1], 8);
-				gpbuf[len + 1] = '\0';
-				gpid = (pid_t)strtol(gpbuf, NULL, 10);
-			} else if (len == 1)
-				ctl = handlepipedata(rfd, gpbuf[0]);
+			if (read(rfd, gpbuf, 1) == 1) {
+				if (isdigit(gpbuf[0]) && (len = read(rfd, &gpbuf[1], 8)) != -1) {
+					gpbuf[len + 1] = '\0';
+					gpid = (pid_t)strtol(gpbuf, NULL, 10);
+				} else
+					ctl = handlepipedata(rfd, gpbuf[0]);
+			}
 			close(rfd);
 
 			if (gpid > 9 && (wfd = open(pipepath, O_WRONLY)) != -1) {
@@ -1641,10 +1662,8 @@ static int callextfunc(int c)
 
 	} else if (pid == 0) {
 		spawn(extfunc, pipepath, (char [2]){c, '\0'}, FALSE, gcfg.mode == 1);
-		if ((wfd = open(pipepath, O_WRONLY | O_NONBLOCK)) != -1) {
-			write(wfd, "/", 1);
+		if ((wfd = open(pipepath, O_WRONLY | O_NONBLOCK)) != -1)
 			close(wfd);
-		}
 		_exit(EXIT_SUCCESS);
 
 	} else
@@ -1654,17 +1673,23 @@ static int callextfunc(int c)
 	return ctl;
 }
 
+#ifdef __APPLE__
+#define STVNSEC(X)  X##timespec.tv_nsec
+#else
+#define STVNSEC(X)  X##tim.tv_nsec
+#endif
+
 static inline void fillentry(int fd, Entry *ent, struct stat sb, time_t curtime)
 {
 	switch (ptab->cfg.timetype) {
 	case 0: ent->sec = sb.st_atime;
-		ent->nsec = (unsigned int)sb.st_atim.tv_nsec;
+		ent->nsec = (unsigned int)STVNSEC(sb.st_a);
 		break;
 	case 1: ent->sec = sb.st_mtime;
-		ent->nsec = (unsigned int)sb.st_mtim.tv_nsec;
+		ent->nsec = (unsigned int)STVNSEC(sb.st_m);
 		break;
 	case 2: ent->sec = sb.st_ctime;
-		ent->nsec = (unsigned int)sb.st_ctim.tv_nsec;
+		ent->nsec = (unsigned int)STVNSEC(sb.st_c);
 	}
 
 	ent->size = sb.st_size;
@@ -1971,8 +1996,7 @@ static void printent(const Entry *ent, int sel, int mark)
 		addch('>' | A_BOLD);
 	else
 		addch(' ');
-	attroff(gcfg.newent && (ent->flag & E_NEW) ? (COLOR_PAIR(C_NEWFILE) | A_REVERSE) : 0);
-	attroff(attr);
+	attrset(A_NORMAL);
 
 	attr = COLOR_PAIR(ent->type)
 		| (ent->flag & E_DIR_DIRLNK ? A_BOLD : 0)
@@ -1984,7 +2008,7 @@ static void printent(const Entry *ent, int sel, int mark)
 		addwstr(fitnamecols(ent->name, ncols));
 	else
 		addwstr(fitpathcols(ent->name, ncols));
-	attroff(attr);
+	attrset(A_NORMAL);
 }
 
 static void redraw(char *path)
@@ -2014,7 +2038,7 @@ static void redraw(char *path)
 	// Print path
 	attron(COLOR_PAIR(C_PATHBAR) | A_UNDERLINE);
 	addwstr(fitpathcols(path, pcols));
-	attroff(COLOR_PAIR(C_PATHBAR) | A_UNDERLINE);
+	attrset(A_NORMAL);
 
 	// Print entries
 	move(++j, dcols);
@@ -2043,7 +2067,7 @@ static void redraw(char *path)
 		attron(COLOR_PAIR(F_SOCK));
 		addstr("Filter: ");
 		addnstr(ptab->filt, xcols - 8);
-		attroff(COLOR_PAIR(F_SOCK));
+		attrset(A_NORMAL);
 		addch(' ' | (ptab->ftlen > 0 ? A_REVERSE : 0));
 	}
 
@@ -2053,7 +2077,7 @@ static void redraw(char *path)
 		attron(COLOR_PAIR(F_CHR));
 		addstr("Quick find: ");
 		addnstr(ptab->find, xcols - 12);
-		attroff(COLOR_PAIR(F_CHR));
+		attrset(A_NORMAL);
 		addch(' ' | A_REVERSE);
 	}
 
@@ -2068,7 +2092,7 @@ static void redraw(char *path)
 	for (int i = 0; i < btm; ++i, ++j)
 		mvaddch(j, xcols - 1, ' ' | A_REVERSE);
 	mvaddch(xlines - 2, xcols - 1 , '=');
-	attroff(COLOR_PAIR(C_DETAIL));
+	attrset(A_NORMAL);
 	xcols = -xcols;
 }
 
@@ -2097,19 +2121,19 @@ static void statusbar(void)
 	if (gcfg.mode == 1 || gcfg.mode == 2) {
 		attron(COLOR_PAIR(C_WARN) | A_REVERSE | A_BOLD);
 		addstr(" S ");
-		attroff(COLOR_PAIR(C_WARN) | A_REVERSE | A_BOLD);
+		attrset(A_NORMAL);
 		addch(' ');
 	} else 	if (gcfg.mode > 2) {
 		attron(COLOR_PAIR(F_EXEC) | A_REVERSE | A_BOLD);
 		addstr(" B ");
-		attroff(COLOR_PAIR(F_EXEC) | A_REVERSE | A_BOLD);
+		attrset(A_NORMAL);
 		addch(' ');
 	}
 
 	if (errline != 0) {
 		attron(COLOR_PAIR(C_WARN));
 		printw("Failed (%s): %s", xitoa(errline), strerror(errnum));
-		attroff(COLOR_PAIR(C_WARN));
+		attrset(A_NORMAL);
 		errline = 0;
 		return;
 	}
@@ -2157,7 +2181,7 @@ static void statusbar(void)
 	getyx(stdscr, n, x);
 	if (xcols - x > 7)
 		mvaddstr(n, xcols - 7, "[?]help");
-	attroff(COLOR_PAIR(C_STATBAR));
+	attrset(A_NORMAL);
 }
 
 static void filterentry(void)
@@ -2286,7 +2310,6 @@ static void browse(void)
 			// fallthrough
 		case GO_NONE:
 			c = getinput(stdscr);
-			ctl = GO_NONE;
 
 			if (c == KEY_RESIZE) {
 				ctl = GO_REDRAW;
@@ -2342,7 +2365,7 @@ static int initsff(char *arg0, char *argx)
 
 	// Get environment variables
 	home = getenv("HOME");
-	if (!home || !home[0] || access(home, R_OK | W_OK | X_OK) == -1)
+	if (!home || !home[0] || access(home, R_OK | X_OK) == -1)
 		home = NULL;
 
 	editor = getenv("EDITOR");

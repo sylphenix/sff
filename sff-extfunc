@@ -124,7 +124,7 @@ sff_new()
 	_pwd=$(printf '%s' "$PWD" | tr '\n' '\035' | sed 's/[\|&]/\\&/g')
 	sed "s|^|$_pwd/|" "$tbuf2" | tr '\n\035' '\0\n' >"$exbuf2"
 	sed -e '/\//!d' -e 's|/[^/]*$||' -e "s|^|$_pwd/|" "$tbuf1" | sort -u | tr '\n' '\0' >"$exbuf1"
-	printf "\037" >>"$exbuf1"
+	printf "\n" >>"$exbuf1"
 	sed -e '/\/$/d' -e "s|^|$_pwd/|" "$tbuf1" | tr '\n' '\0' >>"$exbuf1"
 
 	rm -f "$_tlist" "$tbuf1" "$tbuf2"
@@ -137,8 +137,8 @@ sff_do_new()
 	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr '\035\n' '\n\0')"
 
 	_err=''
-	sed 's/.*$//' "$exbuf1" | tr '\035' '\n' | xargs -r -0 mkdir -p || _err=1
-	sed 's/^.*//' "$exbuf1" | tr '\035' '\n' | xargs -r -0 touch || _err=1
+	[ "$(head -n 1 "$exbuf1")" ] && { head -n 1 "$exbuf1" | tr '\035\n' '\n\0' | xargs -0 mkdir -p || _err=1; }
+	[ "$(sed -n '2p' "$exbuf1")" ] && { sed -n '2p' "$exbuf1" | tr '\035' '\n' | xargs -0 touch || _err=1; }
 	[ "$_err" ] && { printf "Press Enter to continue "; read -r _x; }
 }
 
@@ -203,7 +203,7 @@ sff_paste()
 	fi
 
 	_pwd=$(printf '%s' "$PWD" | tr '\n' '\035' | sed 's/[\|&]/\\&/g')
- 	sed "s|$|\n$_pwd/|" "$cpbuf" | tr '\n\035' '\0\n' >"$exbuf1"
+	sed "s|$|$_pwd/|" "$cpbuf" | tr '\037\n\035' '\0\0\n' >"$exbuf1"
 
 	case "$_op" in
 	'copy') sed "s|^.*/|$_pwd/|" "$cpbuf" | tr '\n\035' '\0\n' >"$exbuf2"
@@ -375,8 +375,8 @@ sff_chmod_chown()
 
 	sffpipe_get_sel
 	case "$_x" in
-	*:*) xargs -r -0 chown $_x <"$sel";;
-	*) xargs -r -0 chmod $_x <"$sel";;
+	*:*) xargs -0 chown $_x <"$sel";;
+	*) xargs -0 chmod $_x <"$sel";;
 	esac || { printf "Press Enter to continue "; read -r _x; }
 	sffpipe_refresh
 }
@@ -389,7 +389,7 @@ sff_find()
 	printf "More options (optional): "; read -r _x2
 	echo "Searching in $PWD/ ..."
 	{ printf "?"; find ./ $_x2 -name "$_x" -print0 2>/dev/null | tr '\n\0' '\035\n' \
-		| sed -e 's|^\./||' -e '/^[./]$/d' -e '/^\.\.$/d' -e '/^$/d' | tr '\n\035' '\0\n'; } >"$sffpipe"
+		| sed -e 's|^\./*||' -e '/^[./]$/d' -e '/^\.\.$/d' -e '/^$/d' | tr '\n\035' '\0\n'; } >"$sffpipe"
 }
 
 sff_file_stat()
@@ -417,7 +417,7 @@ sff_disk_usage()
 {
 	sffpipe_get_sel
 	echo ""
-	xargs -r -0 du -shc <"$sel" | sort -h
+	xargs -0 du -shc <"$sel" | sort -h
 	echo ""
 	df -h "$PWD"
 	printf "Press Enter to continue "; read -r _x

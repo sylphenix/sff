@@ -59,6 +59,10 @@ You can install all dependencies using the following commands:
    ```
    sudo pkg install 7-zip fzf chafa poppler-utils ffmpegthumbnailer
    ```
+- macOS:
+   ```
+   brew install ncurses sevenzip fzf chafa poppler ffmpegthumbnailer
+   ```
 
 ### Install from binary packages
 
