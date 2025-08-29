@@ -1,5 +1,9 @@
 /* Default settings */
-#define OPENER    "xdg-open"  // Default opener
+#ifdef __APPLE__
+#define OPENER    "/usr/bin/open"  // Default file opener on macOS
+#else
+#define OPENER    "xdg-open"  // Default file opener on Linux/BSD
+#endif
 #define EDITOR    "vi"        // Default editor
 #define SUDOER    "sudo"      // Default sudo utility
 
