@@ -1,6 +1,10 @@
 /* Default settings */
-#define OPENER    "xdg-open"  // Default opener
-#define EDITOR    "nano"        // Default editor
+#ifdef __APPLE__
+#define OPENER    "/usr/bin/open"  // Default file opener on macOS
+#else
+#define OPENER    "xdg-open"  // Default file opener on Linux/BSD
+#endif
+#define EDITOR    "nano"      // Default editor
 #define SUDOER    "doas"      // Default sudo utility
 
 static Settings gcfg = {

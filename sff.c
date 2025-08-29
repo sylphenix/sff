@@ -776,11 +776,7 @@ static int openfile(int n)
 	default :
 		if (ent->flag & E_DIR_DIRLNK)
 			return enterdir(0);
-#ifdef __APPLE__
-		spawn("/usr/bin/open", gpbuf, NULL, TRUE, FALSE);
-#else
 		spawn(OPENER, gpbuf, NULL, TRUE, FALSE);
-#endif
 	}
 	return GO_STATBAR;
 }
