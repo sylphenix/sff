@@ -137,7 +137,7 @@ sff_do_new()
 	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr '\035\n' '\n\0')"
 
 	_err=''
-	[ "$(head -n 1 "$exbuf1")" ] && { head -n 1 "$exbuf1" | tr '\035\n' '\n\0' | xargs -0 mkdir -p || _err=1; }
+	[ "$(head -n 1 "$exbuf1")" ] && { head -n 1 "$exbuf1" | tr -d '\n' | tr '\035' '\n' | xargs -0 mkdir -p || _err=1; }
 	[ "$(sed -n '2p' "$exbuf1")" ] && { sed -n '2p' "$exbuf1" | tr '\035' '\n' | xargs -0 touch || _err=1; }
 	[ "$_err" ] && { printf "Press Enter to continue "; read -r _x; }
 }
