@@ -2209,7 +2209,7 @@ static int filterinput(int c)
 		ptab->ftlen = (ptab->filt[0] == '\0') ? 0 : -ptab->ftlen;
 		return GO_REDRAW;
 
-	} else if (c == KEY_BACKSPACE || c == KEY_DC) {
+	} else if (c == KEY_BACKSPACE || c == KEY_DC || c == 127) {
 		if (ptab->ftlen <= 1)
 			return GO_REDRAW;
 		char *end = ptab->filt + ptab->ftlen - 1;
@@ -2247,7 +2247,7 @@ static int qfindinput(int c)
 		ptab->fdlen = 1;
 		return GO_RELOAD;
 
-	} else if (c == KEY_BACKSPACE || c == KEY_DC) {
+	} else if (c == KEY_BACKSPACE || c == KEY_DC || c == 127) {
 		if (ptab->fdlen <= 1)
 			return GO_REDRAW;
 		char *end = ptab->find + ptab->fdlen - 1;
