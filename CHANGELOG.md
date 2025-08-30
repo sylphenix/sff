@@ -16,6 +16,7 @@
 * Clean up preview FIFO file on exit
 * When type-to-navigate fails to enter a directory, the input string is no longer cleared
 * Symlink target paths no longer folded in status bar
+* Changed sff-extfunc and plugins installation path from libexec/sff/ to lib/sff/
 
 
 ### Fixed
