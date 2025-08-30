@@ -1,4 +1,4 @@
-.Dd $Mdocdate$
+.Dd August 30, 2025
 .Dt SFF 1
 .Os
 .Sh NAME
@@ -69,9 +69,9 @@ It is a C language header file, and serves as the configuration file for default
 .Sh EXTENSION SCRIPT
 The extension functions are provided by a POSIX-compliant shell script named \fBsff-extfunc\fR,
 which is installed by default in
-.Pa /usr/libexec/sff/
+.Pa /usr/lib/sff/
  or
-.Pa /usr/local/libexec/sff/ .
+.Pa /usr/local/lib/sff/ .
 .Pp
 You can easily customize key bindings for extension functions and plugins,
 modify existing functions, or add your own functions by editing this file.
@@ -94,8 +94,8 @@ determines the location of \fBsff-extfunc\fR by checking the following directori
     2. The directory containing the currently running
 .Nm
 executable
-    3. /usr/local/libexec/sff/
-    4. /usr/libexec/sff/
+    3. /usr/local/lib/sff/
+    4. /usr/lib/sff/
 .Sh TABS
 The tab status is displayed in the top-left corner of the screen.
 Five tab indicators are shown, with the current tab highlighted in reverse video.
@@ -232,9 +232,9 @@ All operations are performed by the superuser.
 Plugins are shell scripts used to extend functionality.
 They are invoked by the extension script, which also sets their keybindings.
 By default, plugins are installed in
-.Pa /usr/libexec/sff/plugins/
+.Pa /usr/lib/sff/plugins/
 or
-.Pa /usr/local/libexec/sff/plugins/ .
+.Pa /usr/local/lib/sff/plugins/ .
 .Pp
 Detailed information about a plugin should usually be provided as comments at the beginning of the script.
 To view this information, refer directly to the plugin file.
@@ -248,8 +248,8 @@ it searches for the plugin in the following locations in order and uses the firs
     1. The \fBplugins\fR directory in the user's config directory
     2. The \fBplugins\fR directory where the currently running extension
        script resides
-    3. /usr/local/libexec/sff/plugins/
-    4. /usr/libexec/sff/plugins/
+    3. /usr/local/lib/sff/plugins/
+    4. /usr/lib/sff/plugins/
 .Sh ENVIRONMENT
 \fBEDITOR\fR: The default text editor used in the program.
 If not set, 'vi' is used.
