@@ -51,8 +51,8 @@
 
 #define VERSION        "1.1"
 #define EXTFNNAME      "sff-extfunc"
-#define EXTFNPREFIX    "/usr/local/libexec/sff"
-#define EXTFNPREFIX2   "/usr/libexec/sff"
+#define EXTFNPREFIX    "/usr/local/lib/sff"
+#define EXTFNPREFIX2   "/usr/lib/sff"
 #ifndef PATH_MAX
 #define PATH_MAX       4096
 #endif
