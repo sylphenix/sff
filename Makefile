@@ -5,7 +5,7 @@ PREFIX = /usr/local
 MANPREFIX = ${PREFIX}/share/man
 
 EXTFNNAME = sff-extfunc
-EXTFNPREFIX = ${PREFIX}/libexec/sff
+EXTFNPREFIX = ${PREFIX}/lib/sff
 
 # includes and libs
 OS = $(shell uname -s)
