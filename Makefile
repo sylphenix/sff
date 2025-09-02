@@ -16,7 +16,7 @@ LIBS = $(shell [ '$(OS)' = "Darwin" ] && echo "-L/usr/local/opt/ncurses/lib") -l
 # flags
 CPPFLAGS =
 CFLAGS   = -std=c11 -O2 -Wall -Wextra -fstack-protector-strong ${INCS} ${CPPFLAGS}
-LDFLAGS  = ${LIBS} -s
+LDFLAGS  = ${LIBS}
 
 # compiler and linker
 CC = cc
