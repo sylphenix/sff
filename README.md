@@ -27,18 +27,18 @@ sff is fully compatible with POSIX-compliant systems. It has been extensively te
 
 ### Dependencies
 
-| Library/Package                                 | Install?  | Notes                                     |
-|-------------------------------------------------|-----------|-------------------------------------------|
-| libc, curses (wide character support)           | Required* | Essential runtime libraries               |
-| coreutils (Linux), findutils (Linux), sed, file | Required* | For file operations                       |
-| vi/vim                                          | Required* | Default text editor                       |
-| sudo                                            | Optional* | Sudo mode                                 |
-| xdg-utils                                       | Optional* | File opening via default applications     |
-| tar, gzip, bzip2, xz, 7zip                      | Optional  | Archive handling (archive plugin)         |
-| fzf                                             | Optional  | File search via fzf (fzf-find plugin)     |
-| chafa                                           | Optional  | Image preview (preview plugin)            |
-| poppler-utils                                   | Optional  | PDF preview (preview plugin)              |
-| ffmpegthumbnailer                               | Optional  | Video thumbnail preview (preview plugin)  |
+| Library/Package                                 | Requirement | Notes                                       |
+|-------------------------------------------------|-------------|---------------------------------------------|
+| libc, curses (wide character support)           | Required*   | Essential runtime libraries                 |
+| coreutils (Linux), findutils (Linux), sed, file | Required*   | For file operations                         |
+| vi/vim                                          | Required*   | Default text editor                         |
+| sudo                                            | Optional*   | For sudo mode                               |
+| xdg-utils                                       | Optional*   | File opening with default application       |
+| tar, gzip, bzip2, xz, 7zip                      | Optional    | Archive handling (archive plugin)           |
+| fzf                                             | Optional    | Fuzzy file search (fzf-find plugin)         |
+| chafa                                           | Optional    | Image preview (preview plugin)              |
+| poppler-utils                                   | Optional    | PDF thumbnail generation (preview plugin)   |
+| ffmpegthumbnailer                               | Optional    | Video thumbnail generation (preview plugin) |
 
 _* These dependencies are part of the base system in most environments and generally don't require manual installation._
 
@@ -68,7 +68,7 @@ You can install all dependencies using the following commands:
 
 #### Linux:
 
-1. Download the appropriate package for your system from [OpenBuildService](https://software.opensuse.org//download.html?project=home%3Asylphenix%3Asff&package=sff).
+1. Download the appropriate package for your system from [OpenBuildService](https://software.opensuse.org/download.html?project=home%3Asylphenix%3Asff&package=sff).
 
 2. Install the package using the package manager specific to your system.
 - Debian/Ubuntu:
@@ -96,11 +96,6 @@ You can install all dependencies using the following commands:
 - Using `yay`:
    ```
    yay -S sff
-   ```
-
-- Using `paru`:
-   ```
-   paru -S sff
    ```
 
 - Without AUR helpers:
