@@ -47,28 +47,27 @@ sff: ${OBJ}
 	rm sff.o
 
 clean:
-	rm -f sff ${OBJ} sff.1.gz sff*.tar.gz
+	rm -f sff ${OBJ} sff*.tar.gz
 
 dist: clean
 	mkdir -p sff
-	cp -R CHANGELOG.md LICENSE Makefile README.md config.h plugins sff.1 ${SRC} ${EXTFNNAME} sff/
-	tar -cf sff.tar sff
-	gzip sff.tar
+	cp -Rf CHANGELOG.md README.md LICENSE Makefile config.h plugins sff.1 ${SRC} ${EXTFNNAME} sff/
+	tar -caf sff.tar.gz sff
 	rm -rf sff
 
 install: all
-	mkdir -p ${DESTDIR}${PREFIX}/bin
-	install -m 755 sff ${DESTDIR}${PREFIX}/bin/
-	mkdir -p ${DESTDIR}${EXTFNPREFIX}
-	cp -fR ${EXTFNNAME} plugins ${DESTDIR}${EXTFNPREFIX}/
-	chmod -R 755 ${DESTDIR}${EXTFNPREFIX}
-	mkdir -p ${DESTDIR}${MANPREFIX}/man1
-	gzip -fk sff.1
-	install -m 644 sff.1.gz ${DESTDIR}${MANPREFIX}/man1/
+	mkdir -p "${DESTDIR}${PREFIX}/bin"
+	install -m 755 sff "${DESTDIR}${PREFIX}/bin/"
+	mkdir -p "${DESTDIR}${EXTFNPREFIX}"
+	cp -Rf ${EXTFNNAME} plugins "${DESTDIR}${EXTFNPREFIX}/"
+	chmod -R 755 "${DESTDIR}${EXTFNPREFIX}"
+	mkdir -p "${DESTDIR}${MANPREFIX}/man1"
+	install -m 644 sff.1 "${DESTDIR}${MANPREFIX}/man1/"
+	gzip -nf "${DESTDIR}${MANPREFIX}/man1/sff.1"
 
 uninstall:
-	rm -rf ${DESTDIR}${PREFIX}/bin/sff \
-		${DESTDIR}${EXTFNPREFIX} \
-		${DESTDIR}${MANPREFIX}/man1/sff.1.gz
+	rm -rf "${DESTDIR}${PREFIX}/bin/sff" \
+		"${DESTDIR}${EXTFNPREFIX}" \
+		"${DESTDIR}${MANPREFIX}/man1/sff.1.gz"
 
 .PHONY: all options clean dist install uninstall
