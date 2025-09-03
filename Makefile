@@ -9,9 +9,9 @@ EXTFNPREFIX = ${PREFIX}/lib/sff
 
 # includes and libs
 OS = $(shell uname -s)
-INCS = $(shell [ '$(OS)' = "Linux" ] && echo "-I/usr/include/ncursesw"; \
-		[ '$(OS)' = "Darwin" ] && echo "-I/usr/local/opt/ncurses/include")
-LIBS = $(shell [ '$(OS)' = "Darwin" ] && echo "-L/usr/local/opt/ncurses/lib") -lncursesw
+INCS = $(shell [ '${OS}' = 'Linux' ] && echo "-I/usr/include/ncursesw"; \
+		[ '${OS}' = 'Darwin' ] && echo "-I/usr/local/opt/ncurses/include")
+LIBS = $(shell [ '${OS}' = 'Darwin' ] && echo "-L/usr/local/opt/ncurses/lib") -lncursesw
 
 # flags
 CPPFLAGS = -DDEBUG
@@ -34,17 +34,16 @@ options:
 	@echo "LDFLAGS  = ${LDFLAGS}"
 	@echo "CC       = ${CC}"
 
-.c.o:
-	${CC} -c ${CFLAGS} $<
-
-${OBJ}: config.h
-
 config.h:
 	cp config.def.h $@
 
+${OBJ}: config.h
+
+%.o: %.c
+	${CC} -c ${CFLAGS} -o $@ $<
+
 sff: ${OBJ}
 	${CC} -o $@ ${OBJ} ${LDFLAGS}
-	rm sff.o
 
 clean:
 	rm -f sff ${OBJ} sff*.tar.gz
