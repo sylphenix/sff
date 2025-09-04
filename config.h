@@ -1,11 +1,11 @@
 /* Default settings */
 #ifdef __APPLE__
-#define OPENER    "/usr/bin/open"  // Default file opener on macOS
+#define OPENER    "/usr/bin/open"  // File opener on macOS
 #else
-#define OPENER    "xdg-open"  // Default file opener on Linux/BSD
+#define OPENER    "xdg-open"  // File opener on Linux/BSD
 #endif
 #define EDITOR    "nano"      // Default editor
-#define SUDOER    "doas"      // Default sudo utility
+#define SUDOER    "doas"      // Backend for sudo mode
 
 static Settings gcfg = {
 	.showhidden = 1,  // Show hidden files

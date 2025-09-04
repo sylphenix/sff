@@ -49,7 +49,7 @@
 #define NCURSES_WIDECHAR 1
 #include <curses.h>
 
-#define VERSION        "1.1"
+#define VERSION        "1.2"
 #define EXTFNNAME      "sff-extfunc"
 #define EXTFNPREFIX    "/usr/local/lib/sff"
 #define EXTFNPREFIX2   "/usr/lib/sff"
