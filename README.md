@@ -98,11 +98,6 @@ You can install all dependencies using the following commands:
    yay -S sff
    ```
 
-- Using `paru`:
-   ```
-   paru -S sff
-   ```
-
 - Without AUR helpers:
    ```
    git clone https://aur.archlinux.org/sff.git
