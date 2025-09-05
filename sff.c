@@ -2429,6 +2429,7 @@ static void setupcurses(void)
 static void cleanup(void)
 {
 	setpreview(2);
+	unlink(pipepath);
 	for (int i = 0; i <= TABS_MAX; ++i) {
 		free(ghpath[i * 2].hs);
 		free(ghpath[i * 2 + 1].hs);

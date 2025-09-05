@@ -1,6 +1,13 @@
 # Changelog
 
 
+## Unreleased
+
+### Changed
+
+* Clean up pipe file on exit
+
+
 ## 1.2 <small>(2025-09-04)</small>
 
 ### Added
