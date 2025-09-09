@@ -143,11 +143,11 @@ You can install all dependencies using the following commands:
 
 ## Usage
 
-Simply run `sff` to start the application from the current directory.
+Simply run `sff` to start the program from the current directory.
 
 While sff is running:
 - Press `?` or `F1` to see the list of key bindings for built-in functions.
-- Press `alt`+`/` to see the list of key bindings for extension functions and plugins.
+- Press `Alt`+`/` to see the list of key bindings for extension functions and plugins.
 - Press `Q` to quit sff.
 
 For more details, run `man sff` to see the documentation, or visit the [wiki](https://codeberg.org/sylphenix/sff/wiki/Home) for useful tips and tricks.
