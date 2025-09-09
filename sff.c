@@ -213,7 +213,7 @@ static char *xmemrchr(const char *str, int c, size_t n)
 				return (char *)cp;
 		} while (--n != 0);
 	}
-        return NULL;
+	return NULL;
 }
 
 /* Get directory portion of pathname. Source would be modified!!! */
@@ -1139,15 +1139,12 @@ static int closetab(int n __attribute__((unused)))
 	return GO_RELOAD;
 }
 
-static int togglemode(int n)
+static int togglemode(int n __attribute__((unused)))
 {
-	int def = (getuid() == 0) ? 2 : 0;
-
-	if (gcfg.mode == 4 || (def == 2 && n == 1))
-		return GO_STATBAR;
-
-	gcfg.mode = (gcfg.mode == n) ? def : n;
-	return GO_REDRAW;
+	if (gcfg.mode == 2)
+		return GO_NONE;
+	gcfg.mode ^= 1;
+	return GO_FASTDRAW;
 }
 
 static int getinput(WINDOW *w)
@@ -1328,7 +1325,6 @@ static void usage(void)
 {
 	printf("Usage: sff [OPTIONS] [PATH]\n\n"
 		"Option    Meaning\n"
-		"  -b      Run in browse mode\n"
 		"  -c      Sort with case sensitivity\n"
 		"  -d keys Show details: 't'ime, 'o'wner, 'p'erm, 's'ize, 'n'one\n"
 		"  -H      Show hidden files\n"
@@ -1480,6 +1476,8 @@ static void setpreview(int op)
 	switch (op) {
 	case 0: // open preview
 		if (fd == -1) {
+			if (!pvfifo && seterrnum(__LINE__, ENOENT))
+				return;
 			fd = open(pvfifo, O_WRONLY|O_NONBLOCK|O_CLOEXEC);
 			if (fd == -1 && seterrnum(__LINE__, errno))
 				return;
@@ -1502,7 +1500,8 @@ static void setpreview(int op)
 			close(fd);
 			fd = -1;
 		}
-		unlink(pvfifo);
+		if (pvfifo)
+			unlink(pvfifo);
 	}
 }
 
@@ -1619,6 +1618,9 @@ static int callextfunc(int c)
 	int rfd, wfd, len, ctl = GO_STATBAR;
 	struct sigaction oldsigtstp, oldsigwinch;
 	struct sigaction act = {.sa_handler = SIG_IGN};
+
+	if ((!cfgpath || !extfunc || !pipepath) && seterrnum(__LINE__, ENOENT))
+		return GO_STATBAR;
 
 	if (access(cfgpath, F_OK) == -1 && mkdir(cfgpath, 0700) == -1 && seterrnum(__LINE__, errno))
 		return GO_STATBAR;
@@ -2119,11 +2121,6 @@ static void statusbar(void)
 		addstr(" S ");
 		attrset(A_NORMAL);
 		addch(' ');
-	} else 	if (gcfg.mode > 2) {
-		attron(COLOR_PAIR(F_EXEC) | A_REVERSE | A_BOLD);
-		addstr(" B ");
-		attrset(A_NORMAL);
-		addch(' ');
 	}
 
 	if (errline != 0) {
@@ -2323,7 +2320,7 @@ static void browse(void)
 				if ((c == keys[i].keysym1 || c == keys[i].keysym2) && keys[i].func)
 					ctl = keys[i].func(keys[i].arg);
 
-			if (c < 0 && gcfg.mode < 3)
+			if (c < 0)
 				ctl = callextfunc(-c);
 
 			break;
@@ -2368,7 +2365,7 @@ static int initsff(char *arg0, char *argx)
 	if (!editor || !editor[0])
 		editor = EDITOR;
 
-	// Set config path: xdgcfg+"/sff" or home+"/.config/sff"
+	// Set config path: XDG_CONFIG_HOME/sff or ~/.config/sff
 	if ((xdgcfg && xdgcfg[0] && makepath(xdgcfg, "sff", gpbuf))
 	|| (home && makepath(home, ".config/sff", gpbuf)))
 		cfgpath = strdup(gpbuf);
@@ -2380,16 +2377,13 @@ static int initsff(char *arg0, char *argx)
 	|| (makepath(EXTFNPREFIX2, EXTFNNAME, gpbuf) && access(gpbuf, R_OK | X_OK) == 0))
 		extfunc = strdup(gpbuf);
 
-	// Set pipepath, pvfifo paths and set running mode
-	if (cfgpath && extfunc
-	&& makepath(cfgpath, ".sff-pipe.", gpbuf) && strcat(gpbuf, xitoa(getpid())) && (pipepath = strdup(gpbuf))
-	&& strcat(gpbuf, ".pv") && (pvfifo = strdup(gpbuf))) {
-		if (getuid() == 0 && gcfg.mode != 4)
-			gcfg.mode = 2;
-	} else {
+	// Set pipepath and pvfifo paths
+	if (cfgpath && makepath(cfgpath, ".sff-pipe.", gpbuf))
+		pipepath = strdup(strcat(gpbuf, xitoa(getpid())));
+	if (pipepath)
+		pvfifo = strdup(strcat(gpbuf, ".pv"));
+	if (!cfgpath || !extfunc || !pipepath || !pvfifo)
 		seterrnum(__LINE__, errno);
-		gcfg.mode = 4;
-	}
 
 	// Initialize first tab
 	path = argx ? abspath(argx, gpbuf) : getcwd(gpbuf, PATH_MAX);
@@ -2397,6 +2391,9 @@ static int initsff(char *arg0, char *argx)
 		perror(xitoa(__LINE__));
 		return FALSE;
 	}
+
+	if (getuid() == 0)
+		gcfg.mode = 2;
 	return TRUE;
 }
 
@@ -2429,7 +2426,8 @@ static void setupcurses(void)
 static void cleanup(void)
 {
 	setpreview(2);
-	unlink(pipepath);
+	if (pipepath)
+		unlink(pipepath);
 	for (int i = 0; i <= TABS_MAX; ++i) {
 		free(ghpath[i * 2].hs);
 		free(ghpath[i * 2 + 1].hs);
@@ -2451,8 +2449,6 @@ int main(int argc, char *argv[])
 
 	while ((opt = getopt(argc, argv, "bcd:Hmvh")) != -1) {
 		switch (opt) {
-		case 'b': gcfg.mode = 4;
-			break;
 		case 'c': gcfg.caseinsen = 0;
 			break;
 		case 'd': gcfg.showtime = gcfg.showowner = gcfg.showperm = gcfg.showsize = 0;
