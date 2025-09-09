@@ -1972,7 +1972,7 @@ static void printent(const Entry *ent, int sel, int mark)
 	int attr = COLOR_PAIR(C_DETAIL)	| (mark || (sel && ptab->cfg.selmode) ? A_REVERSE : 0);
 
 	if (sel)
-		addch('>' | A_BOLD);
+		addch('>' | A_BOLD | (gcfg.mode != 0 ? COLOR_PAIR(C_WARN) : 0));
 	else
 		addch(' ');
 
@@ -1991,15 +1991,15 @@ static void printent(const Entry *ent, int sel, int mark)
 
 	attron(gcfg.newent && (ent->flag & E_NEW) ? (COLOR_PAIR(C_NEWFILE) | A_REVERSE) : 0);
 	if (sel)
-		addch('>' | A_BOLD);
+		addch('>' | A_BOLD | (gcfg.mode != 0 ? COLOR_PAIR(C_WARN) : 0));
 	else
 		addch(' ');
 	attrset(A_NORMAL);
 
 	attr = COLOR_PAIR(ent->type)
 		| (ent->flag & E_DIR_DIRLNK ? A_BOLD : 0)
-		| ((ent->flag & E_SEL) || (sel && !ptab->cfg.selmode) ? A_REVERSE : 0)
-		| ((sel && ptab->cfg.selmode) ? A_UNDERLINE : 0);
+		| ((ent->flag & E_SEL) || (sel && ptab->cfg.selmode == 0) ? A_REVERSE : 0)
+		| ((sel && ptab->cfg.selmode == 1) ? A_UNDERLINE : 0);
 
 	attron(attr);
 	if (ptab->hp->stat->flag != S_ROOT)
@@ -2115,13 +2115,6 @@ static void statusbar(void)
 
 	move(xlines - 1, 0);
 	clrtoeol();
-
-	if (gcfg.mode == 1 || gcfg.mode == 2) {
-		attron(COLOR_PAIR(C_WARN) | A_REVERSE | A_BOLD);
-		addstr(" S ");
-		attrset(A_NORMAL);
-		addch(' ');
-	}
 
 	if (errline != 0) {
 		attron(COLOR_PAIR(C_WARN));
