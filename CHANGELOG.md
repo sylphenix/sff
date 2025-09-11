@@ -14,6 +14,11 @@
 * Removed the `Browse mode` feature and the `-b` option due to lack of use
 
 
+### Fixed
+
+* Fixed incorrect entry drawing under certain conditions
+
+
 ## 1.2 <small>(2025-09-04)</small>
 
 ### Added

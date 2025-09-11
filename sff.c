@@ -979,7 +979,7 @@ static int selectrange(int n)
 	if (markent == -1) {
 		markent = cursel;
 		ptab->cfg.selmode = 1;
-		return shiftcursor(0, 0);
+		return GO_FASTDRAW;
 	}
 
 	if (n > 0) {
@@ -2096,17 +2096,20 @@ static void redraw(char *path)
 
 static void fastredraw(void)
 {
-	if (xcols < 0) { // skip fastredraw if redraw() has already done
+	if (xcols <= 0) { // skip fastredraw if redraw has already done
 		xcols = -xcols;
 		return;
 	} else if (ndents == 0)
 		return;
 
-	move(2 + lastsel - curscroll, 0);
-	printent(&pdents[lastsel], FALSE, lastsel == markent);
-
-	move(2 + cursel - curscroll, 0);
-	printent(&pdents[cursel], TRUE, cursel == markent);
+	if (lastsel >= curscroll && lastsel < onscr + curscroll && lastsel < ndents && lastsel != cursel) {
+		move(2 + lastsel - curscroll, 0);
+		printent(&pdents[lastsel], FALSE, lastsel == markent);
+	}
+	if (cursel >= curscroll && cursel < onscr + curscroll) {
+		move(2 + cursel - curscroll, 0);
+		printent(&pdents[cursel], TRUE, cursel == markent);
+	}
 }
 
 static void statusbar(void)
