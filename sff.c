@@ -2299,24 +2299,21 @@ static void browse(void)
 			// fallthrough
 		case GO_NONE:
 			c = getinput(stdscr);
-
 			if (c == KEY_RESIZE) {
 				ctl = GO_REDRAW;
 				break;
-			} else if (c == 0)
-				break;
+			}
 
 			if ((ctl = filterinput(c)) != GO_NONE)
 				break;
-
 			if ((ctl = qfindinput(c)) != GO_NONE)
 				break;
 
-			for (int i = 0; i < (int)LENGTH(keys); ++i)
-				if ((c == keys[i].keysym1 || c == keys[i].keysym2) && keys[i].func)
-					ctl = keys[i].func(keys[i].arg);
-
-			if (c < 0)
+			if (c > 0) {
+				for (size_t i = 0; i < LENGTH(keys); ++i)
+					if ((c == keys[i].keysym1 || c == keys[i].keysym2) && keys[i].func)
+						ctl = keys[i].func(keys[i].arg);
+			} else if (c < 0)
 				ctl = callextfunc(-c);
 
 			break;
