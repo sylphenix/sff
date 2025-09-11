@@ -528,7 +528,7 @@ static int shiftcursor(int step, int scrl)
 	curscroll = MIN(curscroll, MIN(cursel, ndents - onscr));
 	curscroll = MAX(curscroll, MAX(cursel - (onscr - 1), 0));
 
-	if (lastsel == cursel && lastscroll == curscroll)
+	if (lastscroll == curscroll)
 		return GO_FASTDRAW;
 	return GO_REDRAW;
 }
