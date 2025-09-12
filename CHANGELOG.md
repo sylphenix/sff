@@ -17,6 +17,7 @@
 ### Fixed
 
 * Fixed incorrect entry drawing under certain conditions
+* Create parent directory before config directory creation
 
 
 ## 1.2 <small>(2025-09-04)</small>

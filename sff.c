@@ -1622,9 +1622,14 @@ static int callextfunc(int c)
 	if ((!cfgpath || !extfunc || !pipepath) && seterrnum(__LINE__, ENOENT))
 		return GO_STATBAR;
 
-	if (access(cfgpath, F_OK) == -1 && mkdir(cfgpath, 0700) == -1 && seterrnum(__LINE__, errno))
-		return GO_STATBAR;
-
+	if (access(cfgpath, F_OK) == -1) {
+		memccpy(gpbuf, cfgpath, '\0', PATH_MAX);
+		xdirname(gpbuf);
+		if (mkdir(gpbuf, 0700) == -1 && errno != EEXIST && seterrnum(__LINE__, errno))
+			return GO_STATBAR;
+		if (mkdir(cfgpath, 0700) == -1 && seterrnum(__LINE__, errno))
+			return GO_STATBAR;
+	}
 	if (mkfifo(pipepath, 0600) == -1 && seterrnum(__LINE__, errno))
 		return GO_STATBAR;
 
