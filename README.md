@@ -140,14 +140,19 @@ You can install all dependencies using the following commands:
    sudo make uninstall PREFIX=/usr
    ```
 
+   Note for Gentoo users: Gentoo doesn't automatically resolve `libtinfow` that `libncursesw` depends on.
+   To compile successfully, explicitly link both libraries:
+   ```
+   sudo make install LDFLAGS="-lncursesw -ltinfow"
+   ```
 
 ## Usage
 
-Simply run `sff` to start the application from the current directory.
+Simply run `sff` to start the program from the current directory.
 
 While sff is running:
 - Press `?` or `F1` to see the list of key bindings for built-in functions.
-- Press `alt`+`/` to see the list of key bindings for extension functions and plugins.
+- Press `Alt`+`/` to see the list of key bindings for extension functions and plugins.
 - Press `Q` to quit sff.
 
 For more details, run `man sff` to see the documentation, or visit the [wiki](https://codeberg.org/sylphenix/sff/wiki/Home) for useful tips and tricks.

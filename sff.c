@@ -213,7 +213,7 @@ static char *xmemrchr(const char *str, int c, size_t n)
 				return (char *)cp;
 		} while (--n != 0);
 	}
-        return NULL;
+	return NULL;
 }
 
 /* Get directory portion of pathname. Source would be modified!!! */
@@ -372,7 +372,6 @@ static char *tohumansize(off_t size)
 		numint = size;
 
 	sp = (char *)memccpy(sbuf, xitoa(numint), '\0', 6) - 1;
-
 	if (i > 0) {
 		*sp++ = '.';
 		*sp++ = '0' + frac;
@@ -390,19 +389,15 @@ static char *strperms(mode_t mode)
 
 	str[0] = mode & S_IRUSR ? 'r' : '-';
 	str[1] = mode & S_IWUSR ? 'w' : '-';
-	str[2] = (mode & S_ISUID
-		? (mode & S_IXUSR ? 's' : 'S')
-		: (mode & S_IXUSR ? 'x' : '-'));
+	str[2] = mode & S_ISUID	? (mode & S_IXUSR ? 's' : 'S') : (mode & S_IXUSR ? 'x' : '-');
+
 	str[3] = mode & S_IRGRP ? 'r' : '-';
 	str[4] = mode & S_IWGRP ? 'w' : '-';
-	str[5] = (mode & S_ISGID
-		? (mode & S_IXGRP ? 's' : 'S')
-		: (mode & S_IXGRP ? 'x' : '-'));
+	str[5] = mode & S_ISGID ? (mode & S_IXGRP ? 's' : 'S') : (mode & S_IXGRP ? 'x' : '-');
+
 	str[6] = mode & S_IROTH ? 'r' : '-';
 	str[7] = mode & S_IWOTH ? 'w' : '-';
-	str[8] = (mode & S_ISVTX
-		? (mode & S_IXOTH ? 't' : 'T')
-		: (mode & S_IXOTH ? 'x' : '-'));
+	str[8] = mode & S_ISVTX ? (mode & S_IXOTH ? 't' : 'T') : (mode & S_IXOTH ? 'x' : '-');
 	return str;
 }
 
@@ -528,7 +523,7 @@ static int shiftcursor(int step, int scrl)
 	curscroll = MIN(curscroll, MIN(cursel, ndents - onscr));
 	curscroll = MAX(curscroll, MAX(cursel - (onscr - 1), 0));
 
-	if (lastsel == cursel && lastscroll == curscroll)
+	if (lastscroll == curscroll)
 		return GO_FASTDRAW;
 	return GO_REDRAW;
 }
@@ -979,7 +974,7 @@ static int selectrange(int n)
 	if (markent == -1) {
 		markent = cursel;
 		ptab->cfg.selmode = 1;
-		return shiftcursor(0, 0);
+		return GO_FASTDRAW;
 	}
 
 	if (n > 0) {
@@ -1139,15 +1134,12 @@ static int closetab(int n __attribute__((unused)))
 	return GO_RELOAD;
 }
 
-static int togglemode(int n)
+static int togglemode(int n __attribute__((unused)))
 {
-	int def = (getuid() == 0) ? 2 : 0;
-
-	if (gcfg.mode == 4 || (def == 2 && n == 1))
-		return GO_STATBAR;
-
-	gcfg.mode = (gcfg.mode == n) ? def : n;
-	return GO_REDRAW;
+	if (gcfg.mode == 2)
+		return GO_NONE;
+	gcfg.mode ^= 1;
+	return GO_FASTDRAW;
 }
 
 static int getinput(WINDOW *w)
@@ -1229,6 +1221,7 @@ static int viewoptions(int n __attribute__((unused)))
 			break;
 		case '/': cfg->dirontop ^= 1;
 			break;
+
 		case 'n': cfg->sortby = 0;
 			break;
 		case 's': cfg->sortby = 1;
@@ -1328,7 +1321,6 @@ static void usage(void)
 {
 	printf("Usage: sff [OPTIONS] [PATH]\n\n"
 		"Option    Meaning\n"
-		"  -b      Run in browse mode\n"
 		"  -c      Sort with case sensitivity\n"
 		"  -d keys Show details: 't'ime, 'o'wner, 'p'erm, 's'ize, 'n'one\n"
 		"  -H      Show hidden files\n"
@@ -1480,6 +1472,8 @@ static void setpreview(int op)
 	switch (op) {
 	case 0: // open preview
 		if (fd == -1) {
+			if (!pvfifo && seterrnum(__LINE__, ENOENT))
+				return;
 			fd = open(pvfifo, O_WRONLY|O_NONBLOCK|O_CLOEXEC);
 			if (fd == -1 && seterrnum(__LINE__, errno))
 				return;
@@ -1502,7 +1496,8 @@ static void setpreview(int op)
 			close(fd);
 			fd = -1;
 		}
-		unlink(pvfifo);
+		if (pvfifo)
+			unlink(pvfifo);
 	}
 }
 
@@ -1620,9 +1615,17 @@ static int callextfunc(int c)
 	struct sigaction oldsigtstp, oldsigwinch;
 	struct sigaction act = {.sa_handler = SIG_IGN};
 
-	if (access(cfgpath, F_OK) == -1 && mkdir(cfgpath, 0700) == -1 && seterrnum(__LINE__, errno))
+	if ((!cfgpath || !extfunc || !pipepath) && seterrnum(__LINE__, ENOENT))
 		return GO_STATBAR;
 
+	if (access(cfgpath, F_OK) == -1) {
+		memccpy(gpbuf, cfgpath, '\0', PATH_MAX);
+		xdirname(gpbuf);
+		if (mkdir(gpbuf, 0700) == -1 && errno != EEXIST && seterrnum(__LINE__, errno))
+			return GO_STATBAR;
+		if (mkdir(cfgpath, 0700) == -1 && seterrnum(__LINE__, errno))
+			return GO_STATBAR;
+	}
 	if (mkfifo(pipepath, 0600) == -1 && seterrnum(__LINE__, errno))
 		return GO_STATBAR;
 
@@ -1970,7 +1973,7 @@ static void printent(const Entry *ent, int sel, int mark)
 	int attr = COLOR_PAIR(C_DETAIL)	| (mark || (sel && ptab->cfg.selmode) ? A_REVERSE : 0);
 
 	if (sel)
-		addch('>' | A_BOLD);
+		addch('>' | A_BOLD | (gcfg.mode != 0 ? COLOR_PAIR(C_WARN) : 0));
 	else
 		addch(' ');
 
@@ -1989,15 +1992,15 @@ static void printent(const Entry *ent, int sel, int mark)
 
 	attron(gcfg.newent && (ent->flag & E_NEW) ? (COLOR_PAIR(C_NEWFILE) | A_REVERSE) : 0);
 	if (sel)
-		addch('>' | A_BOLD);
+		addch('>' | A_BOLD | (gcfg.mode != 0 ? COLOR_PAIR(C_WARN) : 0));
 	else
 		addch(' ');
 	attrset(A_NORMAL);
 
 	attr = COLOR_PAIR(ent->type)
 		| (ent->flag & E_DIR_DIRLNK ? A_BOLD : 0)
-		| ((ent->flag & E_SEL) || (sel && !ptab->cfg.selmode) ? A_REVERSE : 0)
-		| ((sel && ptab->cfg.selmode) ? A_UNDERLINE : 0);
+		| ((ent->flag & E_SEL) || (sel && ptab->cfg.selmode == 0) ? A_REVERSE : 0)
+		| ((sel && ptab->cfg.selmode == 1) ? A_UNDERLINE : 0);
 
 	attron(attr);
 	if (ptab->hp->stat->flag != S_ROOT)
@@ -2094,17 +2097,20 @@ static void redraw(char *path)
 
 static void fastredraw(void)
 {
-	if (xcols < 0) { // skip fastredraw if redraw() has already done
+	if (xcols <= 0) { // skip fastredraw if redraw has already done
 		xcols = -xcols;
 		return;
 	} else if (ndents == 0)
 		return;
 
-	move(2 + lastsel - curscroll, 0);
-	printent(&pdents[lastsel], FALSE, lastsel == markent);
-
-	move(2 + cursel - curscroll, 0);
-	printent(&pdents[cursel], TRUE, cursel == markent);
+	if (lastsel >= curscroll && lastsel < onscr + curscroll && lastsel < ndents && lastsel != cursel) {
+		move(2 + lastsel - curscroll, 0);
+		printent(&pdents[lastsel], FALSE, lastsel == markent);
+	}
+	if (cursel >= curscroll && cursel < onscr + curscroll) {
+		move(2 + cursel - curscroll, 0);
+		printent(&pdents[cursel], TRUE, cursel == markent);
+	}
 }
 
 static void statusbar(void)
@@ -2113,18 +2119,6 @@ static void statusbar(void)
 
 	move(xlines - 1, 0);
 	clrtoeol();
-
-	if (gcfg.mode == 1 || gcfg.mode == 2) {
-		attron(COLOR_PAIR(C_WARN) | A_REVERSE | A_BOLD);
-		addstr(" S ");
-		attrset(A_NORMAL);
-		addch(' ');
-	} else 	if (gcfg.mode > 2) {
-		attron(COLOR_PAIR(F_EXEC) | A_REVERSE | A_BOLD);
-		addstr(" B ");
-		attrset(A_NORMAL);
-		addch(' ');
-	}
 
 	if (errline != 0) {
 		attron(COLOR_PAIR(C_WARN));
@@ -2306,24 +2300,21 @@ static void browse(void)
 			// fallthrough
 		case GO_NONE:
 			c = getinput(stdscr);
-
 			if (c == KEY_RESIZE) {
 				ctl = GO_REDRAW;
 				break;
-			} else if (c == 0)
-				break;
+			}
 
 			if ((ctl = filterinput(c)) != GO_NONE)
 				break;
-
 			if ((ctl = qfindinput(c)) != GO_NONE)
 				break;
 
-			for (int i = 0; i < (int)LENGTH(keys); ++i)
-				if ((c == keys[i].keysym1 || c == keys[i].keysym2) && keys[i].func)
-					ctl = keys[i].func(keys[i].arg);
-
-			if (c < 0 && gcfg.mode < 3)
+			if (c > 0) {
+				for (size_t i = 0; i < LENGTH(keys); ++i)
+					if ((c == keys[i].keysym1 || c == keys[i].keysym2) && keys[i].func)
+						ctl = keys[i].func(keys[i].arg);
+			} else if (c < 0)
 				ctl = callextfunc(-c);
 
 			break;
@@ -2368,7 +2359,7 @@ static int initsff(char *arg0, char *argx)
 	if (!editor || !editor[0])
 		editor = EDITOR;
 
-	// Set config path: xdgcfg+"/sff" or home+"/.config/sff"
+	// Set config path: XDG_CONFIG_HOME/sff or ~/.config/sff
 	if ((xdgcfg && xdgcfg[0] && makepath(xdgcfg, "sff", gpbuf))
 	|| (home && makepath(home, ".config/sff", gpbuf)))
 		cfgpath = strdup(gpbuf);
@@ -2380,16 +2371,13 @@ static int initsff(char *arg0, char *argx)
 	|| (makepath(EXTFNPREFIX2, EXTFNNAME, gpbuf) && access(gpbuf, R_OK | X_OK) == 0))
 		extfunc = strdup(gpbuf);
 
-	// Set pipepath, pvfifo paths and set running mode
-	if (cfgpath && extfunc
-	&& makepath(cfgpath, ".sff-pipe.", gpbuf) && strcat(gpbuf, xitoa(getpid())) && (pipepath = strdup(gpbuf))
-	&& strcat(gpbuf, ".pv") && (pvfifo = strdup(gpbuf))) {
-		if (getuid() == 0 && gcfg.mode != 4)
-			gcfg.mode = 2;
-	} else {
+	// Set pipepath and pvfifo paths
+	if (cfgpath && makepath(cfgpath, ".sff-pipe.", gpbuf))
+		pipepath = strdup(strcat(gpbuf, xitoa(getpid())));
+	if (pipepath)
+		pvfifo = strdup(strcat(gpbuf, ".pv"));
+	if (!cfgpath || !extfunc || !pipepath || !pvfifo)
 		seterrnum(__LINE__, errno);
-		gcfg.mode = 4;
-	}
 
 	// Initialize first tab
 	path = argx ? abspath(argx, gpbuf) : getcwd(gpbuf, PATH_MAX);
@@ -2397,6 +2385,9 @@ static int initsff(char *arg0, char *argx)
 		perror(xitoa(__LINE__));
 		return FALSE;
 	}
+
+	if (getuid() == 0)
+		gcfg.mode = 2;
 	return TRUE;
 }
 
@@ -2429,6 +2420,8 @@ static void setupcurses(void)
 static void cleanup(void)
 {
 	setpreview(2);
+	if (pipepath)
+		unlink(pipepath);
 	for (int i = 0; i <= TABS_MAX; ++i) {
 		free(ghpath[i * 2].hs);
 		free(ghpath[i * 2 + 1].hs);
@@ -2450,8 +2443,6 @@ int main(int argc, char *argv[])
 
 	while ((opt = getopt(argc, argv, "bcd:Hmvh")) != -1) {
 		switch (opt) {
-		case 'b': gcfg.mode = 4;
-			break;
 		case 'c': gcfg.caseinsen = 0;
 			break;
 		case 'd': gcfg.showtime = gcfg.showowner = gcfg.showperm = gcfg.showsize = 0;

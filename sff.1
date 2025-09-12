@@ -1,4 +1,4 @@
-.Dd August 30, 2025
+.Dd September 9, 2025
 .Dt SFF 1
 .Os
 .Sh NAME
@@ -27,9 +27,6 @@ is not specified.
 .Sh OPTIONS
 The following options are available:
 .Bl -tag -width indent
-.It Fl b
-Force the program to run in browse mode.
-For more details, see the \fIRUNNING MODE\fR section.
 .It Fl c
 Enable case sensitivity when sorting by filename.
 .It Fl d Ar keys
@@ -194,39 +191,22 @@ instances.
 A file operation performed in one
 .Nm
 instance can be undone or redone in another instance.
-.Sh RUNNING MODE
-\fBBrowse Mode\fR:
-.br
-A green reversed 'B' is displayed in the bottom-left corner of the screen as an indicator.
-.Pp
-This can be considered a safe mode.
-In this mode, extension functions are disabled, and
-.Nm
-does not make any changes to the file system.
-.Pp
-The program is forced into browse mode and cannot exit this mode until termination under the following conditions:
-.Pp
-    - When the -b option is used while running
-.Nm
-    - During initialization, if certain non-fatal errors occur
-      (e.g., the \fBsff-extfunc\fR file is missing).
-.Pp
-\fBSudo Mode\fR:
-.br
-A red reversed 'S' is displayed in the bottom-left corner of the screen as an indicator.
+.Sh SUDO MODE
+In this mode, the cursor will be displayed in red.
 .Pp
 When
 .Nm
-is run as a regular user and switched to sudo mode, the following operations are executed with superuser privileges:
+is run as a regular user and switched to sudo mode, the \fBsudo\fR utility will be invoked to execute the following operations with superuser privileges:
 .Pp
-    - All extension functions
+    - All extension functions (including all file operations)
+    - All plugins
     - File editing
 .Pp
-However, all other operations are still performed by the current user.
+Any other operations still execute with the current user's privileges, since the program is still running in the user's context.
 .Pp
 When
 .Nm
-is run as the superuser, the program will always run in sudo mode until termination or can be switched to browse mode.
+is run as the superuser, the program will always run in sudo mode until termination.
 All operations are performed by the superuser.
 .Sh PLUGINS
 Plugins are shell scripts used to extend functionality.
