@@ -140,6 +140,11 @@ You can install all dependencies using the following commands:
    sudo make uninstall PREFIX=/usr
    ```
 
+   Note for Gentoo users: Gentoo doesn't automatically resolve `libtinfow` that `libncursesw` depends on.
+   To compile successfully, explicitly link both libraries:
+   ```
+   sudo make install LDFLAGS="-lncursesw -ltinfow"
+   ```
 
 ## Usage
 
