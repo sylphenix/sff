@@ -372,7 +372,6 @@ static char *tohumansize(off_t size)
 		numint = size;
 
 	sp = (char *)memccpy(sbuf, xitoa(numint), '\0', 6) - 1;
-
 	if (i > 0) {
 		*sp++ = '.';
 		*sp++ = '0' + frac;
@@ -390,19 +389,15 @@ static char *strperms(mode_t mode)
 
 	str[0] = mode & S_IRUSR ? 'r' : '-';
 	str[1] = mode & S_IWUSR ? 'w' : '-';
-	str[2] = (mode & S_ISUID
-		? (mode & S_IXUSR ? 's' : 'S')
-		: (mode & S_IXUSR ? 'x' : '-'));
+	str[2] = mode & S_ISUID	? (mode & S_IXUSR ? 's' : 'S') : (mode & S_IXUSR ? 'x' : '-');
+
 	str[3] = mode & S_IRGRP ? 'r' : '-';
 	str[4] = mode & S_IWGRP ? 'w' : '-';
-	str[5] = (mode & S_ISGID
-		? (mode & S_IXGRP ? 's' : 'S')
-		: (mode & S_IXGRP ? 'x' : '-'));
+	str[5] = mode & S_ISGID ? (mode & S_IXGRP ? 's' : 'S') : (mode & S_IXGRP ? 'x' : '-');
+
 	str[6] = mode & S_IROTH ? 'r' : '-';
 	str[7] = mode & S_IWOTH ? 'w' : '-';
-	str[8] = (mode & S_ISVTX
-		? (mode & S_IXOTH ? 't' : 'T')
-		: (mode & S_IXOTH ? 'x' : '-'));
+	str[8] = mode & S_ISVTX ? (mode & S_IXOTH ? 't' : 'T') : (mode & S_IXOTH ? 'x' : '-');
 	return str;
 }
 
@@ -1226,6 +1221,7 @@ static int viewoptions(int n __attribute__((unused)))
 			break;
 		case '/': cfg->dirontop ^= 1;
 			break;
+
 		case 'n': cfg->sortby = 0;
 			break;
 		case 's': cfg->sortby = 1;
