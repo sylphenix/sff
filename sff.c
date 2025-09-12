@@ -203,23 +203,10 @@ static void dbgprint(char *vn, char *str, int n)
 }
 #endif
 
-static char *xmemrchr(const char *str, int c, size_t n)
-{
-	const unsigned char *cp = (unsigned char *)str + n;
-
-	if (n != 0) {
-		do {
-			if (*(--cp) == (unsigned char)c)
-				return (char *)cp;
-		} while (--n != 0);
-	}
-	return NULL;
-}
-
 /* Get directory portion of pathname. Source would be modified!!! */
 static char *xdirname(char *path)
 {
-	char *p = xmemrchr(path, '/', strlen(path));
+	char *p = strrchr(path, '/');
 
 	if (p == path)
 		path[1] = '\0';
@@ -231,8 +218,7 @@ static char *xdirname(char *path)
 /* Get filename portion of pathname. Source would be untouched. */
 static char *xbasename(char *path)
 {
-	char *p = xmemrchr(path, '/', strlen(path));
-
+	char *p = strrchr(path, '/');
 	return p ? p + 1 : path;
 }
 
@@ -308,7 +294,9 @@ static char *abspath(const char *path, char *buf)
 			src = (src[1] == '\0') ? src + 1 : src + 2;
 			continue;
 		} else if (dst[-1] == '/' && src[0] == '.' && src[1] == '.' && (src[2] == '/' || src[2] == '\0')) {
-			dst = xmemrchr(buf, '/', MAX(1, dst - buf - 1)) + 1;
+			if (dst > buf + 1)
+				dst[-1] = '\0';
+			dst = strrchr(buf, '/') + 1;
 			src = (src[2] == '\0') ? src + 2 : src + 3;
 			continue;
 		}
