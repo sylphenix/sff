@@ -259,8 +259,7 @@ static char *getextension(char *name, size_t len)
 	return NULL;
 }
 
-/* Get the absolute pathname without resolving symlinks.
-   Neither path nor buf can be NULL. Ensure buf size is not less than PATH_MAX. */
+/* Get the absolute pathname without resolving symlinks. */
 static char *abspath(const char *path, char *buf)
 {
 	const char *src;
@@ -269,18 +268,14 @@ static char *abspath(const char *path, char *buf)
 
 	if (!path || !buf)
 		return NULL;
-
 	if (path[0] != '/') {
 		if (!getcwd(buf, PATH_MAX))
 			return NULL;
+		if (!path[0])
+			return buf;
 		len = strlen(buf);
 	} else
 		++path;
-
-	if (len + strlen(path) + 2 > PATH_MAX) {
-		errno = ENAMETOOLONG;
-		return NULL;
-	}
 
 	src = path;
 	dst = buf + len;
@@ -299,6 +294,11 @@ static char *abspath(const char *path, char *buf)
 			dst = strrchr(buf, '/') + 1;
 			src = (src[2] == '\0') ? src + 2 : src + 3;
 			continue;
+		}
+
+		if (++len == PATH_MAX - 1) {
+			errno = ENAMETOOLONG;
+			return NULL;
 		}
 		*dst++ = *src++;
 	}
@@ -2320,7 +2320,7 @@ static void exitsighandler(int sig __attribute__((unused)))
 
 static int initsff(char *arg0, char *argx)
 {
-	char *path, *xdgcfg = getenv("XDG_CONFIG_HOME");
+	char *xdgcfg = getenv("XDG_CONFIG_HOME");
 	struct sigaction act = {.sa_handler = exitsighandler};
 
 	// Handle/ignore certain signals
@@ -2368,8 +2368,7 @@ static int initsff(char *arg0, char *argx)
 		seterrnum(__LINE__, errno);
 
 	// Initialize first tab
-	path = argx ? abspath(argx, gpbuf) : getcwd(gpbuf, PATH_MAX);
-	if (!path || !inittab(path, 0)) {
+	if (!abspath(argx, gpbuf) || !inittab(gpbuf, 0)) {
 		perror(xitoa(__LINE__));
 		return FALSE;
 	}
@@ -2460,7 +2459,7 @@ int main(int argc, char *argv[])
 
 	atexit(cleanup);
 
-	if (!initsff(argv[0], argc == optind ? NULL : argv[optind]))
+	if (!initsff(argv[0], argc == optind ? "" : argv[optind]))
 		return EXIT_FAILURE;
 
 	setlocale(LC_ALL, "");
