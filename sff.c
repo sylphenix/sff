@@ -2385,7 +2385,7 @@ static void setupcurses(void)
 	nonl();
 	curs_set(FALSE);
 	keypad(stdscr, TRUE);
-	set_escdelay(50);
+	set_escdelay(80);
 
 	define_key("\033[1;5A", CTRL_UP);
 	define_key("\033[1;5B", CTRL_DOWN);
