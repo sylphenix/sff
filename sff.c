@@ -2004,7 +2004,7 @@ static void redraw(char *path)
 	int pcols = xcols - (TABS_MAX + 1) * 2;
 	int dcols = (ptab->cfg.showtime ? 17 : 0) + (ptab->cfg.showowner ? 15 : 0)
 		+ (ptab->cfg.showperm ? 5 : 0) + (ptab->cfg.showsize ? 8 : 0) + 2;
-	int btm, j = 0;
+	int btm, j = 1;
 	struct selstat *ss = ptab->ss;
 
 	erase();
@@ -2028,9 +2028,8 @@ static void redraw(char *path)
 	attrset(A_NORMAL);
 
 	// Print entries
-	move(++j, dcols);
 	if (curscroll > 0 && ncols > 0)
-		addstr("<<");
+		mvaddstr(1, dcols, "<<");
 
 	btm = MIN(onscr + curscroll, ndents);
 	for (int i = curscroll; i < btm; ++i) {
@@ -2039,20 +2038,17 @@ static void redraw(char *path)
 				pdents[i].flag |= E_SEL;
 			pdents[i].flag |= E_SEL_SCANED;
 		}
-
 		move(++j, 0);
 		printent(&pdents[i], i == cursel, i == markent);
 	}
 
-	move(++j, dcols);
 	if (btm < ndents && ncols > 0)
-		addstr(">>");
+		mvaddstr(xlines - 2, dcols, ">>");
 
 	// Print filter
 	if (ptab->ftlen != 0) {
-		move(xlines - 2, 0);
 		attron(COLOR_PAIR(F_SOCK));
-		addstr("Filter: ");
+		mvaddstr(xlines - 2, 0, "Filter: ");
 		addnstr(ptab->filt, xcols - 8);
 		attrset(A_NORMAL);
 		addch(' ' | (ptab->ftlen > 0 ? A_REVERSE : 0));
@@ -2060,9 +2056,8 @@ static void redraw(char *path)
 
 	// Print quick find
 	if (ptab->fdlen > 0) {
-		move(xlines - 2, 0);
 		attron(COLOR_PAIR(F_CHR));
-		addstr("Quick find: ");
+		mvaddstr(xlines - 2, 0, "Quick find: ");
 		addnstr(ptab->find, xcols - 12);
 		attrset(A_NORMAL);
 		addch(' ' | A_REVERSE);
