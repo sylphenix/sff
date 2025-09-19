@@ -594,7 +594,7 @@ static Histpath *inithistpath(Histpath *hp, const char *path)
 	return hp;
 }
 
-static int newhistpath(char *path)
+static int newhistpath(const char *path)
 {
 	Histpath *hp = ptab->hp;
 	Histpath *hp2 = ((hp - ghpath) & 1) ? hp - 1 : hp + 1;
@@ -757,7 +757,7 @@ static int openfile(int n)
 	return GO_STATBAR;
 }
 
-static struct selstat *addselstat(struct selstat *ss, char *path)
+static struct selstat *addselstat(struct selstat *ss, const char *path)
 {
 	struct selstat *n = malloc(sizeof(struct selstat));
 
@@ -1041,7 +1041,7 @@ static int qfindnext(int n)
 	return GO_REDRAW;
 }
 
-static int inittab(char *path, int n)
+static int inittab(const char *path, int n)
 {
 	deleteallselstat(gtab[n].ss);
 	gtab[n].ss = NULL;
@@ -1793,7 +1793,7 @@ static void loadsrchentry(int fd)
 	}
 }
 
-static void loadentries(char *path)
+static void loadentries(const char *path)
 {
 	int fd;
 	DIR *dirp = opendir(path);
@@ -1880,11 +1880,11 @@ static int xmbstowcs(wchar_t *dst, const char *str, int maxcols)
 	return dstwidth;
 }
 
-static wchar_t *fitnamecols(const char *str, int maxcols)
+static wchar_t *fitnamecols(const char *name, int maxcols)
 {
 	wchar_t *wbuf = (wchar_t *)gpbuf;
 
-	xmbstowcs(wbuf, str, maxcols);
+	xmbstowcs(wbuf, name, maxcols);
 	return wbuf;
 }
 
@@ -1991,7 +1991,7 @@ static void printent(const Entry *ent, int sel, int mark)
 	attrset(A_NORMAL);
 }
 
-static void redraw(char *path)
+static void redraw(const char *path)
 {
 	getmaxyx(stdscr, xlines, xcols);
 	int pcols = xcols - (TABS_MAX + 1) * 2;
