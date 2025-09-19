@@ -552,21 +552,16 @@ static inline void savehiststat(Histstat *hs)
 	}
 }
 
-static Histpath *inithistpath(Histpath *hp, char *path, int check)
+static Histpath *inithistpath(Histpath *hp, char *path)
 {
 	char *name = NULL;
 	struct stat sb;
 
-	if (check) {
-		if (lstat(path, &sb) == -1 && seterrnum(__LINE__, errno)) {
-			return NULL;
-		} else if (!S_ISDIR(sb.st_mode)) {
-			name = xbasename(path);
-			xdirname(path);
-		}
-
-		if (chdir(path) == -1 && seterrnum(__LINE__, errno))
-			return NULL;
+	if (lstat(path, &sb) == -1 && seterrnum(__LINE__, errno))
+		return NULL;
+	if (!S_ISDIR(sb.st_mode)) {
+		name = xbasename(path);
+		xdirname(path);
 	}
 
 	// Each level of path corresponds to a histstat. Add one more for current level
@@ -609,7 +604,7 @@ static int newhistpath(char *path)
 	if (strcmp(hp->path, path) == 0)
 		return GO_NONE;
 
-	if (!inithistpath(hp2, path, TRUE))
+	if (!inithistpath(hp2, path) || (chdir(path) == -1 && seterrnum(__LINE__, errno)))
 		return GO_STATBAR;
 
 	if (hp->stat->flag == S_ROOT)
@@ -669,7 +664,7 @@ static int enterdir(int n __attribute__((unused)))
 	if (nhs < hp->nhs) {
 		if (strcmp(ent->name, hs->name) != 0) {
 			if ((strcmp(hp->path, hp2->path) == 0 && strcmp(ent->name, hp2->stat->name) == 0)
-			|| (gcfg.ct < TABS_MAX && inithistpath(hp2, hp->path, FALSE)))
+			|| (gcfg.ct < TABS_MAX && inithistpath(hp2, hp->path)))
 				hp = hp2;
 			else
 				hp->nhs = nhs;
@@ -1053,7 +1048,7 @@ static int inittab(char *path, int n)
 	deleteallselstat(gtab[n].ss);
 	gtab[n].ss = NULL;
 
-	gtab[n].hp = inithistpath(&ghpath[n * 2], path, TRUE);
+	gtab[n].hp = inithistpath(&ghpath[n * 2], path);
 	if (!gtab[n].hp)
 		return FALSE;
 
@@ -1101,7 +1096,7 @@ static int closetab(int n __attribute__((unused)))
 	if (lt == -1) {
 		if (ct == 0)
 			return GO_NONE;
-		else if (!inittab(home ? home : "/", 0))
+		if (!inittab(home ? home : "/", 0) || (chdir(home ? home : "/") == -1 && seterrnum(__LINE__, errno)))
 			return GO_STATBAR;
 		gcfg.ct = 0;
 	} else {
@@ -2363,7 +2358,7 @@ static int initsff(char *arg0, char *argx)
 		seterrnum(__LINE__, errno);
 
 	// Initialize first tab
-	if (!abspath(argx, gpbuf) || !inittab(gpbuf, 0)) {
+	if (!abspath(argx, gpbuf) || !inittab(gpbuf, 0) || chdir(gpbuf) == -1) {
 		perror(xitoa(__LINE__));
 		return FALSE;
 	}
