@@ -1854,26 +1854,23 @@ static int xmbstowcs(wchar_t *dst, const char *str, int maxcols)
 	wchar_t *wcp = dst;
 	int nb, dstwidth = 0;
 
-	if (maxcols > 0) {
-		for (wchar_t wc; *str; ++str, ++wcp) {
-			if ((signed char)*str < 0) {
-				if ((nb = mbtowc(&wc, str, MB_CUR_MAX)) > 0) {
-					*wcp = wc;
-					str += nb - 1;
-				} else
-					*wcp = L'\uFFFD'; // invalid char
-			} else if ((signed char)*str < 0x20) {
-				*wcp = L'?'; // Replace escape chars with '?'
-			} else {
-				*wcp = (wchar_t)*str;
-			}
+	for (wchar_t wc; *str; ++str, ++wcp) {
+		if ((signed char)*str < 0) {
+			if ((nb = mbtowc(&wc, str, MB_CUR_MAX)) > 0) {
+				*wcp = wc;
+				str += nb - 1;
+			} else
+				*wcp = L'\uFFFD'; // invalid char
+		} else if ((signed char)*str < 0x20) {
+			*wcp = L'?'; // Replace escape chars with '?'
+		} else
+			*wcp = (wchar_t)*str;
 
-			dstwidth += wcwidth(*wcp);
-			if (dstwidth > maxcols) {
-				if (wcp != dst)
-					*(wcp - 1) = L'~';
-				break;
-			}
+		dstwidth += wcwidth(*wcp);
+		if (dstwidth > maxcols) {
+			if (wcp != dst)
+				*(wcp - 1) = L'~';
+			break;
 		}
 	}
 	*wcp = L'\0';
@@ -1884,7 +1881,10 @@ static wchar_t *fitnamecols(const char *name, int maxcols)
 {
 	wchar_t *wbuf = (wchar_t *)gpbuf;
 
-	xmbstowcs(wbuf, name, maxcols);
+	if (maxcols <= 0)
+		*wbuf = L'\0';
+	else
+		xmbstowcs(wbuf, name, maxcols);
 	return wbuf;
 }
 
@@ -1894,7 +1894,7 @@ static wchar_t *fitpathcols(const char *path, int maxcols)
 	wchar_t *wbuf = (wchar_t *)gpbuf, *wbp = wbuf;
 
 	if (maxcols <= 0) {
-		wbuf[0] = L'\0';
+		*wbuf = L'\0';
 		return wbuf;
 	}
 
