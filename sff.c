@@ -216,9 +216,9 @@ static char *xdirname(char *path)
 }
 
 /* Get filename portion of pathname. Source would be untouched. */
-static char *xbasename(char *path)
+static const char *xbasename(const char *path)
 {
-	char *p = strrchr(path, '/');
+	const char *p = strrchr(path, '/');
 	return p ? p + 1 : path;
 }
 
@@ -552,21 +552,23 @@ static inline void savehiststat(Histstat *hs)
 	}
 }
 
-static Histpath *inithistpath(Histpath *hp, char *path)
+static Histpath *inithistpath(Histpath *hp, const char *path)
 {
-	char *name = NULL;
+	const char *name = NULL;
 	struct stat sb;
 
 	if (lstat(path, &sb) == -1 && seterrnum(__LINE__, errno))
 		return NULL;
-	if (!S_ISDIR(sb.st_mode)) {
+	if (!S_ISDIR(sb.st_mode))
 		name = xbasename(path);
-		xdirname(path);
-	}
+
+	char *end = memccpy(hp->path, path, '\0', PATH_MAX - 1);
+	if (name)
+		xdirname(hp->path);
 
 	// Each level of path corresponds to a histstat. Add one more for current level
 	hp->nhs = 0;
-	for (char *p = path, *p2 = hp->path; ; ++p, ++p2) {
+	for (char *p = hp->path; p < end; ++p) {
 		if (*p == '/' || (*p == '\0' && path[1] != '\0')) {
 			if (hp->nhs == hp->ths) {
 				Histstat *tmphs = realloc(hp->hs, (hp->ths += HSTAT_INCR) * sizeof(Histstat));
@@ -579,10 +581,6 @@ static Histpath *inithistpath(Histpath *hp, char *path)
 			}
 			memset((hp->hs + hp->nhs++), 0, sizeof(Histstat));
 		}
-
-		*p2 = *p;
-		if (*p == '\0')
-			break;
 	}
 
 	hp->stat = hp->hs + hp->nhs - 1;
