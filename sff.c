@@ -259,11 +259,10 @@ static char *getextension(char *name, size_t len)
 	return NULL;
 }
 
-/* Get the absolute pathname without resolving symlinks. */
+/* Get the absolute pathname without resolving symlinks. buf can not be NULL */
 static char *abspath(const char *path, char *buf)
 {
-	const char *src;
-	char *dst;
+	const char *src = path;
 	size_t len = 0;
 
 	if (!path || !buf)
@@ -275,10 +274,9 @@ static char *abspath(const char *path, char *buf)
 			return buf;
 		len = strlen(buf);
 	} else
-		++path;
+		++src;
 
-	src = path;
-	dst = buf + len;
+	char *dst = buf + len;
 	*dst++ = '/';
 
 	while (*src) {
@@ -303,7 +301,7 @@ static char *abspath(const char *path, char *buf)
 		*dst++ = *src++;
 	}
 
-	if (dst - 1 > buf && dst[-1] == '/')
+	if (dst > buf + 1 && dst[-1] == '/')
 		dst[-1] = '\0';
 	else
 		dst[0] = '\0';
