@@ -306,12 +306,12 @@ static char *abspath(const char *path, char *buf)
 	return buf;
 }
 
-/* Convert unsigned integer to string. The maximum value it can handle is 4,294,967,295
+/* Convert unsigned integer to string. The maximum value it can handle is 4,294,967,295.
    This is a modified version of xitoa() from nnn. https://github.com/jarun/nnn */
 static char *xitoa(unsigned int val)
 {
-	static char dst[16] = {0};
-	static const char digits[204] =
+	static char dst[24] = {0};
+	static const char digits[] =
 		"0001020304050607080910111213141516171819"
 		"2021222324252627282930313233343536373839"
 		"4041424344454647484950515253545556575859"
@@ -319,7 +319,7 @@ static char *xitoa(unsigned int val)
 		"8081828384858687888990919293949596979899";
 	unsigned int i, j, quo;
 
-	for (i = 14; val >= 100; --i) { // Fill digits backward from dst[14]
+	for (i = 21; val >= 100; --i) { // Fill digits backward from dst[21]
 		quo = val / 100;
 		j = (val - (quo * 100)) << 1;
 		val = quo;
