@@ -243,19 +243,18 @@ static int makepath(const char *path, const char *name, char *buf)
 	return p ? p - buf : 0;
 }
 
-/* Get file extension. Extensions longer than 8 chars will be ignored. */
-static char *getextension(char *name, size_t len)
+/* Get file extension. Ignore extensions > 8 chars. len includes terminating '\0' */
+static const char *getextension(const char *name, size_t len)
 {
-	char *p;
+	if (len < 4)
+		return NULL;
 
-	if (len > 3) {
-		p = name + len - 2;
-		len = (len > 11) ? 9 : len - 2;
+	const char *p = name + len - 2; // skip last char (before '\0')
+	len = (len > 11) ? 9 : len - 2; // If name length exceeds 2+8, check max 8 times
 
-		 while (--len > 0)
-			if (*(--p) == '.')
-				return p;
-	}
+	 while (--len > 0)
+		if (*(--p) == '.')
+			return p;
 	return NULL;
 }
 
@@ -1381,7 +1380,7 @@ static int entrycmp(const void *va, const void *vb)
 {
 	const Entry *pa = (Entry *)va, *pb = (Entry *)vb;
 	int fa = pa->flag & E_DIR_DIRLNK, fb = pb->flag & E_DIR_DIRLNK;
-	char *exta, *extb;
+	const char *exta, *extb;
 
 	if (ptab->cfg.dirontop && fa != fb) { // Dirs on top
 		if (fb)
@@ -2135,7 +2134,7 @@ static void statusbar(void)
 			}
 
 		} else if ((ent->flag & E_REG_FILE) && n > 1) {
-			char *p = getextension(ent->name, ent->nlen);
+			const char *p = getextension(ent->name, ent->nlen);
 			if (p)
 				addnstr(p , n); // Show file extension
 		} else
