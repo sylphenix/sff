@@ -222,28 +222,27 @@ static const char *xbasename(const char *path)
 	return p ? p + 1 : path;
 }
 
-/* Make path/name in buf. Returns the number of bytes copied including the terminating '\0'. */
+/* Make path/name in buf. Returns the number of bytes copied including terminating '\0'. */
 static int makepath(const char *path, const char *name, char *buf)
 {
-	char *p;
-
-	if (!path || !path[0] || !buf)
+	if (!path || !path[0] || !name || !buf)
 		return 0;
 
+	char *p = NULL;
 	if (path == buf)
 		p = memchr(buf, '\0', PATH_MAX - 2);
 	else if ((p = memccpy(buf, path, '\0', PATH_MAX - 2)))
 		--p;
 
 	if (p) {
-		if (*(p - 1) != '/')
+		if (p[-1] != '/')
 			*p++ = '/';
 		p = memccpy(p, name, '\0', PATH_MAX - (p - buf) - 1);
 	}
 	return p ? p - buf : 0;
 }
 
-/* Get file extension. Ignore extensions > 8 chars. len includes terminating '\0' */
+/* Get file extension. Ignore extensions > 8 chars. len includes terminating '\0'. */
 static const char *getextension(const char *name, size_t len)
 {
 	if (len < 4)
@@ -258,7 +257,7 @@ static const char *getextension(const char *name, size_t len)
 	return NULL;
 }
 
-/* Get the absolute pathname without resolving symlinks. buf can not be NULL */
+/* Get the absolute pathname without resolving symlinks. buf can not be NULL. */
 static char *abspath(const char *path, char *buf)
 {
 	const char *src = path;
