@@ -341,7 +341,6 @@ static char *tohumansize(off_t size)
 {
 	static char sbuf[12] = {0};
 	static const char unit[12] = "BKMGTPEZY";
-	char *sp;
 	int i, numint, frac = 0;
 
 	for (i = 0; size >= 1024000; ++i)
@@ -355,7 +354,7 @@ static char *tohumansize(off_t size)
 	} else
 		numint = size;
 
-	sp = (char *)memccpy(sbuf, xitoa(numint), '\0', 6) - 1;
+	char *sp = (char *)memccpy(sbuf, xitoa(numint), '\0', 6) - 1;
 	if (i > 0) {
 		*sp++ = '.';
 		*sp++ = '0' + frac;
