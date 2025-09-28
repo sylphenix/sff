@@ -2011,7 +2011,8 @@ static void redraw(const char *path)
 	}
 
 	// Print path
-	attron(COLOR_PAIR(C_PATHBAR) | A_UNDERLINE);
+	addch(' ');
+	attron(COLOR_PAIR(C_PATHBAR) | A_BOLD);
 	addwstr(fitpathcols(path, pcols));
 	attrset(A_NORMAL);
 
