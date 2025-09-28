@@ -2044,7 +2044,7 @@ static void redraw(const char *path)
 
 	// Print quick find
 	if (ptab->fdlen > 0) {
-		attron(COLOR_PAIR(F_CHR));
+		attron(COLOR_PAIR(F_EXEC));
 		mvaddstr(xlines - 2, 0, "Quick find: ");
 		addnstr(ptab->find, xcols - 12);
 		attrset(A_NORMAL);

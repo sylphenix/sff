@@ -7,6 +7,7 @@
 
 * Clean up pipe file on exit
 * The cursor now turns red to indicate `Sudo mode`, replacing the previous status bar indicator
+* Colors now reference the terminal palette instead of being hardcoded.
 
 
 ### Removed

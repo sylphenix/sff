@@ -78,41 +78,41 @@ static const Key keys[] = {
 /* Color definitions for 256 color*/
 static void setcolorpair256(void)
 {
-	        // type      fg color  bg color  (default color: -1)
-	init_pair( F_REG,       -1,    -1 ); // Regular file, Default
-	init_pair( F_DIR,       39,    -1 ); // Directory, DeepSkyBlue1
-	init_pair( F_LNK,       51,    -1 ); // Symbolic link, Cyan1
-	init_pair( F_CHR,      226,    -1 ); // Char device, Yellow1
-	init_pair( F_BLK,      193,    -1 ); // Block device, DarkSeaGreen1
-	init_pair( F_IFO,      214,    -1 ); // FIFO, Orange1
-	init_pair( F_SOCK,     171,    -1 ); // Socket, MediumOrchid1
-	init_pair( F_HLNK,      96,    -1 ); // Hard link, Plum4
-	init_pair( F_EXEC,      46,    -1 ); // Executable, Green1
-	init_pair( C_DETAIL,   246,    -1 ); // Detail info, Grey62
-	init_pair( C_TABTAG,   226,    -1 ); // Tabs tag, Yellow1
-	init_pair( C_PATHBAR,  214,    -1 ); // Path bar, Orange1
-	init_pair( C_STATBAR,  214,    -1 ); // Status bar, Orange1
-	init_pair( C_WARN,     196,    -1 ); // Warning, Red1
-	init_pair( C_NEWFILE,  168,    -1 ); // New file, DeepPink1
+	        // type        fg color     bg color  (default color: -1)
+	init_pair( F_REG,           -1,      -1 ); // Regular file
+	init_pair( F_DIR,     COLOR_BLUE,    -1 ); // Directory
+	init_pair( F_LNK,     COLOR_CYAN,    -1 ); // Symbolic link
+	init_pair( F_CHR,     COLOR_YELLOW,  -1 ); // Char device
+	init_pair( F_BLK,     COLOR_YELLOW,  -1 ); // Block device
+	init_pair( F_IFO,     COLOR_YELLOW,  -1 ); // FIFO
+	init_pair( F_SOCK,    COLOR_MAGENTA, -1 ); // Socket
+	init_pair( F_HLNK,    COLOR_MAGENTA, -1 ); // Hard link
+	init_pair( F_EXEC,    COLOR_GREEN,   -1 ); // Executable
+	init_pair( C_DETAIL,        245,     -1 ); // Detail info, Grey54
+	init_pair( C_TABTAG,  COLOR_YELLOW,  -1 ); // Tabs tag
+	init_pair( C_PATHBAR, COLOR_YELLOW,  -1 ); // Path bar
+	init_pair( C_STATBAR, COLOR_YELLOW,  -1 ); // Status bar
+	init_pair( C_WARN,          196,     -1 ); // Warning, Red1
+	init_pair( C_NEWFILE, COLOR_MAGENTA, -1 ); // New file
 }
 
 /* Color definitions for 8 color*/
 static void setcolorpair8(void)
 {
-	        // type     fg color  bg color  (default color: -1)
-	init_pair( F_REG,      -1,    -1 ); // Regular file, Default
-	init_pair( F_DIR,       4,    -1 ); // Directory, Blue
-	init_pair( F_LNK,       5,    -1 ); // Symbolic link, Magenta
-	init_pair( F_CHR,       3,    -1 ); // Char device, Yellow
-	init_pair( F_BLK,       3,    -1 ); // Block device, Yellow
-	init_pair( F_IFO,       5,    -1 ); // FIFO, Magenta
-	init_pair( F_SOCK,      5,    -1 ); // Socket, Magenta
-	init_pair( F_HLNK,     -1,    -1 ); // Hard link, Default
-	init_pair( F_EXEC,      2,    -1 ); // Executable, Green
-	init_pair( C_DETAIL,   -1,    -1 ); // Detail info, Default
-	init_pair( C_TABTAG,    3,    -1 ); // Tabs tag, Yellow
-	init_pair( C_PATHBAR,   3,    -1 ); // Path bar, Yellow
-	init_pair( C_STATBAR,   3,    -1 ); // Status bar, Yellow
-	init_pair( C_WARN,      1,    -1 ); // Warning, Red
-	init_pair( C_NEWFILE,   5,    -1 ); // New file, Magenta
+	        // type        fg color     bg color  (default color: -1)
+	init_pair( F_REG,           -1,      -1 ); // Regular file
+	init_pair( F_DIR,     COLOR_BLUE,    -1 ); // Directory
+	init_pair( F_LNK,     COLOR_CYAN,    -1 ); // Symbolic link
+	init_pair( F_CHR,     COLOR_YELLOW,  -1 ); // Char device
+	init_pair( F_BLK,     COLOR_YELLOW,  -1 ); // Block device
+	init_pair( F_IFO,     COLOR_YELLOW,  -1 ); // FIFO
+	init_pair( F_SOCK,    COLOR_MAGENTA, -1 ); // Socket
+	init_pair( F_HLNK,    COLOR_MAGENTA, -1 ); // Hard link
+	init_pair( F_EXEC,    COLOR_GREEN,   -1 ); // Executable
+	init_pair( C_DETAIL,        -1,      -1 ); // Detail info
+	init_pair( C_TABTAG,  COLOR_YELLOW,  -1 ); // Tabs tag
+	init_pair( C_PATHBAR, COLOR_YELLOW,  -1 ); // Path bar
+	init_pair( C_STATBAR, COLOR_YELLOW,  -1 ); // Status bar
+	init_pair( C_WARN,    COLOR_RED,     -1 ); // Warning
+	init_pair( C_NEWFILE, COLOR_MAGENTA, -1 ); // New file
 }
