@@ -1949,7 +1949,7 @@ static void printent(const Entry *ent, int sel, int mark)
 	int attr = COLOR_PAIR(C_DETAIL)	| (mark || (sel && ptab->cfg.selmode) ? A_REVERSE : 0);
 
 	if (sel)
-		addch('>' | A_BOLD | (gcfg.mode != 0 ? COLOR_PAIR(C_WARN) : 0));
+		addch('>' | A_BOLD);
 	else
 		addch(' ');
 
@@ -1968,7 +1968,7 @@ static void printent(const Entry *ent, int sel, int mark)
 
 	attron(gcfg.newent && (ent->flag & E_NEW) ? (COLOR_PAIR(C_NEWFILE) | A_REVERSE) : 0);
 	if (sel)
-		addch('>' | A_BOLD | (gcfg.mode != 0 ? COLOR_PAIR(C_WARN) : 0));
+		addch('>' | A_BOLD);
 	else
 		addch(' ');
 	attrset(A_NORMAL);
@@ -2100,7 +2100,7 @@ static void statusbar(void)
 		return;
 	}
 
-	attron(COLOR_PAIR(C_STATBAR));
+	attron(COLOR_PAIR(gcfg.mode != 0 ? C_WARN : C_STATBAR));
 	printw("%d/%d ", ndents > 0 ? cursel + 1 : 0, ndents);
 
 	attron(A_REVERSE);
