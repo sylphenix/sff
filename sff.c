@@ -597,7 +597,7 @@ static int newhistpath(const char *path)
 	if (strcmp(hp->path, path) == 0)
 		return GO_NONE;
 
-	if (!inithistpath(hp2, path) || (chdir(path) == -1 && seterrnum(__LINE__, errno)))
+	if (!inithistpath(hp2, path) || (chdir(hp2->path) == -1 && seterrnum(__LINE__, errno)))
 		return GO_STATBAR;
 
 	if (hp->stat->flag == S_ROOT)
@@ -2351,7 +2351,7 @@ static int initsff(char *arg0, char *argx)
 		seterrnum(__LINE__, errno);
 
 	// Initialize first tab
-	if (!abspath(argx, gpbuf) || !inittab(gpbuf, 0) || chdir(gpbuf) == -1) {
+	if (!abspath(argx, gpbuf) || !inittab(gpbuf, 0) || chdir(ghpath[0].path) == -1) {
 		perror(xitoa(__LINE__));
 		return FALSE;
 	}
