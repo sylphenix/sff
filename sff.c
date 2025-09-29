@@ -1885,22 +1885,12 @@ static wchar_t *fitnamecols(const char *name, int maxcols)
 
 static wchar_t *fitpathcols(const char *path, int maxcols)
 {
-	static int homelen = 0;
 	wchar_t *wbuf = (wchar_t *)gpbuf, *wbp = wbuf;
 
 	if (maxcols <= 0) {
 		*wbuf = L'\0';
-		return wbuf;
-	}
 
-	if (homelen == 0 && home)
-		homelen = strlen(home);
-	if (home && strncmp(home, path, homelen) == 0) {
-		path += homelen;
-		*wbp++ = L'~'; // Replace home path with '~'
-	}
-
-	if (xmbstowcs(wbp, path, PATH_MAX) + (wbp - wbuf) > maxcols) {
+	} else if (xmbstowcs(wbp, path, PATH_MAX) + (wbp - wbuf) > maxcols) {
 		++wbp; // When fold path, keep the first level
 		for (wchar_t *tbp = wbp, *slash = NULL; *tbp; ++tbp, ++wbp) {
 			if (*tbp == L'/') {
@@ -1989,16 +1979,17 @@ static void printent(const Entry *ent, int sel, int mark)
 static void redraw(const char *path)
 {
 	getmaxyx(stdscr, xlines, xcols);
-	int pcols = xcols - (TABS_MAX + 1) * 2;
 	int dcols = (ptab->cfg.showtime ? 17 : 0) + (ptab->cfg.showowner ? 15 : 0)
 		+ (ptab->cfg.showperm ? 5 : 0) + (ptab->cfg.showsize ? 8 : 0) + 2;
-	int btm, j = 1;
 	struct selstat *ss = ptab->ss;
+	static int homelen = 0;
 
-	erase();
-	shiftcursor(0, 0);
+	if (homelen == 0 && home)
+		homelen = strlen(home);
 	onscr = xlines - 4;
 	ncols = xcols - dcols - 1;
+	erase();
+	shiftcursor(0, 0);
 
 	// Print tabs tag
 	for (int i = 0; i <= TABS_MAX; ++i) {
@@ -2011,8 +2002,14 @@ static void redraw(const char *path)
 	}
 
 	// Print path
+	int pcols = xcols - (TABS_MAX + 1) * 2 - 1;
 	addch(' ');
 	attron(COLOR_PAIR(C_PATHBAR) | A_BOLD);
+	if (home && strncmp(home, path, homelen) == 0) {
+		path += homelen;
+		--pcols;
+		addch('~'); // Replace home path with '~'
+	}
 	addwstr(fitpathcols(path, pcols));
 	attrset(A_NORMAL);
 
@@ -2020,7 +2017,7 @@ static void redraw(const char *path)
 	if (curscroll > 0 && ncols > 0)
 		mvaddstr(1, dcols, "<<");
 
-	btm = MIN(onscr + curscroll, ndents);
+	int j = 1, btm = MIN(onscr + curscroll, ndents);
 	for (int i = curscroll; i < btm; ++i) {
 		if (ptab->cfg.havesel && !(pdents[i].flag & E_SEL_SCANED)) {
 			if (findinbuf(ss->nbuf, ss->endp - ss->nbuf, pdents[i].name, pdents[i].nlen))
@@ -2064,7 +2061,7 @@ static void redraw(const char *path)
 		mvaddch(j, xcols - 1, ' ' | A_REVERSE);
 	mvaddch(xlines - 2, xcols - 1 , '=');
 	attrset(A_NORMAL);
-	xcols = -xcols;
+	xcols = -xcols; // set to skip fastredraw
 }
 
 static void fastredraw(void)
