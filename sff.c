@@ -1144,6 +1144,9 @@ static int viewoptions(int n __attribute__((unused)))
 	Settings *cfg = &gtab[gcfg.ct].cfg;
 	WINDOW *dpo = newpad(h, w);
 
+	if (gcfg.ct == TABS_MAX)
+		cfg->showhidden = 1;
+
 	werase(dpo);
 	box(dpo, 0, 0);
 	mvwaddstr(dpo, i = 0, 6, " View options ");
