@@ -1271,6 +1271,7 @@ static int showhelp(int n __attribute__((unused)))
 			"Press 'q' or Esc to leave this page.");
 
 	for (int c = 0, start = 0; c != ESC && c != 'q'; ) {
+		getmaxyx(stdscr, xlines, xcols);
 		start = MAX(0, MIN(start, plines - xlines));
 		prefresh(help, start, 0, 0, 0, xlines - 1, xcols - 1);
 

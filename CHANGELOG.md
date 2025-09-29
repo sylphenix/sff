@@ -21,6 +21,7 @@
 * Fixed incorrect entry drawing under certain conditions
 * Create parent directory before config directory creation
 * Correctly display showhidden state in options menu within search result tab
+* Fixed help page content not updating on window resize
 
 
 ## 1.2 <small>(2025-09-04)</small>
