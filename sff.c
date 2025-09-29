@@ -538,7 +538,7 @@ static int movetoedge(int n)
 	return shiftcursor(ndents * n, 0);
 }
 
-static inline void savehiststat(Histstat *hs)
+static void savehiststat(Histstat *hs)
 {
 	if (ndents > 0) {
 		memccpy(hs->name, pdents[cursel].name, '\0', NAME_MAX);
@@ -1654,7 +1654,7 @@ static int callextfunc(int c)
 #define STVNSEC(X)  X##tim.tv_nsec
 #endif
 
-static inline void fillentry(int fd, Entry *ent, struct stat sb, time_t curtime)
+static void fillentry(int fd, Entry *ent, struct stat sb, time_t curtime)
 {
 	switch (ptab->cfg.timetype) {
 	case 0: ent->sec = sb.st_atime;
@@ -1926,7 +1926,7 @@ static char *filetypechar(int type)
 	return "<->";
 }
 
-static inline void printenttime(const time_t *timep)
+static void printenttime(const time_t *timep)
 {
 	struct tm t;
 
