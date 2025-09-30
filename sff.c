@@ -203,23 +203,10 @@ static void dbgprint(char *vn, char *str, int n)
 }
 #endif
 
-static char *xmemrchr(const char *str, int c, size_t n)
-{
-	const unsigned char *cp = (unsigned char *)str + n;
-
-	if (n != 0) {
-		do {
-			if (*(--cp) == (unsigned char)c)
-				return (char *)cp;
-		} while (--n != 0);
-	}
-	return NULL;
-}
-
 /* Get directory portion of pathname. Source would be modified!!! */
 static char *xdirname(char *path)
 {
-	char *p = xmemrchr(path, '/', strlen(path));
+	char *p = strrchr(path, '/');
 
 	if (p == path)
 		path[1] = '\0';
@@ -229,75 +216,65 @@ static char *xdirname(char *path)
 }
 
 /* Get filename portion of pathname. Source would be untouched. */
-static char *xbasename(char *path)
+static const char *xbasename(const char *path)
 {
-	char *p = xmemrchr(path, '/', strlen(path));
-
+	const char *p = strrchr(path, '/');
 	return p ? p + 1 : path;
 }
 
-/* Make path/name in buf. Returns the number of bytes copied including the terminating '\0'. */
+/* Make path/name in buf. Returns the number of bytes copied including terminating '\0'. */
 static int makepath(const char *path, const char *name, char *buf)
 {
-	char *p;
-
-	if (!path || !path[0] || !buf)
+	if (!path || !path[0] || !name || !buf)
 		return 0;
 
+	char *p = NULL;
 	if (path == buf)
 		p = memchr(buf, '\0', PATH_MAX - 2);
 	else if ((p = memccpy(buf, path, '\0', PATH_MAX - 2)))
 		--p;
 
 	if (p) {
-		if (*(p - 1) != '/')
+		if (p[-1] != '/')
 			*p++ = '/';
 		p = memccpy(p, name, '\0', PATH_MAX - (p - buf) - 1);
 	}
 	return p ? p - buf : 0;
 }
 
-/* Get file extension. Extensions longer than 8 chars will be ignored. */
-static char *getextension(char *name, size_t len)
+/* Get file extension. Ignore extensions > 8 chars. len includes terminating '\0'. */
+static const char *getextension(const char *name, size_t len)
 {
-	char *p;
+	if (len < 4)
+		return NULL;
 
-	if (len > 3) {
-		p = name + len - 2;
-		len = (len > 11) ? 9 : len - 2;
+	const char *p = name + len - 2; // skip last char (before '\0')
+	len = (len > 11) ? 9 : len - 2; // If name length exceeds 2+8, check max 8 times
 
-		 while (--len > 0)
-			if (*(--p) == '.')
-				return p;
-	}
+	 while (--len > 0)
+		if (*(--p) == '.')
+			return p;
 	return NULL;
 }
 
-/* Get the absolute pathname without resolving symlinks.
-   Neither path nor buf can be NULL. Ensure buf size is not less than PATH_MAX. */
+/* Get the absolute pathname without resolving symlinks. buf can not be NULL. */
 static char *abspath(const char *path, char *buf)
 {
-	const char *src;
-	char *dst;
+	const char *src = path;
 	size_t len = 0;
 
 	if (!path || !buf)
 		return NULL;
-
 	if (path[0] != '/') {
 		if (!getcwd(buf, PATH_MAX))
 			return NULL;
+		if (!path[0])
+			return buf;
 		len = strlen(buf);
 	} else
-		++path;
+		++src;
 
-	if (len + strlen(path) + 2 > PATH_MAX) {
-		errno = ENAMETOOLONG;
-		return NULL;
-	}
-
-	src = path;
-	dst = buf + len;
+	char *dst = buf + len;
 	*dst++ = '/';
 
 	while (*src) {
@@ -308,26 +285,33 @@ static char *abspath(const char *path, char *buf)
 			src = (src[1] == '\0') ? src + 1 : src + 2;
 			continue;
 		} else if (dst[-1] == '/' && src[0] == '.' && src[1] == '.' && (src[2] == '/' || src[2] == '\0')) {
-			dst = xmemrchr(buf, '/', MAX(1, dst - buf - 1)) + 1;
+			if (dst > buf + 1)
+				dst[-1] = '\0';
+			dst = strrchr(buf, '/') + 1;
 			src = (src[2] == '\0') ? src + 2 : src + 3;
 			continue;
+		}
+
+		if (++len == PATH_MAX - 1) {
+			errno = ENAMETOOLONG;
+			return NULL;
 		}
 		*dst++ = *src++;
 	}
 
-	if (dst - 1 > buf && dst[-1] == '/')
+	if (dst > buf + 1 && dst[-1] == '/')
 		dst[-1] = '\0';
 	else
 		dst[0] = '\0';
 	return buf;
 }
 
-/* Convert unsigned integer to string. The maximum value it can handle is 4,294,967,295
+/* Convert unsigned integer to string. The maximum value it can handle is 4,294,967,295.
    This is a modified version of xitoa() from nnn. https://github.com/jarun/nnn */
 static char *xitoa(unsigned int val)
 {
-	static char dst[16] = {0};
-	static const char digits[204] =
+	static char dst[24] = {0};
+	static const char digits[] =
 		"0001020304050607080910111213141516171819"
 		"2021222324252627282930313233343536373839"
 		"4041424344454647484950515253545556575859"
@@ -335,7 +319,7 @@ static char *xitoa(unsigned int val)
 		"8081828384858687888990919293949596979899";
 	unsigned int i, j, quo;
 
-	for (i = 14; val >= 100; --i) { // Fill digits backward from dst[14]
+	for (i = 21; val >= 100; --i) { // Fill digits backward from dst[21]
 		quo = val / 100;
 		j = (val - (quo * 100)) << 1;
 		val = quo;
@@ -357,7 +341,6 @@ static char *tohumansize(off_t size)
 {
 	static char sbuf[12] = {0};
 	static const char unit[12] = "BKMGTPEZY";
-	char *sp;
 	int i, numint, frac = 0;
 
 	for (i = 0; size >= 1024000; ++i)
@@ -371,7 +354,7 @@ static char *tohumansize(off_t size)
 	} else
 		numint = size;
 
-	sp = (char *)memccpy(sbuf, xitoa(numint), '\0', 6) - 1;
+	char *sp = (char *)memccpy(sbuf, xitoa(numint), '\0', 6) - 1;
 	if (i > 0) {
 		*sp++ = '.';
 		*sp++ = '0' + frac;
@@ -555,7 +538,7 @@ static int movetoedge(int n)
 	return shiftcursor(ndents * n, 0);
 }
 
-static inline void savehiststat(Histstat *hs)
+static void savehiststat(Histstat *hs)
 {
 	if (ndents > 0) {
 		memccpy(hs->name, pdents[cursel].name, '\0', NAME_MAX);
@@ -564,26 +547,23 @@ static inline void savehiststat(Histstat *hs)
 	}
 }
 
-static Histpath *inithistpath(Histpath *hp, char *path, int check)
+static Histpath *inithistpath(Histpath *hp, const char *path)
 {
-	char *name = NULL;
+	const char *name = NULL;
 	struct stat sb;
 
-	if (check) {
-		if (lstat(path, &sb) == -1 && seterrnum(__LINE__, errno)) {
-			return NULL;
-		} else if (!S_ISDIR(sb.st_mode)) {
-			name = xbasename(path);
-			xdirname(path);
-		}
+	if (lstat(path, &sb) == -1 && seterrnum(__LINE__, errno))
+		return NULL;
+	if (!S_ISDIR(sb.st_mode))
+		name = xbasename(path);
 
-		if (chdir(path) == -1 && seterrnum(__LINE__, errno))
-			return NULL;
-	}
+	char *end = memccpy(hp->path, path, '\0', PATH_MAX - 1);
+	if (name)
+		xdirname(hp->path);
 
 	// Each level of path corresponds to a histstat. Add one more for current level
 	hp->nhs = 0;
-	for (char *p = path, *p2 = hp->path; ; ++p, ++p2) {
+	for (char *p = hp->path; p < end; ++p) {
 		if (*p == '/' || (*p == '\0' && path[1] != '\0')) {
 			if (hp->nhs == hp->ths) {
 				Histstat *tmphs = realloc(hp->hs, (hp->ths += HSTAT_INCR) * sizeof(Histstat));
@@ -596,10 +576,6 @@ static Histpath *inithistpath(Histpath *hp, char *path, int check)
 			}
 			memset((hp->hs + hp->nhs++), 0, sizeof(Histstat));
 		}
-
-		*p2 = *p;
-		if (*p == '\0')
-			break;
 	}
 
 	hp->stat = hp->hs + hp->nhs - 1;
@@ -613,7 +589,7 @@ static Histpath *inithistpath(Histpath *hp, char *path, int check)
 	return hp;
 }
 
-static int newhistpath(char *path)
+static int newhistpath(const char *path)
 {
 	Histpath *hp = ptab->hp;
 	Histpath *hp2 = ((hp - ghpath) & 1) ? hp - 1 : hp + 1;
@@ -621,7 +597,7 @@ static int newhistpath(char *path)
 	if (strcmp(hp->path, path) == 0)
 		return GO_NONE;
 
-	if (!inithistpath(hp2, path, TRUE))
+	if (!inithistpath(hp2, path) || (chdir(hp2->path) == -1 && seterrnum(__LINE__, errno)))
 		return GO_STATBAR;
 
 	if (hp->stat->flag == S_ROOT)
@@ -681,7 +657,7 @@ static int enterdir(int n __attribute__((unused)))
 	if (nhs < hp->nhs) {
 		if (strcmp(ent->name, hs->name) != 0) {
 			if ((strcmp(hp->path, hp2->path) == 0 && strcmp(ent->name, hp2->stat->name) == 0)
-			|| (gcfg.ct < TABS_MAX && inithistpath(hp2, hp->path, FALSE)))
+			|| (gcfg.ct < TABS_MAX && inithistpath(hp2, hp->path)))
 				hp = hp2;
 			else
 				hp->nhs = nhs;
@@ -776,7 +752,7 @@ static int openfile(int n)
 	return GO_STATBAR;
 }
 
-static struct selstat *addselstat(struct selstat *ss, char *path)
+static struct selstat *addselstat(struct selstat *ss, const char *path)
 {
 	struct selstat *n = malloc(sizeof(struct selstat));
 
@@ -1060,12 +1036,12 @@ static int qfindnext(int n)
 	return GO_REDRAW;
 }
 
-static int inittab(char *path, int n)
+static int inittab(const char *path, int n)
 {
 	deleteallselstat(gtab[n].ss);
 	gtab[n].ss = NULL;
 
-	gtab[n].hp = inithistpath(&ghpath[n * 2], path, TRUE);
+	gtab[n].hp = inithistpath(&ghpath[n * 2], path);
 	if (!gtab[n].hp)
 		return FALSE;
 
@@ -1113,7 +1089,7 @@ static int closetab(int n __attribute__((unused)))
 	if (lt == -1) {
 		if (ct == 0)
 			return GO_NONE;
-		else if (!inittab(home ? home : "/", 0))
+		if (!inittab(home ? home : "/", 0) || (chdir(home ? home : "/") == -1 && seterrnum(__LINE__, errno)))
 			return GO_STATBAR;
 		gcfg.ct = 0;
 	} else {
@@ -1167,6 +1143,9 @@ static int viewoptions(int n __attribute__((unused)))
 	int h = MIN(20, xlines), w = MIN(50, xcols);
 	Settings *cfg = &gtab[gcfg.ct].cfg;
 	WINDOW *dpo = newpad(h, w);
+
+	if (gcfg.ct == TABS_MAX)
+		cfg->showhidden = 1;
 
 	werase(dpo);
 	box(dpo, 0, 0);
@@ -1292,6 +1271,7 @@ static int showhelp(int n __attribute__((unused)))
 			"Press 'q' or Esc to leave this page.");
 
 	for (int c = 0, start = 0; c != ESC && c != 'q'; ) {
+		getmaxyx(stdscr, xlines, xcols);
 		start = MAX(0, MIN(start, plines - xlines));
 		prefresh(help, start, 0, 0, 0, xlines - 1, xcols - 1);
 
@@ -1402,7 +1382,7 @@ static int entrycmp(const void *va, const void *vb)
 {
 	const Entry *pa = (Entry *)va, *pb = (Entry *)vb;
 	int fa = pa->flag & E_DIR_DIRLNK, fb = pb->flag & E_DIR_DIRLNK;
-	char *exta, *extb;
+	const char *exta, *extb;
 
 	if (ptab->cfg.dirontop && fa != fb) { // Dirs on top
 		if (fb)
@@ -1678,7 +1658,7 @@ static int callextfunc(int c)
 #define STVNSEC(X)  X##tim.tv_nsec
 #endif
 
-static inline void fillentry(int fd, Entry *ent, struct stat sb, time_t curtime)
+static void fillentry(int fd, Entry *ent, struct stat sb, time_t curtime)
 {
 	switch (ptab->cfg.timetype) {
 	case 0: ent->sec = sb.st_atime;
@@ -1812,7 +1792,7 @@ static void loadsrchentry(int fd)
 	}
 }
 
-static void loadentries(char *path)
+static void loadentries(const char *path)
 {
 	int fd;
 	DIR *dirp = opendir(path);
@@ -1873,58 +1853,48 @@ static int xmbstowcs(wchar_t *dst, const char *str, int maxcols)
 	wchar_t *wcp = dst;
 	int nb, dstwidth = 0;
 
-	if (maxcols > 0) {
-		for (wchar_t wc; *str; ++str, ++wcp) {
-			if ((signed char)*str < 0) {
-				if ((nb = mbtowc(&wc, str, MB_CUR_MAX)) > 0) {
-					*wcp = wc;
-					str += nb - 1;
-				} else
-					*wcp = L'\uFFFD'; // invalid char
-			} else if ((signed char)*str < 0x20) {
-				*wcp = L'?'; // Replace escape chars with '?'
-			} else {
-				*wcp = (wchar_t)*str;
-			}
+	for (wchar_t wc; *str; ++str, ++wcp) {
+		if ((signed char)*str < 0) {
+			if ((nb = mbtowc(&wc, str, MB_CUR_MAX)) > 0) {
+				*wcp = wc;
+				str += nb - 1;
+			} else
+				*wcp = L'\uFFFD'; // invalid char
+		} else if ((signed char)*str < 0x20) {
+			*wcp = L'?'; // Replace escape chars with '?'
+		} else
+			*wcp = (wchar_t)*str;
 
-			dstwidth += wcwidth(*wcp);
-			if (dstwidth > maxcols) {
-				if (wcp != dst)
-					*(wcp - 1) = L'~';
-				break;
-			}
+		dstwidth += wcwidth(*wcp);
+		if (dstwidth > maxcols) {
+			if (wcp != dst)
+				*(wcp - 1) = L'~';
+			break;
 		}
 	}
 	*wcp = L'\0';
 	return dstwidth;
 }
 
-static wchar_t *fitnamecols(const char *str, int maxcols)
+static wchar_t *fitnamecols(const char *name, int maxcols)
 {
 	wchar_t *wbuf = (wchar_t *)gpbuf;
 
-	xmbstowcs(wbuf, str, maxcols);
+	if (maxcols <= 0)
+		*wbuf = L'\0';
+	else
+		xmbstowcs(wbuf, name, maxcols);
 	return wbuf;
 }
 
 static wchar_t *fitpathcols(const char *path, int maxcols)
 {
-	static int homelen = 0;
 	wchar_t *wbuf = (wchar_t *)gpbuf, *wbp = wbuf;
 
 	if (maxcols <= 0) {
-		wbuf[0] = L'\0';
-		return wbuf;
-	}
+		*wbuf = L'\0';
 
-	if (homelen == 0 && home)
-		homelen = strlen(home);
-	if (home && strncmp(home, path, homelen) == 0) {
-		path += homelen;
-		*wbp++ = L'~'; // Replace home path with '~'
-	}
-
-	if (xmbstowcs(wbp, path, PATH_MAX) + (wbp - wbuf) > maxcols) {
+	} else if (xmbstowcs(wbp, path, PATH_MAX) + (wbp - wbuf) > maxcols) {
 		++wbp; // When fold path, keep the first level
 		for (wchar_t *tbp = wbp, *slash = NULL; *tbp; ++tbp, ++wbp) {
 			if (*tbp == L'/') {
@@ -1960,7 +1930,7 @@ static char *filetypechar(int type)
 	return "<->";
 }
 
-static inline void printenttime(const time_t *timep)
+static void printenttime(const time_t *timep)
 {
 	struct tm t;
 
@@ -1973,7 +1943,7 @@ static void printent(const Entry *ent, int sel, int mark)
 	int attr = COLOR_PAIR(C_DETAIL)	| (mark || (sel && ptab->cfg.selmode) ? A_REVERSE : 0);
 
 	if (sel)
-		addch('>' | A_BOLD | (gcfg.mode != 0 ? COLOR_PAIR(C_WARN) : 0));
+		addch('>' | A_BOLD);
 	else
 		addch(' ');
 
@@ -1992,7 +1962,7 @@ static void printent(const Entry *ent, int sel, int mark)
 
 	attron(gcfg.newent && (ent->flag & E_NEW) ? (COLOR_PAIR(C_NEWFILE) | A_REVERSE) : 0);
 	if (sel)
-		addch('>' | A_BOLD | (gcfg.mode != 0 ? COLOR_PAIR(C_WARN) : 0));
+		addch('>' | A_BOLD);
 	else
 		addch(' ');
 	attrset(A_NORMAL);
@@ -2010,19 +1980,20 @@ static void printent(const Entry *ent, int sel, int mark)
 	attrset(A_NORMAL);
 }
 
-static void redraw(char *path)
+static void redraw(const char *path)
 {
 	getmaxyx(stdscr, xlines, xcols);
-	int pcols = xcols - (TABS_MAX + 1) * 2;
 	int dcols = (ptab->cfg.showtime ? 17 : 0) + (ptab->cfg.showowner ? 15 : 0)
 		+ (ptab->cfg.showperm ? 5 : 0) + (ptab->cfg.showsize ? 8 : 0) + 2;
-	int btm, j = 0;
 	struct selstat *ss = ptab->ss;
+	static int homelen = 0;
 
-	erase();
-	shiftcursor(0, 0);
+	if (homelen == 0 && home)
+		homelen = strlen(home);
 	onscr = xlines - 4;
 	ncols = xcols - dcols - 1;
+	erase();
+	shiftcursor(0, 0);
 
 	// Print tabs tag
 	for (int i = 0; i <= TABS_MAX; ++i) {
@@ -2035,36 +2006,39 @@ static void redraw(char *path)
 	}
 
 	// Print path
-	attron(COLOR_PAIR(C_PATHBAR) | A_UNDERLINE);
+	int pcols = xcols - (TABS_MAX + 1) * 2 - 1;
+	addch(' ');
+	attron(COLOR_PAIR(C_PATHBAR) | A_BOLD);
+	if (home && strncmp(home, path, homelen) == 0) {
+		path += homelen;
+		--pcols;
+		addch('~'); // Replace home path with '~'
+	}
 	addwstr(fitpathcols(path, pcols));
 	attrset(A_NORMAL);
 
 	// Print entries
-	move(++j, dcols);
 	if (curscroll > 0 && ncols > 0)
-		addstr("<<");
+		mvaddstr(1, dcols, "<<");
 
-	btm = MIN(onscr + curscroll, ndents);
+	int j = 1, btm = MIN(onscr + curscroll, ndents);
 	for (int i = curscroll; i < btm; ++i) {
 		if (ptab->cfg.havesel && !(pdents[i].flag & E_SEL_SCANED)) {
 			if (findinbuf(ss->nbuf, ss->endp - ss->nbuf, pdents[i].name, pdents[i].nlen))
 				pdents[i].flag |= E_SEL;
 			pdents[i].flag |= E_SEL_SCANED;
 		}
-
 		move(++j, 0);
 		printent(&pdents[i], i == cursel, i == markent);
 	}
 
-	move(++j, dcols);
 	if (btm < ndents && ncols > 0)
-		addstr(">>");
+		mvaddstr(xlines - 2, dcols, ">>");
 
 	// Print filter
 	if (ptab->ftlen != 0) {
-		move(xlines - 2, 0);
 		attron(COLOR_PAIR(F_SOCK));
-		addstr("Filter: ");
+		mvaddstr(xlines - 2, 0, "Filter: ");
 		addnstr(ptab->filt, xcols - 8);
 		attrset(A_NORMAL);
 		addch(' ' | (ptab->ftlen > 0 ? A_REVERSE : 0));
@@ -2072,9 +2046,8 @@ static void redraw(char *path)
 
 	// Print quick find
 	if (ptab->fdlen > 0) {
-		move(xlines - 2, 0);
-		attron(COLOR_PAIR(F_CHR));
-		addstr("Quick find: ");
+		attron(COLOR_PAIR(F_EXEC));
+		mvaddstr(xlines - 2, 0, "Quick find: ");
 		addnstr(ptab->find, xcols - 12);
 		attrset(A_NORMAL);
 		addch(' ' | A_REVERSE);
@@ -2092,7 +2065,7 @@ static void redraw(char *path)
 		mvaddch(j, xcols - 1, ' ' | A_REVERSE);
 	mvaddch(xlines - 2, xcols - 1 , '=');
 	attrset(A_NORMAL);
-	xcols = -xcols;
+	xcols = -xcols; // set to skip fastredraw
 }
 
 static void fastredraw(void)
@@ -2115,8 +2088,6 @@ static void fastredraw(void)
 
 static void statusbar(void)
 {
-	int n, x;
-
 	move(xlines - 1, 0);
 	clrtoeol();
 
@@ -2128,7 +2099,7 @@ static void statusbar(void)
 		return;
 	}
 
-	attron(COLOR_PAIR(C_STATBAR));
+	attron(COLOR_PAIR(gcfg.mode != 0 ? C_WARN : C_STATBAR));
 	printw("%d/%d ", ndents > 0 ? cursel + 1 : 0, ndents);
 
 	attron(A_REVERSE);
@@ -2136,6 +2107,7 @@ static void statusbar(void)
 	attroff(A_REVERSE);
 	addch(' ');
 
+	int n, x;
 	if (ndents > 0) {
 		Entry *ent = &pdents[cursel];
 
@@ -2154,16 +2126,17 @@ static void statusbar(void)
 		getyx(stdscr, n, x);
 		n = xcols - x;
 		if (ent->type == F_LNK && n > 1) {
-			if ((x = readlink(ent->name, gpbuf, PATH_MAX)) > 1) {
-				gpbuf[x] = '\0';
+			char *p = &gpbuf[PATH_MAX * (sizeof(wchar_t) - 1) - 1]; // fitnamecols uses gpbuf, so uses last portion here
+			if ((x = readlink(ent->name, p, PATH_MAX - 1)) > 1) {
+				p[x] = '\0';
 				addstr("->");
-				addnstr(gpbuf, n - 2); // Show symlink target
+				addwstr(fitnamecols(p, n - 2)); // Show symlink target
 			}
 
-		} else if ((ent->flag & E_REG_FILE) && n > 1) {
-			char *p = getextension(ent->name, ent->nlen);
+		} else if ((ent->flag & E_REG_FILE) && n > 2) {
+			const char *p = getextension(ent->name, ent->nlen);
 			if (p)
-				addnstr(p , n); // Show file extension
+				addwstr(fitnamecols(p, n)); // Show file extension
 		} else
 			addch(' ');
 	}
@@ -2332,7 +2305,7 @@ static void exitsighandler(int sig __attribute__((unused)))
 
 static int initsff(char *arg0, char *argx)
 {
-	char *path, *xdgcfg = getenv("XDG_CONFIG_HOME");
+	char *xdgcfg = getenv("XDG_CONFIG_HOME");
 	struct sigaction act = {.sa_handler = exitsighandler};
 
 	// Handle/ignore certain signals
@@ -2380,8 +2353,7 @@ static int initsff(char *arg0, char *argx)
 		seterrnum(__LINE__, errno);
 
 	// Initialize first tab
-	path = argx ? abspath(argx, gpbuf) : getcwd(gpbuf, PATH_MAX);
-	if (!path || !inittab(path, 0)) {
+	if (!abspath(argx, gpbuf) || !inittab(gpbuf, 0) || chdir(ghpath[0].path) == -1) {
 		perror(xitoa(__LINE__));
 		return FALSE;
 	}
@@ -2398,7 +2370,7 @@ static void setupcurses(void)
 	nonl();
 	curs_set(FALSE);
 	keypad(stdscr, TRUE);
-	set_escdelay(50);
+	set_escdelay(80);
 
 	define_key("\033[1;5A", CTRL_UP);
 	define_key("\033[1;5B", CTRL_DOWN);
@@ -2472,7 +2444,7 @@ int main(int argc, char *argv[])
 
 	atexit(cleanup);
 
-	if (!initsff(argv[0], argc == optind ? NULL : argv[optind]))
+	if (!initsff(argv[0], argc == optind ? "" : argv[optind]))
 		return EXIT_FAILURE;
 
 	setlocale(LC_ALL, "");
