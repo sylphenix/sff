@@ -93,7 +93,7 @@ static void setcolorpair256(void)
 	init_pair( C_PATHBAR, COLOR_YELLOW,  -1 ); // Path bar
 	init_pair( C_STATBAR, COLOR_YELLOW,  -1 ); // Status bar
 	init_pair( C_WARN,          196,     -1 ); // Warning, Red1
-	init_pair( C_NEWFILE, COLOR_MAGENTA, -1 ); // New file
+	init_pair( C_NEWFILE,       168,     -1 ); // New file, HotPink3
 }
 
 /* Color definitions for 8 color*/
