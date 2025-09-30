@@ -2088,8 +2088,6 @@ static void fastredraw(void)
 
 static void statusbar(void)
 {
-	int n, x;
-
 	move(xlines - 1, 0);
 	clrtoeol();
 
@@ -2109,6 +2107,7 @@ static void statusbar(void)
 	attroff(A_REVERSE);
 	addch(' ');
 
+	int n, x;
 	if (ndents > 0) {
 		Entry *ent = &pdents[cursel];
 
@@ -2127,16 +2126,17 @@ static void statusbar(void)
 		getyx(stdscr, n, x);
 		n = xcols - x;
 		if (ent->type == F_LNK && n > 1) {
-			if ((x = readlink(ent->name, gpbuf, PATH_MAX)) > 1) {
-				gpbuf[x] = '\0';
+			char *p = &gpbuf[PATH_MAX * (sizeof(wchar_t) - 1) - 1]; // fitnamecols uses gpbuf, so uses last portion here
+			if ((x = readlink(ent->name, p, PATH_MAX - 1)) > 1) {
+				p[x] = '\0';
 				addstr("->");
-				addnstr(gpbuf, n - 2); // Show symlink target
+				addwstr(fitnamecols(p, n - 2)); // Show symlink target
 			}
 
-		} else if ((ent->flag & E_REG_FILE) && n > 1) {
+		} else if ((ent->flag & E_REG_FILE) && n > 2) {
 			const char *p = getextension(ent->name, ent->nlen);
 			if (p)
-				addnstr(p , n); // Show file extension
+				addwstr(fitnamecols(p, n)); // Show file extension
 		} else
 			addch(' ');
 	}

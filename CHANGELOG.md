@@ -22,6 +22,7 @@
 * Create parent directory before config directory creation
 * Correctly display showhidden state in options menu within search result tab
 * Fixed help page content not updating on window resize
+* Correctly display link targets or extensions with multi-byte characters in status bar
 
 
 ## 1.2 <small>(2025-09-04)</small>
