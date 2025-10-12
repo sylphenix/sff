@@ -23,24 +23,23 @@ sff is fully compatible with POSIX-compliant systems. It has been extensively te
 - ... and more!
 
 
-## Installation
+## Dependencies
 
-### Dependencies
+Core Dependencies:
+- **libc, curses (wide-character)**: Essential runtime libraries
+- **coreutils, POSIX shell, findutils, sed**: For file operations
+- **vi/vim**: Default text editor
+- **sudo**: For sudo mode
+- **xdg-utils**: File opening with default application
 
-| Library/Package                                 | Requirement | Notes                                       |
-|-------------------------------------------------|-------------|---------------------------------------------|
-| libc, curses (wide character support)           | Required*   | Essential runtime libraries                 |
-| coreutils (Linux), findutils (Linux), sed, file | Required*   | For file operations                         |
-| vi/vim                                          | Required*   | Default text editor                         |
-| sudo                                            | Optional*   | For sudo mode                               |
-| xdg-utils                                       | Optional*   | File opening with default application       |
-| tar, gzip, bzip2, xz, 7zip                      | Optional    | Archive handling (archive plugin)           |
-| fzf                                             | Optional    | Fuzzy file search (fzf-find plugin)         |
-| chafa                                           | Optional    | Image preview (preview plugin)              |
-| poppler-utils                                   | Optional    | PDF thumbnail generation (preview plugin)   |
-| ffmpegthumbnailer                               | Optional    | Video thumbnail generation (preview plugin) |
+*Core dependencies are part of the base system in most environments and generally don't require manual installation.*
 
-_* These dependencies are part of the base system in most environments and generally don't require manual installation._
+Plugin Dependencies:
+| Plugin   | Dependencies                            | Notes                               |
+|----------|-----------------------------------------|-------------------------------------|
+| archive  | tar, gzip, bzip2, xz, 7zip              | Archive handling                    |
+| fzf-find | fzf                                     | Fuzzy file search                   |
+| preview  | chafa, poppler-utils, ffmpegthumbnailer | Image, PDF, video thumbnail preview |
 
 You can install all dependencies using the following commands:
 - Debian/Ubuntu:
@@ -64,46 +63,18 @@ You can install all dependencies using the following commands:
    brew install ncurses sevenzip fzf chafa poppler ffmpegthumbnailer
    ```
 
-### Install from binary packages
 
-#### Linux:
+## Installation
 
-1. Download the appropriate package for your system from [OpenBuildService](https://software.opensuse.org/download.html?project=home%3Asylphenix%3Asff&package=sff).
+### Install from packages
 
-2. Install the package using the package manager specific to your system.
-- Debian/Ubuntu:
-   ```
-   sudo apt install /path/to/sff_<VERSION>_amd64.deb
-   ```
-- Arch Linux:
-   ```
-   sudo pacman -U /path/to/sff-<VERSION>-x86_64.pkg.tar.zst
-   ```
-- Fedora:
-   ```
-   sudo dnf install /path/to/sff-<VERSION>.x86_64.rpm
-   ```
+- Packaging status:
 
-#### FreeBSD:
+  [![Packaging status](https://repology.org/badge/vertical-allrepos/sff.svg)](https://repology.org/project/sff/versions)
 
-- Install the package from the official repositories:
-   ```
-   sudo pkg install sff
-   ```
 
-### Install from AUR (Arch User Repository)
+- Official packages are available from [OpenBuildService](https://software.opensuse.org/download.html?project=home%3Asylphenix%3Asff&package=sff).
 
-- Using `yay`:
-   ```
-   yay -S sff
-   ```
-
-- Without AUR helpers:
-   ```
-   git clone https://aur.archlinux.org/sff.git
-   cd sff
-   makepkg -si
-   ```
 
 ### Build and install from source
 
@@ -129,22 +100,24 @@ You can install all dependencies using the following commands:
    ```
    sudo make install
    ```
-   By default, this will install under `/usr/local`. You can specify an installation prefix using `PREFIX`, for example:
+
+   By default, files are installed under `/usr/local`. You can use the `PREFIX` variable to change this:
    ```
    sudo make install PREFIX=/usr
    ```
-   will install under `/usr`.
 
-   Note: If you used `PREFIX` during installation, you must specify the same `PREFIX` when uninstalling:
+   If you used `PREFIX` during installation, you must specify the same `PREFIX` when uninstalling:
    ```
    sudo make uninstall PREFIX=/usr
    ```
 
-   Note for Gentoo users: Gentoo doesn't automatically resolve `libtinfow` that `libncursesw` depends on.
-   To compile successfully, explicitly link both libraries:
+   **Gentoo note:** To resolve dependencies, explicitly link both `libncursesw` and `libtinfow` libraries:
    ```
    sudo make install LDFLAGS="-lncursesw -ltinfow"
    ```
+   
+   **macOS note:** See the [wiki](https://codeberg.org/sylphenix/sff/wiki#macos-specific-notes) for details.
+
 
 ## Usage
 
