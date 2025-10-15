@@ -25,16 +25,14 @@ sff is fully compatible with POSIX-compliant systems. It has been extensively te
 
 ## Dependencies
 
-Core Dependencies:
 - **libc, curses (wide-character)**: Essential runtime libraries
-- **coreutils, POSIX shell, findutils, sed**: For file operations
-- **vi/vim**: Default text editor
-- **sudo**: For sudo mode
-- **xdg-utils**: File opening with default application
+- **coreutils, findutils, POSIX shell, sed, vi/vim**: For file operations
+- **sudo** (Optional): Utility for sudo mode
+- **xdg-utils** (Optional): File opening with default application
 
-*Core dependencies are part of the base system in most environments and generally don't require manual installation.*
+*Required dependencies are included in most base systems and rarely need manual installation.*
 
-Plugin Dependencies:
+Plugin Dependencies (Optional):
 | Plugin   | Dependencies                            | Notes                               |
 |----------|-----------------------------------------|-------------------------------------|
 | archive  | tar, gzip, bzip2, xz, 7zip              | Archive handling                    |
@@ -68,12 +66,9 @@ You can install all dependencies using the following commands:
 
 ### Install from packages
 
-- Packaging status:
+[![Packaging status](https://repology.org/badge/vertical-allrepos/sff.svg)](https://repology.org/project/sff/versions)
 
-  [![Packaging status](https://repology.org/badge/vertical-allrepos/sff.svg)](https://repology.org/project/sff/versions)
-
-
-- Official packages are available from [OpenBuildService](https://software.opensuse.org/download.html?project=home%3Asylphenix%3Asff&package=sff).
+Official packages are available from [OpenBuildService](https://software.opensuse.org/download.html?project=home%3Asylphenix%3Asff&package=sff).
 
 
 ### Build and install from source
