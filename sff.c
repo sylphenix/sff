@@ -1591,9 +1591,10 @@ static int handlepipedata(int fd, int op)
 static int callextfunc(int c)
 {
 	pid_t pid, gpid = 0;
-	int rfd, wfd, len, ctl = GO_STATBAR;
+	int fd, len, ctl = GO_STATBAR;
 	struct sigaction oldsigtstp, oldsigwinch;
-	struct sigaction act = {.sa_handler = SIG_IGN};
+	char *args[5] = {SUDOER, extfunc, pipepath, (char [2]){c, '\0'}, NULL};
+	char **argv = (gcfg.mode == 1) ? &args[0] : &args[1];
 
 	if ((!cfgpath || !extfunc || !pipepath) && seterrnum(__LINE__, ENOENT))
 		return GO_STATBAR;
@@ -1612,37 +1613,37 @@ static int callextfunc(int c)
 	endwin();
 	pid = fork();
 	if (pid > 0) {
-		sigaction(SIGTSTP, &act, &oldsigtstp);
-		sigaction(SIGWINCH, &act, &oldsigwinch);
-		if ((rfd = open(pipepath, O_RDONLY)) != -1) {
-			if (read(rfd, gpbuf, 1) == 1) {
-				if (isdigit(gpbuf[0]) && (len = read(rfd, &gpbuf[1], 8)) != -1) {
+		sigaction(SIGTSTP, &(struct sigaction){.sa_handler = SIG_IGN}, &oldsigtstp);
+		sigaction(SIGWINCH, &(struct sigaction){.sa_handler = SIG_IGN}, &oldsigwinch);
+		if ((fd = open(pipepath, O_RDONLY)) != -1) { // Blocking can be interrupted by SIGCHLD (set in initsff)
+			if (read(fd, gpbuf, 1) == 1) {
+				if (isdigit(gpbuf[0]) && (len = read(fd, &gpbuf[1], 8)) != -1) {
 					gpbuf[len + 1] = '\0';
 					gpid = (pid_t)strtol(gpbuf, NULL, 10);
 				} else
-					ctl = handlepipedata(rfd, gpbuf[0]);
+					ctl = handlepipedata(fd, gpbuf[0]);
 			}
-			close(rfd);
+			close(fd);
 
-			if (gpid > 9 && (wfd = open(pipepath, O_WRONLY)) != -1) {
-				if (!writeselection(wfd))
+			if (gpid > 9 && (fd = open(pipepath, O_WRONLY)) != -1) {
+				if (!writeselection(fd))
 					kill(gpid, SIGTERM);
-				close(wfd);
+				close(fd);
 			}
-			if (gpid > 9 && (rfd = open(pipepath, O_RDONLY)) != -1) {
-				ctl = handlepipedata(rfd, 0);
-				close(rfd);
+			if (gpid > 9 && (fd = open(pipepath, O_RDONLY)) != -1) {
+				ctl = handlepipedata(fd, 0);
+				close(fd);
 			}
-		} else
-			seterrnum(__LINE__, errno);
+		}
 		waitpid(pid, NULL, 0);
 		sigaction(SIGTSTP, &oldsigtstp, NULL);
 		sigaction(SIGWINCH, &oldsigwinch, NULL);
 
 	} else if (pid == 0) {
-		spawn(extfunc, pipepath, (char [2]){c, '\0'}, FALSE, gcfg.mode == 1);
-		if ((wfd = open(pipepath, O_WRONLY | O_NONBLOCK)) != -1)
-			close(wfd);
+		sigaction(SIGTSTP, &(struct sigaction){.sa_handler = SIG_IGN}, NULL);
+		sigaction(SIGINT, &(struct sigaction){.sa_handler = SIG_DFL}, NULL);
+		sigaction(SIGPIPE, &(struct sigaction){.sa_handler = SIG_DFL}, NULL);
+		execvp(*argv, argv);
 		_exit(EXIT_SUCCESS);
 
 	} else
@@ -2303,25 +2304,27 @@ static void exitsighandler(int sig __attribute__((unused)))
 	exit(EXIT_SUCCESS);
 }
 
+static void childsighandler(int sig __attribute__((unused)))
+{
+	while (waitpid(-1, NULL, WNOHANG) > 0);
+}
+
 static int initsff(char *arg0, char *argx)
 {
-	char *xdgcfg = getenv("XDG_CONFIG_HOME");
-	struct sigaction act = {.sa_handler = exitsighandler};
-
-	// Handle/ignore certain signals
-	sigaction(SIGHUP, &act, NULL);
-	sigaction(SIGTERM, &act, NULL);
-	act.sa_handler = SIG_IGN;
-	sigaction(SIGINT, &act, NULL);
-	sigaction(SIGQUIT, &act, NULL);
-	sigaction(SIGPIPE, &act, NULL);
-
 	// Reset standard input
 	if (!freopen("/dev/null", "r", stdin)
 	|| !freopen("/dev/tty", "r", stdin)) {
 		perror(xitoa(__LINE__));
 		return FALSE;
 	}
+
+	// Handle certain signals
+	sigaction(SIGHUP, &(struct sigaction){.sa_handler = exitsighandler}, NULL);
+	sigaction(SIGTERM, &(struct sigaction){.sa_handler = exitsighandler}, NULL);
+	sigaction(SIGCHLD, &(struct sigaction){.sa_handler = childsighandler}, NULL);
+	sigaction(SIGINT, &(struct sigaction){.sa_handler = SIG_IGN}, NULL);
+	sigaction(SIGQUIT, &(struct sigaction){.sa_handler = SIG_IGN}, NULL);
+	sigaction(SIGPIPE, &(struct sigaction){.sa_handler = SIG_IGN}, NULL);
 
 	// Get environment variables
 	home = getenv("HOME");
@@ -2333,6 +2336,7 @@ static int initsff(char *arg0, char *argx)
 		editor = EDITOR;
 
 	// Set config path: XDG_CONFIG_HOME/sff or ~/.config/sff
+	char *xdgcfg = getenv("XDG_CONFIG_HOME");
 	if ((xdgcfg && xdgcfg[0] && makepath(xdgcfg, "sff", gpbuf))
 	|| (home && makepath(home, ".config/sff", gpbuf)))
 		cfgpath = strdup(gpbuf);
