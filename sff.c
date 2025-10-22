@@ -1852,26 +1852,28 @@ static void setcurrentstat(Histpath *hp, struct selstat *ss)
 static int xmbstowcs(wchar_t *dst, const char *str, int maxcols)
 {
 	wchar_t *wcp = dst;
-	int nb, dstwidth = 0;
+	int nb, wcw = 1, dstwidth = 0;
 
-	for (wchar_t wc; *str; ++str, ++wcp) {
+	for (wchar_t wc; *str; ++str, wcw = 1) {
 		if ((signed char)*str < 0) {
 			if ((nb = mbtowc(&wc, str, MB_CUR_MAX)) > 0) {
 				*wcp = wc;
 				str += nb - 1;
 			} else
 				*wcp = L'\uFFFD'; // invalid char
-		} else if ((signed char)*str < 0x20) {
+			if ((wcw = wcwidth(*wcp)) == -1) // Skip non-printable chars
+				continue;
+		} else if (*str < 0x20) {
 			*wcp = L'?'; // Replace escape chars with '?'
 		} else
 			*wcp = (wchar_t)*str;
 
-		dstwidth += wcwidth(*wcp);
-		if (dstwidth > maxcols) {
+		if ((dstwidth += wcw) > maxcols) {
 			if (wcp != dst)
 				*(wcp - 1) = L'~';
 			break;
 		}
+		++wcp;
 	}
 	*wcp = L'\0';
 	return dstwidth;
