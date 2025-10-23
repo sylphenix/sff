@@ -258,17 +258,16 @@ static const char *getextension(const char *name, size_t len)
 }
 
 /* Get the absolute pathname without resolving symlinks. buf can not be NULL. */
-static char *abspath(const char *path, char *buf)
+static char *abspath(const char *src, char *buf)
 {
-	const char *src = path;
-	size_t len = 0;
-
-	if (!path || !buf)
+	if (!src || !buf)
 		return NULL;
-	if (path[0] != '/') {
+
+	size_t len = 0;
+	if (src[0] != '/') {
 		if (!getcwd(buf, PATH_MAX))
 			return NULL;
-		if (!path[0])
+		if (!src[0])
 			return buf;
 		len = strlen(buf);
 	} else
