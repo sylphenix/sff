@@ -149,6 +149,7 @@ typedef struct {
 	unsigned int lt         : 3;  // Last tab
 	unsigned int mode       : 3;  // (0: normal, 1: sudo, 2: permanent sudo, 3: browse, 4: permanent browse)
 	unsigned int newent     : 1;  // (0: do not mark new entry, 1: mark new entry)
+	unsigned int refresh    : 1;  // Force screen refresh during redraw
 } Settings;
 
 typedef struct {
@@ -712,16 +713,15 @@ static int gotohome(int n)
 
 static int refreshview(int n)
 {
-	Histstat *hs = ptab->hp->stat;
-
 	if (ndents > 0) {
-		savehiststat(hs);
-		findname = hs->name;
+		savehiststat(ptab->hp->stat);
+		findname = ptab->hp->stat->name;
 	}
 
-	if (n == 1)
+	if (n == 1) {
 		gcfg.newent ^= 1;
-	if (n == 2)
+		gcfg.refresh = 1;
+	} else if (n == 2)
 		return GO_SORT;
 	return GO_RELOAD;
 }
@@ -1994,8 +1994,12 @@ static void redraw(const char *path)
 		homelen = strlen(home);
 	onscr = xlines - 4;
 	ncols = xcols - dcols - 1;
-	erase();
 	shiftcursor(0, 0);
+	erase();
+	if (gcfg.refresh) {
+		refresh();
+		gcfg.refresh = 0;
+	}
 
 	// Print tabs tag
 	for (int i = 0; i <= TABS_MAX; ++i) {
