@@ -73,7 +73,7 @@ Official packages are available from [OpenBuildService](https://software.opensus
 
 ### Build and install from source
 
-0. For Linux users, ensure that a C compiler, make utility, and the ncurses headers are installed. You can install them using the following commands:
+0. Ensure that a C compiler, the make utility, and the ncurses headers are installed.
 - Debian/Ubuntu:
    ```
    sudo apt install gcc make libncurses-dev
