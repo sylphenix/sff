@@ -459,7 +459,7 @@ run_pl()
 		printf "\nPlugin '%s' not found\n" "$1"
 		printf "Press Enter to continue "; read -r _x
 	else
-		LC_ALL='' "$_plugin" "$sffpipe" "$2"
+		LC_ALL='' exec "$_plugin" "$sffpipe" "$2"
 	fi
 }
 
