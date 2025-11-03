@@ -2316,9 +2316,8 @@ static void childsighandler(int sig __attribute__((unused)))
 
 static int initsff(char *arg0, char *argx)
 {
-	// Reset standard input
-	if (!freopen("/dev/null", "r", stdin)
-	|| !freopen("/dev/tty", "r", stdin)) {
+	// Reset standard input, ignore any pipe/redirected input
+	if (!freopen("/dev/tty", "r", stdin)) {
 		perror(xitoa(__LINE__));
 		return FALSE;
 	}
