@@ -47,7 +47,7 @@ static const Key keys[] = {
 	{ KEY_END,      'G',        movetoedge,       1,    "    End, G  Move to bottom" },
 	{ 'e',           0,         openfile,         1,    "         e  Edit file" },
 	{ '\r',         KEY_ENTER,  openfile,         2,    "     Enter  Open file" },
-	{ 'r',          KEY_F(5),   refreshview,      1,    "     F5, r  Refresh" },
+	{ 'r',          KEY_F(5),   refreshview,      1,    "     F5, r  Reload" },
 	{ '`',           0,         gotohome,         1,    "         `  Go to home dir" },
 	{ '~',           0,         gotohome,         2,    "         ~  Go to root dir" },
 	{ CTRL_LEFT,    CTRL('H'),  switchhistpath,   0,    "C-Left, ^H  Toggle previous path" },

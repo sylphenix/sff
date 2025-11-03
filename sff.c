@@ -149,6 +149,7 @@ typedef struct {
 	unsigned int lt         : 3;  // Last tab
 	unsigned int mode       : 3;  // (0: normal, 1: sudo, 2: permanent sudo, 3: browse, 4: permanent browse)
 	unsigned int newent     : 1;  // (0: do not mark new entry, 1: mark new entry)
+	unsigned int refresh    : 1;  // Force screen refresh during redraw
 } Settings;
 
 typedef struct {
@@ -258,17 +259,16 @@ static const char *getextension(const char *name, size_t len)
 }
 
 /* Get the absolute pathname without resolving symlinks. buf can not be NULL. */
-static char *abspath(const char *path, char *buf)
+static char *abspath(const char *src, char *buf)
 {
-	const char *src = path;
-	size_t len = 0;
-
-	if (!path || !buf)
+	if (!src || !buf)
 		return NULL;
-	if (path[0] != '/') {
+
+	size_t len = 0;
+	if (src[0] != '/') {
 		if (!getcwd(buf, PATH_MAX))
 			return NULL;
-		if (!path[0])
+		if (!src[0])
 			return buf;
 		len = strlen(buf);
 	} else
@@ -713,16 +713,15 @@ static int gotohome(int n)
 
 static int refreshview(int n)
 {
-	Histstat *hs = ptab->hp->stat;
-
 	if (ndents > 0) {
-		savehiststat(hs);
-		findname = hs->name;
+		savehiststat(ptab->hp->stat);
+		findname = ptab->hp->stat->name;
 	}
 
-	if (n == 1)
+	if (n == 1) {
 		gcfg.newent ^= 1;
-	if (n == 2)
+		gcfg.refresh = 1;
+	} else if (n == 2)
 		return GO_SORT;
 	return GO_RELOAD;
 }
@@ -1591,9 +1590,10 @@ static int handlepipedata(int fd, int op)
 static int callextfunc(int c)
 {
 	pid_t pid, gpid = 0;
-	int rfd, wfd, len, ctl = GO_STATBAR;
+	int fd, len, ctl = GO_STATBAR;
 	struct sigaction oldsigtstp, oldsigwinch;
-	struct sigaction act = {.sa_handler = SIG_IGN};
+	char *args[5] = {SUDOER, extfunc, pipepath, (char [2]){c, '\0'}, NULL};
+	char **argv = (gcfg.mode == 1) ? &args[0] : &args[1];
 
 	if ((!cfgpath || !extfunc || !pipepath) && seterrnum(__LINE__, ENOENT))
 		return GO_STATBAR;
@@ -1612,37 +1612,37 @@ static int callextfunc(int c)
 	endwin();
 	pid = fork();
 	if (pid > 0) {
-		sigaction(SIGTSTP, &act, &oldsigtstp);
-		sigaction(SIGWINCH, &act, &oldsigwinch);
-		if ((rfd = open(pipepath, O_RDONLY)) != -1) {
-			if (read(rfd, gpbuf, 1) == 1) {
-				if (isdigit(gpbuf[0]) && (len = read(rfd, &gpbuf[1], 8)) != -1) {
+		sigaction(SIGTSTP, &(struct sigaction){.sa_handler = SIG_IGN}, &oldsigtstp);
+		sigaction(SIGWINCH, &(struct sigaction){.sa_handler = SIG_IGN}, &oldsigwinch);
+		if ((fd = open(pipepath, O_RDONLY)) != -1) { // Blocking can be interrupted by SIGCHLD (set in initsff)
+			if (read(fd, gpbuf, 1) == 1) {
+				if (isdigit(gpbuf[0]) && (len = read(fd, &gpbuf[1], 8)) != -1) {
 					gpbuf[len + 1] = '\0';
 					gpid = (pid_t)strtol(gpbuf, NULL, 10);
 				} else
-					ctl = handlepipedata(rfd, gpbuf[0]);
+					ctl = handlepipedata(fd, gpbuf[0]);
 			}
-			close(rfd);
+			close(fd);
 
-			if (gpid > 9 && (wfd = open(pipepath, O_WRONLY)) != -1) {
-				if (!writeselection(wfd))
+			if (gpid > 9 && (fd = open(pipepath, O_WRONLY)) != -1) {
+				if (!writeselection(fd))
 					kill(gpid, SIGTERM);
-				close(wfd);
+				close(fd);
 			}
-			if (gpid > 9 && (rfd = open(pipepath, O_RDONLY)) != -1) {
-				ctl = handlepipedata(rfd, 0);
-				close(rfd);
+			if (gpid > 9 && (fd = open(pipepath, O_RDONLY)) != -1) {
+				ctl = handlepipedata(fd, 0);
+				close(fd);
 			}
-		} else
-			seterrnum(__LINE__, errno);
+		}
 		waitpid(pid, NULL, 0);
 		sigaction(SIGTSTP, &oldsigtstp, NULL);
 		sigaction(SIGWINCH, &oldsigwinch, NULL);
 
 	} else if (pid == 0) {
-		spawn(extfunc, pipepath, (char [2]){c, '\0'}, FALSE, gcfg.mode == 1);
-		if ((wfd = open(pipepath, O_WRONLY | O_NONBLOCK)) != -1)
-			close(wfd);
+		sigaction(SIGTSTP, &(struct sigaction){.sa_handler = SIG_IGN}, NULL);
+		sigaction(SIGINT, &(struct sigaction){.sa_handler = SIG_DFL}, NULL);
+		sigaction(SIGPIPE, &(struct sigaction){.sa_handler = SIG_DFL}, NULL);
+		execvp(*argv, argv);
 		_exit(EXIT_SUCCESS);
 
 	} else
@@ -1851,26 +1851,28 @@ static void setcurrentstat(Histpath *hp, struct selstat *ss)
 static int xmbstowcs(wchar_t *dst, const char *str, int maxcols)
 {
 	wchar_t *wcp = dst;
-	int nb, dstwidth = 0;
+	int nb, wcw = 1, dstwidth = 0;
 
-	for (wchar_t wc; *str; ++str, ++wcp) {
+	for (wchar_t wc; *str; ++str, wcw = 1) {
 		if ((signed char)*str < 0) {
 			if ((nb = mbtowc(&wc, str, MB_CUR_MAX)) > 0) {
 				*wcp = wc;
 				str += nb - 1;
 			} else
 				*wcp = L'\uFFFD'; // invalid char
-		} else if ((signed char)*str < 0x20) {
+			if ((wcw = wcwidth(*wcp)) == -1) // Skip non-printable chars
+				continue;
+		} else if (*str < 0x20) {
 			*wcp = L'?'; // Replace escape chars with '?'
 		} else
 			*wcp = (wchar_t)*str;
 
-		dstwidth += wcwidth(*wcp);
-		if (dstwidth > maxcols) {
+		if ((dstwidth += wcw) > maxcols) {
 			if (wcp != dst)
 				*(wcp - 1) = L'~';
 			break;
 		}
+		++wcp;
 	}
 	*wcp = L'\0';
 	return dstwidth;
@@ -1992,8 +1994,12 @@ static void redraw(const char *path)
 		homelen = strlen(home);
 	onscr = xlines - 4;
 	ncols = xcols - dcols - 1;
-	erase();
 	shiftcursor(0, 0);
+	erase();
+	if (gcfg.refresh) {
+		refresh();
+		gcfg.refresh = 0;
+	}
 
 	// Print tabs tag
 	for (int i = 0; i <= TABS_MAX; ++i) {
@@ -2303,25 +2309,26 @@ static void exitsighandler(int sig __attribute__((unused)))
 	exit(EXIT_SUCCESS);
 }
 
+static void childsighandler(int sig __attribute__((unused)))
+{
+	while (waitpid(-1, NULL, WNOHANG) > 0);
+}
+
 static int initsff(char *arg0, char *argx)
 {
-	char *xdgcfg = getenv("XDG_CONFIG_HOME");
-	struct sigaction act = {.sa_handler = exitsighandler};
-
-	// Handle/ignore certain signals
-	sigaction(SIGHUP, &act, NULL);
-	sigaction(SIGTERM, &act, NULL);
-	act.sa_handler = SIG_IGN;
-	sigaction(SIGINT, &act, NULL);
-	sigaction(SIGQUIT, &act, NULL);
-	sigaction(SIGPIPE, &act, NULL);
-
-	// Reset standard input
-	if (!freopen("/dev/null", "r", stdin)
-	|| !freopen("/dev/tty", "r", stdin)) {
+	// Reset standard input, ignore any pipe/redirected input
+	if (!freopen("/dev/tty", "r", stdin)) {
 		perror(xitoa(__LINE__));
 		return FALSE;
 	}
+
+	// Handle certain signals
+	sigaction(SIGHUP, &(struct sigaction){.sa_handler = exitsighandler}, NULL);
+	sigaction(SIGTERM, &(struct sigaction){.sa_handler = exitsighandler}, NULL);
+	sigaction(SIGCHLD, &(struct sigaction){.sa_handler = childsighandler}, NULL);
+	sigaction(SIGINT, &(struct sigaction){.sa_handler = SIG_IGN}, NULL);
+	sigaction(SIGQUIT, &(struct sigaction){.sa_handler = SIG_IGN}, NULL);
+	sigaction(SIGPIPE, &(struct sigaction){.sa_handler = SIG_IGN}, NULL);
 
 	// Get environment variables
 	home = getenv("HOME");
@@ -2333,6 +2340,7 @@ static int initsff(char *arg0, char *argx)
 		editor = EDITOR;
 
 	// Set config path: XDG_CONFIG_HOME/sff or ~/.config/sff
+	char *xdgcfg = getenv("XDG_CONFIG_HOME");
 	if ((xdgcfg && xdgcfg[0] && makepath(xdgcfg, "sff", gpbuf))
 	|| (home && makepath(home, ".config/sff", gpbuf)))
 		cfgpath = strdup(gpbuf);

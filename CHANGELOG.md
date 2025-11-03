@@ -9,6 +9,8 @@
 * The status bar turns red to indicate `Sudo mode`, replacing the previous indicator
 * Colors now reference the terminal palette instead of being hardcoded
 * The current path is now styled with bold instead of underline
+* Force screen refresh during manual reload
+* Reduced child processes when executing extension scripts and plugins
 
 
 ### Removed
@@ -22,7 +24,7 @@
 * Create parent directory before config directory creation
 * Correctly display showhidden state in options menu within search result tab
 * Fixed help page content not updating on window resize
-* Correctly display link targets or extensions with multi-byte characters in status bar
+* Correctly display link targets and extensions with multi-byte characters in status bar
 
 
 ## 1.2 <small>(2025-09-04)</small>
