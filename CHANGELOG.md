@@ -28,6 +28,7 @@
 * Correctly display showhidden state in options menu within search result tab
 * Fixed help page content not updating on window resize
 * Correctly display link targets and extensions with multi-byte characters in status bar
+* Prevent jumping to root directory via Quick Find in search result tab
 
 
 ## 1.2 <small>(2025-09-04)</small>
