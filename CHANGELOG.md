@@ -10,7 +10,8 @@
 * Colors now reference the terminal palette instead of being hardcoded
 * The current path is now styled with bold instead of underline
 * Force screen refresh during manual reload
-* Reduced child processes when executing extension scripts and plugins
+* Reduced child processes when executing the extension script and plugins
+* Key binding changes: `Select all` -> `^A`, `Clear selection` -> `Esc`/`[`
 
 
 ### Removed
