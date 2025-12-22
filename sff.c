@@ -703,12 +703,11 @@ static int gotoparent(int n __attribute__((unused)))
 	return GO_RELOAD;
 }
 
-static int gotohome(int n)
+static int gotohome(int n __attribute__((unused)))
 {
 	if (gcfg.ct == TABS_MAX)
 		return GO_NONE;
-
-	return newhistpath((n == 1 && home) ? home : "/");
+	return newhistpath(home ? home : "/");
 }
 
 static int refreshview(int n)

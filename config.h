@@ -48,7 +48,6 @@ static const Key keys[] = {
 	{ 'e',           0,         openfile,         1,    "         e  Edit file" },
 	{ '\r',         KEY_ENTER,  openfile,         2,    " Enter, ^M  Open file" },
 	{ '`',           0,         gotohome,         1,    "         `  Go to home dir" },
-	{ '~',           0,         gotohome,         2,    "         ~  Go to root dir" },
 	{ '1',           0,         switchtab,        0,    "         1  Tab 1" },
 	{ '2',           0,         switchtab,        1,    "         2  Tab 2" },
 	{ '3',           0,         switchtab,        2,    "         3  Tab 3" },

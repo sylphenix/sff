@@ -18,6 +18,7 @@
 ### Removed
 
 * Removed the `Browse mode` feature and the `-b` option due to lack of use
+* Removed the key binding for `Go to root directory`
 
 
 ### Fixed
