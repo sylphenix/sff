@@ -2382,8 +2382,6 @@ static void setupcurses(void)
 
 	define_key("\033[1;5A", CTRL_UP);
 	define_key("\033[1;5B", CTRL_DOWN);
-	define_key("\033[1;5C", CTRL_RIGHT);
-	define_key("\033[1;5D", CTRL_LEFT);
 	define_key("\033[1;2A", SHIFT_UP);
 	define_key("\033[1;2B", SHIFT_DOWN);
 

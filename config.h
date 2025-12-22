@@ -26,10 +26,8 @@ static Settings gcfg = {
 #define ESC         27
 #define CTRL_UP     601
 #define CTRL_DOWN   602
-#define CTRL_RIGHT  603
-#define CTRL_LEFT   604
-#define SHIFT_UP    605
-#define SHIFT_DOWN  606
+#define SHIFT_UP    603
+#define SHIFT_DOWN  604
 
 static const Key keys[] = {
 	// key1         key2        function      argument   comment(Up to 39 characters)
@@ -45,12 +43,12 @@ static const Key keys[] = {
 	{ 'F',           0,         scrolleighth,     1,    "         F  Scroll eighth down" },
 	{ KEY_HOME,     'g',        movetoedge,      -1,    "   Home, g  Move to top" },
 	{ KEY_END,      'G',        movetoedge,       1,    "    End, G  Move to bottom" },
+	{ '-',           0,         switchhistpath,   0,    "         -  Toggle previous path" },
+	{ 'r',           0,         refreshview,      1,    "         r  Reload" },
 	{ 'e',           0,         openfile,         1,    "         e  Edit file" },
 	{ '\r',         KEY_ENTER,  openfile,         2,    " Enter, ^M  Open file" },
-	{ 'r',          KEY_F(5),   refreshview,      1,    "     F5, r  Reload" },
 	{ '`',           0,         gotohome,         1,    "         `  Go to home dir" },
 	{ '~',           0,         gotohome,         2,    "         ~  Go to root dir" },
-	{ CTRL_LEFT,    CTRL('H'),  switchhistpath,   0,    "C-Left, ^H  Toggle previous path" },
 	{ '1',           0,         switchtab,        0,    "         1  Tab 1" },
 	{ '2',           0,         switchtab,        1,    "         2  Tab 2" },
 	{ '3',           0,         switchtab,        2,    "         3  Tab 3" },

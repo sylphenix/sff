@@ -11,7 +11,8 @@
 * The current path is now styled with bold instead of underline
 * Force screen refresh during manual reload
 * Reduced child processes when executing the extension script and plugins
-* Key binding changes: `Select all` -> `^A`, `Clear selection` -> `Esc`/`[`
+* Key binding changes: `Select all` -> `^A`, and `Clear selection` -> `[`
+* Key binding changes: `Toggle previous path` -> `-`
 
 
 ### Removed
