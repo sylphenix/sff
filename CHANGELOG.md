@@ -10,12 +10,15 @@
 * Colors now reference the terminal palette instead of being hardcoded
 * The current path is now styled with bold instead of underline
 * Force screen refresh during manual reload
-* Reduced child processes when executing extension scripts and plugins
+* Reduced child processes when executing the extension script and plugins
+* Key binding changes: `Select all` -> `^A`, and `Clear selection` -> `[`
+* Key binding changes: `Toggle previous path` -> `-`
 
 
 ### Removed
 
 * Removed the `Browse mode` feature and the `-b` option due to lack of use
+* Removed the key binding for `Go to root directory`
 
 
 ### Fixed
@@ -25,6 +28,7 @@
 * Correctly display showhidden state in options menu within search result tab
 * Fixed help page content not updating on window resize
 * Correctly display link targets and extensions with multi-byte characters in status bar
+* Prevent jumping to root directory via Quick Find in search result tab
 
 
 ## 1.2 <small>(2025-09-04)</small>

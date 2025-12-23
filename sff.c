@@ -589,12 +589,12 @@ static Histpath *inithistpath(Histpath *hp, const char *path)
 	return hp;
 }
 
-static int newhistpath(const char *path)
+static int newhistpath(const char *path, int force)
 {
 	Histpath *hp = ptab->hp;
 	Histpath *hp2 = ((hp - ghpath) & 1) ? hp - 1 : hp + 1;
 
-	if (strcmp(hp->path, path) == 0)
+	if (strcmp(hp->path, path) == 0 || (gcfg.ct == TABS_MAX && !force))
 		return GO_NONE;
 
 	if (!inithistpath(hp2, path) || (chdir(hp2->path) == -1 && seterrnum(__LINE__, errno)))
@@ -639,7 +639,7 @@ static int enterdir(int n __attribute__((unused)))
 		if (strcmp(newpath, hp2->path) == 0)
 			return switchhistpath(1);
 		else
-			return newhistpath(newpath);
+			return newhistpath(newpath, TRUE);
 	}
 
 	if (nhs == hp->ths) {
@@ -703,12 +703,9 @@ static int gotoparent(int n __attribute__((unused)))
 	return GO_RELOAD;
 }
 
-static int gotohome(int n)
+static int gotohome(int n __attribute__((unused)))
 {
-	if (gcfg.ct == TABS_MAX)
-		return GO_NONE;
-
-	return newhistpath((n == 1 && home) ? home : "/");
+	return newhistpath(home ? home : "/", FALSE);
 }
 
 static int refreshview(int n)
@@ -1563,8 +1560,8 @@ static int handlepipedata(int fd, int op)
 	case '>': // enter specified path
 		if (read(fd, gpbuf, PATH_MAX) == -1 && seterrnum(__LINE__, errno))
 			return GO_STATBAR;
-		if (gcfg.ct < TABS_MAX && gpbuf[0] == '/')
-			return newhistpath(gpbuf);
+		if (gpbuf[0] == '/')
+			return newhistpath(gpbuf, FALSE);
 		break;
 
 	case '?': // load search result
@@ -2210,7 +2207,7 @@ static int qfindinput(int c)
 
 	} else if (c == '/' && ptab->find[0] == '\0') { // go to root dir
 		ptab->fdlen = 1;
-		newhistpath("/");
+		newhistpath("/", FALSE);
 		return GO_RELOAD;
 
 	} else if (c == '\t' || c == '/') { // enter dir
@@ -2382,8 +2379,6 @@ static void setupcurses(void)
 
 	define_key("\033[1;5A", CTRL_UP);
 	define_key("\033[1;5B", CTRL_DOWN);
-	define_key("\033[1;5C", CTRL_RIGHT);
-	define_key("\033[1;5D", CTRL_LEFT);
 	define_key("\033[1;2A", SHIFT_UP);
 	define_key("\033[1;2B", SHIFT_DOWN);
 

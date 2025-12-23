@@ -26,10 +26,8 @@ static Settings gcfg = {
 #define ESC         27
 #define CTRL_UP     601
 #define CTRL_DOWN   602
-#define CTRL_RIGHT  603
-#define CTRL_LEFT   604
-#define SHIFT_UP    605
-#define SHIFT_DOWN  606
+#define SHIFT_UP    603
+#define SHIFT_DOWN  604
 
 static const Key keys[] = {
 	// key1         key2        function      argument   comment(Up to 39 characters)
@@ -45,12 +43,11 @@ static const Key keys[] = {
 	{ 'F',           0,         scrolleighth,     1,    "         F  Scroll eighth down" },
 	{ KEY_HOME,     'g',        movetoedge,      -1,    "   Home, g  Move to top" },
 	{ KEY_END,      'G',        movetoedge,       1,    "    End, G  Move to bottom" },
+	{ '-',           0,         switchhistpath,   0,    "         -  Toggle previous path" },
+	{ 'r',           0,         refreshview,      1,    "         r  Reload" },
 	{ 'e',           0,         openfile,         1,    "         e  Edit file" },
-	{ '\r',         KEY_ENTER,  openfile,         2,    "     Enter  Open file" },
-	{ 'r',          KEY_F(5),   refreshview,      1,    "     F5, r  Reload" },
+	{ '\r',         KEY_ENTER,  openfile,         2,    " Enter, ^M  Open file" },
 	{ '`',           0,         gotohome,         1,    "         `  Go to home dir" },
-	{ '~',           0,         gotohome,         2,    "         ~  Go to root dir" },
-	{ CTRL_LEFT,    CTRL('H'),  switchhistpath,   0,    "C-Left, ^H  Toggle previous path" },
 	{ '1',           0,         switchtab,        0,    "         1  Tab 1" },
 	{ '2',           0,         switchtab,        1,    "         2  Tab 2" },
 	{ '3',           0,         switchtab,        2,    "         3  Tab 3" },
@@ -60,9 +57,9 @@ static const Key keys[] = {
 	{ ' ',           0,         toggleselection,  0,    "     Space  (Un)select current" },
 	{ SHIFT_UP,     'K',        toggleselection, -1,    "  Sh-Up, K  (Un)select and move up" },
 	{ SHIFT_DOWN,   'J',        toggleselection,  1,    "Sh-Down, J  (Un)select and move down" },
-	{ 'a',           0,         selectall,        0,    "         a  Select all" },
+	{ CTRL('A'),     0,         selectall,        0,    "        ^A  Select all" },
 	{ 'A',           0,         invertselection,  0,    "         A  Invert selection" },
-	{ CTRL('A'),    ESC,        clearselection,   0,    "   Esc, ^A  Clear selection" },
+	{ '[',          ESC,        clearselection,   0,    "    Esc, [  Clear selection" },
 	{ 'm',           0,         selectrange,      1,    "         m  Select range" },
 	{ 'M',           0,         selectrange,     -1,    "         M  Deselect range" },
 	{ '/',           0,         setfilter,        1,    "         /  (Un)filter" },
