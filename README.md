@@ -4,7 +4,7 @@ sff (simple file finder) is a simple, fast, and feature-rich terminal file manag
 It aims to provide a reliable, efficient, and user-friendly file management experience with high extensibility.
 sff is fully compatible with POSIX-compliant systems. It has been extensively tested on GNU/Linux and FreeBSD.
 
-[![sff_screenshot1.png](https://i.postimg.cc/MG40VxHc/sff_screenshot1.png)](https://postimg.cc/JyNBCfbm)
+[![sff_screenshot1.png](https://i.postimg.cc/tJjpsqWP/sff_screenshot1.png)](https://postimg.cc/tZ2LfHrC)
 
 
 ## Features
