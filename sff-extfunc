@@ -165,7 +165,11 @@ sff_write_cbuf()
 	sff_init_bufs
 	sffpipe_get_sel
 	tr '\n\0' '\035\n' <"$sel" >"$cpbuf"
-	[ "$1" = 'mv' ] && chmod u+s "$cpbuf"
+	if [ "$1" = 'mv' ]; then
+		chmod u+s "$cpbuf"
+	else
+		chmod u-s "$cpbuf"
+	fi
 	sffpipe_clear_sel
 }
 
@@ -192,7 +196,7 @@ sff_paste()
 	sff_pwd_perm
 
 	_x=''; _op='copy'
-	[ -u "$cpbuf" ] && { _op='move'; chmod u-s "$cpbuf"; }
+	[ -u "$cpbuf" ] && _op='move'
 
 	_existf=$(sed 's|^.*/||' "$cpbuf" | tr '\n\035' '\0\n' | xargs -0 ls -1d -- 2>/dev/null | head -n 80)
 	if [ "$_existf" ]; then
