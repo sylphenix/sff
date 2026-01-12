@@ -5,7 +5,6 @@
 
 ### Changed
 
-* Clean up pipe file on exit
 * Status bar turns red to indicate 'Sudo mode', replacing the previous indicator
 * Colors now reference the terminal palette instead of being hardcoded
 * Path bar text is now bold instead of underlined
@@ -16,6 +15,7 @@
 * Key binding changes: Edit file -> `Alt`+`e`
 * Moved 'Edit file' functionality from core program to extension script
 * 'Edit file' now supports opening multiple files at once
+* FIFO for extension script is now removed only at program exit
 
 
 ### Removed

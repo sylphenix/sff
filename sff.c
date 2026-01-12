@@ -936,11 +936,11 @@ static int selectrange(int n)
 	}
 
 	if (n > 0) {
-		for (int i = markent; (step > 0) ? i <= cursel : i >= cursel; i += step)
+		for (int i = markent; (step == 1) ? i <= cursel : i >= cursel; i += step)
 			if (!(pdents[i].flag & E_SEL))
 				appendselection(&pdents[i]);
 	} else {
-		for (int i = markent; (step > 0) ? i <= cursel : i >= cursel; i += step)
+		for (int i = markent; (step == 1) ? i <= cursel : i >= cursel; i += step)
 			if (pdents[i].flag & E_SEL)
 				removeselection(&pdents[i]);
 	}
@@ -1589,7 +1589,7 @@ static int callextfunc(int c)
 		if (mkdir(cfgpath, 0700) == -1 && seterrnum(__LINE__, errno))
 			return GO_STATBAR;
 	}
-	if (mkfifo(pipepath, 0600) == -1 && seterrnum(__LINE__, errno))
+	if (mkfifo(pipepath, 0600) == -1 && errno != EEXIST && seterrnum(__LINE__, errno))
 		return GO_STATBAR;
 
 	endwin();
@@ -1599,7 +1599,7 @@ static int callextfunc(int c)
 		sigaction(SIGWINCH, &(struct sigaction){.sa_handler = SIG_IGN}, &oldsigwinch);
 		if ((fd = open(pipepath, O_RDONLY)) != -1) { // Blocking can be interrupted by SIGCHLD (set in initsff)
 			if (read(fd, gpbuf, 1) == 1) {
-				if (isdigit(gpbuf[0]) && (len = read(fd, &gpbuf[1], 8)) != -1) {
+				if (isdigit(gpbuf[0]) && (len = read(fd, &gpbuf[1], 9)) != -1) {
 					gpbuf[len + 1] = '\0';
 					gpid = (pid_t)strtol(gpbuf, NULL, 10);
 				} else
@@ -1616,7 +1616,8 @@ static int callextfunc(int c)
 				ctl = handlepipedata(fd, 0);
 				close(fd);
 			}
-		}
+		} else if (errno != EINTR)
+			seterrnum(__LINE__, errno);
 		waitpid(pid, NULL, 0);
 		sigaction(SIGTSTP, &oldsigtstp, NULL);
 		sigaction(SIGWINCH, &oldsigwinch, NULL);
@@ -1631,7 +1632,6 @@ static int callextfunc(int c)
 	} else
 		seterrnum(__LINE__, errno);
 	refresh();
-	unlink(pipepath);
 	return ctl;
 }
 
