@@ -3,9 +3,15 @@
 
 ## Unreleased
 
+### Added
+
+* Added `SFF_OPENER` environment variable to specify the default file opener
+* Added `SFF_SUDOER` environment variable to specify the utility for sudo mode
+
+
 ### Changed
 
-* Status bar turns red to indicate 'Sudo mode', replacing the previous indicator
+* Status bar turns red to indicate 'sudo mode', replacing the previous indicator
 * Colors now reference the terminal palette instead of being hardcoded
 * Path bar text is now bold instead of underlined
 * Force screen refresh during manual reload
