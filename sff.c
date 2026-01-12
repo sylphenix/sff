@@ -178,7 +178,7 @@ static int ndents = 0, tdents = 0, cursel = 0, lastsel = -1, curscroll = 0;
 static int markent = -1, errline = 0, errnum = 0;
 static int xlines, xcols, onscr, ncols;
 static size_t namebuflen = 0;
-static char *home, *editor;
+static char *home;
 static char *cfgpath = NULL, *extfunc = NULL, *pipepath = NULL, *pvfifo = NULL;
 static char *pnamebuf = NULL, *pfindbuf = NULL, *pfindend = NULL, *findname = NULL;
 static Entry *pdents = NULL;
@@ -419,6 +419,44 @@ static int seterrnum(int line, int err)
 	return TRUE;
 }
 
+static void spawn(char *arg0, char *arg1, char *arg2, int detach)
+{
+	pid_t pid;
+	char *argv[4] = {arg0, arg1, arg2, NULL};
+	struct sigaction oldsigtstp, oldsigwinch;
+
+	pid = fork();
+	if (pid > 0) {
+		sigaction(SIGTSTP, &(struct sigaction){.sa_handler = SIG_IGN}, &oldsigtstp);
+		sigaction(SIGWINCH, &(struct sigaction){.sa_handler = SIG_IGN}, &oldsigwinch);
+		waitpid(pid, NULL, 0);
+		sigaction(SIGTSTP, &oldsigtstp, NULL);
+		sigaction(SIGWINCH, &oldsigwinch, NULL);
+
+	} else if (pid == 0) {
+		if (detach) {
+			pid = fork(); // Fork a grandchild to detach
+			if (pid != 0)
+				_exit(EXIT_SUCCESS);
+			setsid();
+			// Suppress stdout and stderr
+			int fd = open("/dev/null", O_WRONLY, 0200);
+			if (fd != -1) {
+				dup2(fd, STDOUT_FILENO);
+				dup2(fd, STDERR_FILENO);
+				close(fd);
+			}
+		}
+
+		sigaction(SIGTSTP, &(struct sigaction){.sa_handler = SIG_IGN}, NULL);
+		sigaction(SIGINT, &(struct sigaction){.sa_handler = SIG_DFL}, NULL);
+		sigaction(SIGPIPE, &(struct sigaction){.sa_handler = SIG_DFL}, NULL);
+		execvp(*argv, argv);
+		_exit(EXIT_SUCCESS);
+	} else
+		seterrnum(__LINE__, errno);
+}
+
 /****** Key Functions ******/
 
 static int movecursor(int n);
@@ -448,47 +486,6 @@ static int showhelp(int n);
 static int quitsff(int n);
 
 #include "config.h" // Configuration
-
-static void spawn(char *arg0, char *arg1, char *arg2, int detach, int sudo)
-{
-	pid_t pid;
-	char *args[5] = {SUDOER, arg0, arg1, arg2, NULL};
-	char **argv = sudo ? &args[0] : &args[1];
-	struct sigaction oldsigtstp, oldsigwinch;
-	struct sigaction act = {.sa_handler = SIG_IGN};
-
-	pid = fork();
-	if (pid > 0) {
-		sigaction(SIGTSTP, &act, &oldsigtstp);
-		sigaction(SIGWINCH, &act, &oldsigwinch);
-		waitpid(pid, NULL, 0);
-		sigaction(SIGTSTP, &oldsigtstp, NULL);
-		sigaction(SIGWINCH, &oldsigwinch, NULL);
-
-	} else if (pid == 0) {
-		if (detach) {
-			pid = fork(); // Fork a grandchild to detach
-			if (pid != 0)
-				_exit(EXIT_SUCCESS);
-			setsid();
-			// Suppress stdout and stderr
-			int fd = open("/dev/null", O_WRONLY, 0200);
-			if (fd != -1) {
-				dup2(fd, STDOUT_FILENO);
-				dup2(fd, STDERR_FILENO);
-				close(fd);
-			}
-		}
-
-		sigaction(SIGTSTP, &act, NULL);
-		act.sa_handler = SIG_DFL;
-		sigaction(SIGINT, &act, NULL);
-		sigaction(SIGPIPE, &act, NULL);
-		execvp(*argv, argv);
-		_exit(EXIT_SUCCESS);
-	} else
-		seterrnum(__LINE__, errno);
-}
 
 static int shiftcursor(int step, int scrl)
 {
@@ -723,28 +720,17 @@ static int refreshview(int n)
 	return GO_RELOAD;
 }
 
-static int openfile(int n)
+static int openfile(int n __attribute__((unused)))
 {
-	Entry *ent = &pdents[cursel];
-
 	if (ndents == 0)
 		return GO_NONE;
 
+	Entry *ent = &pdents[cursel];
 	makepath(ptab->hp->path, ent->name, gpbuf);
-	switch (n) {
-	case 1:
-		if (!(ent->flag & E_REG_FILE))
-			return GO_NONE;
-		endwin();
-		spawn(editor, gpbuf, NULL, FALSE, gcfg.mode == 1);
-		refresh();
-		return refreshview(0);
 
-	default :
-		if (ent->flag & E_DIR_DIRLNK)
-			return enterdir(0);
-		spawn(OPENER, gpbuf, NULL, TRUE, FALSE);
-	}
+	if (ent->flag & E_DIR_DIRLNK)
+		return enterdir(0);
+	spawn(OPENER, gpbuf, NULL, TRUE);
 	return GO_STATBAR;
 }
 
@@ -2331,10 +2317,6 @@ static int initsff(char *arg0, char *argx)
 	home = getenv("HOME");
 	if (!home || !home[0] || access(home, R_OK | X_OK) == -1)
 		home = NULL;
-
-	editor = getenv("EDITOR");
-	if (!editor || !editor[0])
-		editor = EDITOR;
 
 	// Set config path: XDG_CONFIG_HOME/sff or ~/.config/sff
 	char *xdgcfg = getenv("XDG_CONFIG_HOME");

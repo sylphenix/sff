@@ -6,26 +6,29 @@
 ### Changed
 
 * Clean up pipe file on exit
-* The status bar turns red to indicate `Sudo mode`, replacing the previous indicator
+* Status bar turns red to indicate 'Sudo mode', replacing the previous indicator
 * Colors now reference the terminal palette instead of being hardcoded
-* The current path is now styled with bold instead of underline
+* Path bar text is now bold instead of underlined
 * Force screen refresh during manual reload
-* Reduced child processes when executing the extension script and plugins
-* Key binding changes: `Select all` -> `^A`, and `Clear selection` -> `[`
-* Key binding changes: `Toggle previous path` -> `-`
+* Reduced child processes when executing extension script and plugins
+* Key binding changes: Select all -> `^A`, Clear selection -> `[`
+* Key binding changes: Toggle previous path -> `-`
+* Key binding changes: Edit file -> `Alt`+`e`
+* Moved 'Edit file' functionality from core program to extension script
+* 'Edit file' now supports opening multiple files at once
 
 
 ### Removed
 
-* Removed the `Browse mode` feature and the `-b` option due to lack of use
-* Removed the key binding for `Go to root directory`
+* Removed 'Browse mode' feature and `-b` option due to lack of use
+* Removed key binding for 'Go to root directory'
 
 
 ### Fixed
 
 * Fixed incorrect entry drawing under certain conditions
 * Create parent directory before config directory creation
-* Correctly display showhidden state in options menu within search result tab
+* Correctly display showhidden state in options menu in search result tab
 * Fixed help page content not updating on window resize
 * Correctly display link targets and extensions with multi-byte characters in status bar
 * Prevent jumping to root directory via Quick Find in search result tab
