@@ -143,7 +143,7 @@ typedef struct {
 	unsigned int showsize   : 1;  // Show size info
 	unsigned int timetype   : 2;  // (0: access, 1: modify, 2: change)
 	unsigned int havesel    : 1;  // (0: no selection in current path, 1: have selection)
-	unsigned int selmode    : 1;  // (0: normal mode, 1: selection mode)
+	unsigned int mansel     : 1;  // (0: auto select mode, 1: manual select mode)
 	// global settings
 	unsigned int ct         : 3;  // Current tab
 	unsigned int lt         : 3;  // Last tab
@@ -780,7 +780,7 @@ static void deleteselstat(struct selstat *ss)
 	free(ss);
 	ptab->cfg.havesel = 0;
 	if (!ptab->ss)
-		ptab->cfg.selmode = 0;
+		ptab->cfg.mansel = 0;
 }
 
 static void deleteallselstat(struct selstat *ss)
@@ -840,8 +840,7 @@ static int appendselection(Entry *ent)
 	ss->endp += ent->nlen;
 	ent->flag |= E_SEL;
 	++gtab[gcfg.ct].nsel;
-	if (!ptab->cfg.selmode)
-		ptab->cfg.selmode = 1;
+	ptab->cfg.mansel = 1;
 	return TRUE;
 }
 
@@ -931,7 +930,7 @@ static int selectrange(int n)
 
 	if (markent == -1) {
 		markent = cursel;
-		ptab->cfg.selmode = 1;
+		ptab->cfg.mansel = 1;
 		return GO_FASTDRAW;
 	}
 
@@ -947,7 +946,7 @@ static int selectrange(int n)
 
 	markent = -1;
 	if (!ptab->ss)
-		ptab->cfg.selmode = 0;
+		ptab->cfg.mansel = 0;
 	return GO_REDRAW;
 }
 
@@ -957,7 +956,7 @@ static int clearselection(int n __attribute__((unused)))
 	ptab->ss = NULL;
 	ptab->nsel = 0;
 	ptab->cfg.havesel = 0;
-	ptab->cfg.selmode = 0;
+	ptab->cfg.mansel = 0;
 	markent = -1;
 
 	for (int i = 0; i < ptab->nde; ++i)
@@ -1467,7 +1466,7 @@ static int writeselection(int fd)
 {
 	ssize_t len;
 	struct selstat *ss;
-	int selcur = ptab->cfg.selmode == 0 && ndents > 0;
+	int selcur = !ptab->cfg.mansel && ndents > 0;
 
 	if (selcur && !appendselection(&pdents[cursel]))
 		return FALSE;
@@ -1925,7 +1924,7 @@ static void printenttime(const time_t *timep)
 
 static void printent(const Entry *ent, int sel, int mark)
 {
-	int attr = COLOR_PAIR(C_DETAIL)	| (mark || (sel && ptab->cfg.selmode) ? A_REVERSE : 0);
+	int attr = COLOR_PAIR(C_DETAIL)	| (mark || (sel && ptab->cfg.mansel) ? A_REVERSE : 0);
 
 	if (sel)
 		addch('>' | A_BOLD);
@@ -1954,8 +1953,8 @@ static void printent(const Entry *ent, int sel, int mark)
 
 	attr = COLOR_PAIR(ent->type)
 		| (ent->flag & E_DIR_DIRLNK ? A_BOLD : 0)
-		| ((ent->flag & E_SEL) || (sel && ptab->cfg.selmode == 0) ? A_REVERSE : 0)
-		| ((sel && ptab->cfg.selmode == 1) ? A_UNDERLINE : 0);
+		| ((ent->flag & E_SEL) || (sel && !ptab->cfg.mansel) ? A_REVERSE : 0)
+		| ((sel && ptab->cfg.mansel) ? A_UNDERLINE : 0);
 
 	attron(attr);
 	if (ptab->hp->stat->flag != S_ROOT)
@@ -2092,7 +2091,7 @@ static void statusbar(void)
 	printw("%d/%d ", ndents > 0 ? cursel + 1 : 0, ndents);
 
 	attron(A_REVERSE);
-	printw(" %d ", (ndents > 0 && !ptab->cfg.selmode) ? 1 : ptab->nsel);
+	printw(" %d ", (ndents > 0 && !ptab->cfg.mansel) ? 1 : ptab->nsel);
 	attroff(A_REVERSE);
 	addch(' ');
 
