@@ -555,8 +555,10 @@ static Histpath *inithistpath(Histpath *hp, const char *path)
 		name = xbasename(path);
 
 	char *end = memccpy(hp->path, path, '\0', PATH_MAX - 1);
-	if (name)
+	if (name) {
 		xdirname(hp->path);
+		end -= 2;
+	}
 
 	// Each level of path corresponds to a histstat. Add one more for current level
 	hp->nhs = 0;
