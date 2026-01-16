@@ -142,13 +142,13 @@ typedef struct {
 	unsigned int showperm   : 1;  // Show permissions info
 	unsigned int showsize   : 1;  // Show size info
 	unsigned int timetype   : 2;  // (0: access, 1: modify, 2: change)
-	unsigned int havesel    : 1;  // (0: no selection in current path, 1: have selection)
-	unsigned int mansel     : 1;  // (0: auto select mode, 1: manual select mode)
+	unsigned int havesel    : 1;  // Have selection in current path
+	unsigned int mansel     : 1;  // Manual select mode
 	// global settings
 	unsigned int ct         : 3;  // Current tab
 	unsigned int lt         : 3;  // Last tab
-	unsigned int mode       : 3;  // (0: normal, 1: sudo, 2: permanent sudo, 3: browse, 4: permanent browse)
-	unsigned int newent     : 1;  // (0: do not mark new entry, 1: mark new entry)
+	unsigned int runmode    : 2;  // (0: normal mode, 1: sudo mode, 2: permanent sudo mode)
+	unsigned int newent     : 1;  // Mark new entry
 	unsigned int refresh    : 1;  // Force screen refresh during redraw
 } Settings;
 
@@ -808,7 +808,7 @@ static struct selstat *getselstat(void)
 	if (ndents == 0)
 		return NULL;
 
-	if (ptab->cfg.havesel == 0) {
+	if (!ptab->cfg.havesel) {
 		ss = addselstat(ss, ptab->hp->path);
 		if (ss)
 			ptab->cfg.havesel = 1;
@@ -1093,9 +1093,9 @@ static int closetab(int n __attribute__((unused)))
 
 static int togglemode(int n __attribute__((unused)))
 {
-	if (gcfg.mode == 2)
+	if (gcfg.runmode == 2)
 		return GO_NONE;
-	gcfg.mode ^= 1;
+	gcfg.runmode ^= 1;
 	return GO_FASTDRAW;
 }
 
@@ -1575,7 +1575,7 @@ static int callextfunc(int c)
 	int fd, len, ctl = GO_STATBAR;
 	struct sigaction oldsigtstp, oldsigwinch;
 	char *args[5] = {sudoer, extfunc, pipepath, (char [2]){c, '\0'}, NULL};
-	char **argv = (gcfg.mode == 1) ? &args[0] : &args[1];
+	char **argv = (gcfg.runmode == 1) ? &args[0] : &args[1];
 
 	if ((!cfgpath || !extfunc || !pipepath) && seterrnum(__LINE__, ENOENT))
 		return GO_STATBAR;
@@ -2087,7 +2087,7 @@ static void statusbar(void)
 		return;
 	}
 
-	attron(COLOR_PAIR(gcfg.mode != 0 ? C_WARN : C_STATBAR));
+	attron(COLOR_PAIR(gcfg.runmode != 0 ? C_WARN : C_STATBAR));
 	printw("%d/%d ", ndents > 0 ? cursel + 1 : 0, ndents);
 
 	attron(A_REVERSE);
@@ -2353,7 +2353,7 @@ static int initsff(char *arg0, char *argx)
 	}
 
 	if (getuid() == 0)
-		gcfg.mode = 2;
+		gcfg.runmode = 2;
 	return TRUE;
 }
 
