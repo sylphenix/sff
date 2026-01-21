@@ -551,6 +551,8 @@ static Histpath *inithistpath(Histpath *hp, const char *path)
 
 	if (lstat(path, &sb) == -1 && seterrnum(__LINE__, errno))
 		return NULL;
+	if (hp->path == path)
+		return hp;
 	if (!S_ISDIR(sb.st_mode))
 		name = xbasename(path);
 
