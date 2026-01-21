@@ -888,6 +888,9 @@ static void removeselection(Entry *ent)
 
 static int toggleselection(int n)
 {
+	if (ndents == 0)
+		return GO_NONE;
+
 	if (pdents[cursel].flag & E_SEL)
 		removeselection(&pdents[cursel]);
 	else
@@ -911,7 +914,6 @@ static int invertselection(int n __attribute__((unused)))
 		return GO_STATBAR;
 
 	ss->endp = ss->nbuf;
-
 	for (int i = 0; i < ndents; ++i) {
 		if (pdents[i].flag & E_SEL) {
 			pdents[i].flag &= ~E_SEL;
