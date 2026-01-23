@@ -38,6 +38,7 @@
 * Fixed help page content not updating on window resize
 * Correctly display link targets and extensions with multi-byte characters in status bar
 * Prevent jumping to root directory via Quick Find in search result tab
+* In auto-select mode, 'Invert select' excludes the current file
 
 
 ## 1.2 <small>(2025-09-04)</small>

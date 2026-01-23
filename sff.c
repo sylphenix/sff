@@ -909,6 +909,7 @@ static int selectall(int n __attribute__((unused)))
 static int invertselection(int n __attribute__((unused)))
 {
 	struct selstat *ss = getselstat();
+	int mansel = ptab->cfg.mansel;
 
 	if (!ss)
 		return GO_STATBAR;
@@ -918,7 +919,7 @@ static int invertselection(int n __attribute__((unused)))
 		if (pdents[i].flag & E_SEL) {
 			pdents[i].flag &= ~E_SEL;
 			--gtab[gcfg.ct].nsel;
-		} else
+		} else if (i != cursel || mansel)
 			appendselection(&pdents[i]);
 	}
 
