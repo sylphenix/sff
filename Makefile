@@ -8,10 +8,8 @@ EXTFNNAME = sff-extfunc
 EXTFNPREFIX = ${PREFIX}/lib/sff
 
 # includes and libs
-OS = $(shell uname -s)
-INCS = $(shell [ '${OS}' = 'Linux' ] && echo "-I/usr/include/ncursesw"; \
-		[ '${OS}' = 'Darwin' ] && echo "-I/usr/local/opt/ncurses/include")
-LIBS = $(shell [ '${OS}' = 'Darwin' ] && echo "-L/usr/local/opt/ncurses/lib") -lncursesw
+INCS =
+LIBS = -lncursesw
 
 # flags
 CPPFLAGS = -DDEBUG
@@ -50,7 +48,7 @@ clean:
 
 dist: clean
 	mkdir -p sff
-	cp -Rf CHANGELOG.md README.md LICENSE Makefile config.h plugins sff.1 ${SRC} ${EXTFNNAME} sff/
+	cp -af CHANGELOG.md README.md LICENSE Makefile config.h plugins sff.1 ${SRC} ${EXTFNNAME} sff/
 	tar -caf sff.tar.gz sff
 	rm -rf sff
 
