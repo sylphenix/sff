@@ -495,8 +495,8 @@ static int shiftcursor(int step, int scrl)
 	cursel = MAX(0, MIN(ndents - 1, cursel + step));
 
 	if ((step == 1 || step == -1) && scrl == 0) {
-		if ((cursel < curscroll + ((onscr + 2) / 4) && step < 0)
-		|| (cursel >= curscroll + onscr - ((onscr + 2) / 4) && step > 0))
+		if ((cursel < curscroll + ((onscr + 2) >> 2) && step < 0)
+		|| (cursel >= curscroll + onscr - ((onscr + 2) >> 2) && step > 0))
 			curscroll += step;
 	} else
 		curscroll += scrl;
@@ -515,24 +515,24 @@ static int movecursor(int n)
 
 static int movequarterpage(int n)
 {
-	return shiftcursor(onscr / 4 * n, 0);
+	return shiftcursor(n * MAX(1, onscr >> 2), 0);
 }
 
 static int scrollpage(int n)
 {
-	int step = (xlines - 5) * n;
+	int step = n * MAX(1, xlines - 5);
 	return shiftcursor(step, step);
 }
 
 static int scrolleighth(int n)
 {
-	int step = ((ndents + 3) / 8) * n;
+	int step = n * MAX(1, (ndents + 3) >> 3);
 	return shiftcursor(step, step);
 }
 
 static int movetoedge(int n)
 {
-	return shiftcursor(ndents * n, 0);
+	return shiftcursor(n * ndents, 0);
 }
 
 static void savehiststat(Histstat *hs)
