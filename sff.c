@@ -516,12 +516,12 @@ static int movecursor(int n)
 
 static int movequarterpage(int n)
 {
-	return shiftcursor(n * MAX(1, onscr >> 2), 0);
+	return shiftcursor(n * MAX(2, onscr >> 2), 0);
 }
 
 static int scrollpage(int n)
 {
-	int step = n * MAX(1, xlines - 5);
+	int step = n * MAX(2, onscr - 1);
 	return shiftcursor(step, step);
 }
 
