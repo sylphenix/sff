@@ -2049,16 +2049,17 @@ static void redraw(const char *path)
 	}
 
 	// Draw scroll indicator
-	j = (ndents > 0) ? ndents : 1;
-	btm = (j <= onscr) ? onscr
-		: MAX(1, ((onscr * onscr << 1) / j + 1) >> 1); // indicator height, round a/b by (a*2/b+1)/2
-	j = (curscroll == 0 || j <= onscr) ? 2
-		: 2 + (((curscroll * (onscr - btm) << 1) / (j - onscr) + 1) >> 1); // starting row to drawing
+	j = MAX(1, ndents);
+	btm = (ndents <= onscr) ? onscr
+		: ((onscr * onscr << 1) / j + 1) >> 1; // indicator height, round a/b by (a*2/b+1)/2
+	btm = MAX(1, btm);
+	j = (curscroll == 0 || ndents <= onscr) ? 1
+		: 1 + (((curscroll * (onscr - btm) << 1) / (j - onscr) + 1) >> 1); // starting row to drawing
 	attron(COLOR_PAIR(C_DETAIL));
-	mvaddch(1, xcols -1, '=');
-	for (int i = 0; i < btm; ++i, ++j)
-		mvaddch(j, xcols - 1, ' ' | A_REVERSE);
-	mvaddch(xlines - 2, xcols - 1 , '=');
+	mvaddch(1, xcols - 1, '=');
+	while (--btm >= 0)
+		mvaddch(++j, xcols - 1, ' ' | A_REVERSE);
+	mvaddch(xlines - 2, xcols - 1, '=');
 	attrset(A_NORMAL);
 	xcols = -xcols; // set to skip fastredraw
 }
