@@ -2051,10 +2051,10 @@ static void redraw(const char *path)
 
 	// Draw scroll indicator
 	j = MAX(1, ndents);
-	btm = (ndents <= onscr) ? onscr
+	btm = (j <= onscr) ? onscr
 		: ((onscr * onscr << 1) / j + 1) >> 1; // indicator height, round a/b by (a*2/b+1)/2
 	btm = MAX(1, btm);
-	j = (curscroll == 0 || ndents <= onscr) ? 1
+	j = (curscroll == 0 || j <= onscr) ? 1
 		: 1 + (((curscroll * (onscr - btm) << 1) / (j - onscr) + 1) >> 1); // starting row to drawing
 	attron(COLOR_PAIR(C_DETAIL));
 	mvaddch(1, xcols - 1, '=');
