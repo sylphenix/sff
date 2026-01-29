@@ -150,6 +150,7 @@ typedef struct {
 	unsigned int runmode    : 2;  // (0: normal mode, 1: sudo mode, 2: permanent sudo mode)
 	unsigned int newent     : 1;  // Mark new entry
 	unsigned int refresh    : 1;  // Force screen refresh during redraw
+	unsigned int redrawn    : 1;  // Screen has been redrawn
 } Settings;
 
 typedef struct {
@@ -2061,17 +2062,15 @@ static void redraw(const char *path)
 		mvaddch(++j, xcols - 1, ' ' | A_REVERSE);
 	mvaddch(xlines - 2, xcols - 1, '=');
 	attrset(A_NORMAL);
-	xcols = -xcols; // set to skip fastredraw
+	gcfg.redrawn = 1; // set to skip fastredraw
 }
 
 static void fastredraw(void)
 {
-	if (xcols <= 0) { // skip fastredraw if redraw has already done
-		xcols = -xcols;
+	if (gcfg.redrawn || ndents == 0) { // bypass fastredraw after a full redraw
+		gcfg.redrawn = 0;
 		return;
-	} else if (ndents == 0)
-		return;
-
+	}
 	if (lastsel >= curscroll && lastsel < onscr + curscroll && lastsel < ndents && lastsel != cursel) {
 		move(2 + lastsel - curscroll, 0);
 		printent(&pdents[lastsel], FALSE, lastsel == markent);
