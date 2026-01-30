@@ -485,6 +485,7 @@ static int togglemode(int n);
 static int viewoptions(int n);
 static int showhelp(int n);
 static int quitsff(int n);
+static int callextfunc(int c);
 
 #include "config.h" // Configuration
 
