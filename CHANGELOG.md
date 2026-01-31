@@ -22,6 +22,7 @@
 * Moved 'Edit file' functionality from core program to extension script
 * 'Edit file' now supports opening multiple files at once
 * FIFO for extension script is now removed only at program exit
+* Set minimum steps to 2 for 'Scroll page' and 'Move quarter page'
 
 
 ### Removed
@@ -39,6 +40,7 @@
 * Correctly display link targets and extensions with multi-byte characters in status bar
 * Prevent jumping to root directory via Quick Find in search result tab
 * In auto-select mode, 'Invert select' excludes the current file
+* Fixed errors in 'Create new file' and 'Show File Status' on Alpine
 
 
 ## 1.2 <small>(2025-09-04)</small>
