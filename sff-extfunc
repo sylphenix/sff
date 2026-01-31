@@ -421,11 +421,7 @@ sff_file_stat()
 	while IFS='' read -r _path; do
 		echo ""
 		_path=$(printf "%s" "$_path" | tr '\035' '\n')
-		if stat --version >/dev/null 2>&1; then
-			stat "$_path"
-		else
-			stat -x "$_path"
-		fi
+		stat -x "$_path" 2>/dev/null || stat "$_path"
 		file -bi "$_path"
 		file -b "$_path"
 	done <"$tsel"
