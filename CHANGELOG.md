@@ -41,6 +41,7 @@
 * Prevent jumping to root directory via Quick Find in search result tab
 * In auto-select mode, 'Invert select' excludes the current file
 * Fixed errors in 'Create new file' and 'Show File Status' on Alpine
+* Fixed text preview issue for preview plugin on Alpine
 
 
 ## 1.2 <small>(2025-09-04)</small>
