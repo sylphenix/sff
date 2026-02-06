@@ -42,6 +42,7 @@
 * In auto-select mode, 'Invert select' excludes the current file
 * Fixed errors in 'Create new file' and 'Show File Status' on Alpine
 * Fixed text preview issue for preview plugin on Alpine
+* Fixed home path replacement to avoid partial matches in path bar
 
 
 ## 1.2 <small>(2025-09-04)</small>

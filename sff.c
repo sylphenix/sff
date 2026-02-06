@@ -2006,7 +2006,7 @@ static void redraw(const char *path)
 	int pcols = xcols - (TABS_MAX + 1) * 2 - 1;
 	addch(' ');
 	attron(COLOR_PAIR(C_PATHBAR) | A_BOLD);
-	if (home && strncmp(home, path, homelen) == 0) {
+	if (home && strncmp(home, path, homelen) == 0 && (path[homelen] == '/' || path[homelen] == '\0')) {
 		path += homelen;
 		--pcols;
 		addch('~'); // Replace home path with '~'
