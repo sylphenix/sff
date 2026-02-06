@@ -142,14 +142,15 @@ typedef struct {
 	unsigned int showperm   : 1;  // Show permissions info
 	unsigned int showsize   : 1;  // Show size info
 	unsigned int timetype   : 2;  // (0: access, 1: modify, 2: change)
-	unsigned int havesel    : 1;  // (0: no selection in current path, 1: have selection)
-	unsigned int selmode    : 1;  // (0: normal mode, 1: selection mode)
+	unsigned int havesel    : 1;  // Have selection in current path
+	unsigned int mansel     : 1;  // Manual select mode
 	// global settings
 	unsigned int ct         : 3;  // Current tab
 	unsigned int lt         : 3;  // Last tab
-	unsigned int mode       : 3;  // (0: normal, 1: sudo, 2: permanent sudo, 3: browse, 4: permanent browse)
-	unsigned int newent     : 1;  // (0: do not mark new entry, 1: mark new entry)
+	unsigned int runmode    : 2;  // (0: normal mode, 1: sudo mode, 2: permanent sudo mode)
+	unsigned int newent     : 1;  // Mark new entry
 	unsigned int refresh    : 1;  // Force screen refresh during redraw
+	unsigned int redrawn    : 1;  // Screen has been redrawn
 } Settings;
 
 typedef struct {
@@ -178,7 +179,7 @@ static int ndents = 0, tdents = 0, cursel = 0, lastsel = -1, curscroll = 0;
 static int markent = -1, errline = 0, errnum = 0;
 static int xlines, xcols, onscr, ncols;
 static size_t namebuflen = 0;
-static char *home, *editor;
+static char *home, *opener, *sudoer;
 static char *cfgpath = NULL, *extfunc = NULL, *pipepath = NULL, *pvfifo = NULL;
 static char *pnamebuf = NULL, *pfindbuf = NULL, *pfindend = NULL, *findname = NULL;
 static Entry *pdents = NULL;
@@ -419,6 +420,44 @@ static int seterrnum(int line, int err)
 	return TRUE;
 }
 
+static void spawn(char *arg0, char *arg1, char *arg2, int detach)
+{
+	pid_t pid;
+	char *argv[4] = {arg0, arg1, arg2, NULL};
+	struct sigaction oldsigtstp, oldsigwinch;
+
+	pid = fork();
+	if (pid > 0) {
+		sigaction(SIGTSTP, &(struct sigaction){.sa_handler = SIG_IGN}, &oldsigtstp);
+		sigaction(SIGWINCH, &(struct sigaction){.sa_handler = SIG_IGN}, &oldsigwinch);
+		waitpid(pid, NULL, 0);
+		sigaction(SIGTSTP, &oldsigtstp, NULL);
+		sigaction(SIGWINCH, &oldsigwinch, NULL);
+
+	} else if (pid == 0) {
+		if (detach) {
+			pid = fork(); // Fork a grandchild to detach
+			if (pid != 0)
+				_exit(EXIT_SUCCESS);
+			setsid();
+			// Suppress stdout and stderr
+			int fd = open("/dev/null", O_WRONLY, 0200);
+			if (fd != -1) {
+				dup2(fd, STDOUT_FILENO);
+				dup2(fd, STDERR_FILENO);
+				close(fd);
+			}
+		}
+
+		sigaction(SIGTSTP, &(struct sigaction){.sa_handler = SIG_IGN}, NULL);
+		sigaction(SIGINT, &(struct sigaction){.sa_handler = SIG_DFL}, NULL);
+		sigaction(SIGPIPE, &(struct sigaction){.sa_handler = SIG_DFL}, NULL);
+		execvp(*argv, argv);
+		_exit(EXIT_SUCCESS);
+	} else
+		seterrnum(__LINE__, errno);
+}
+
 /****** Key Functions ******/
 
 static int movecursor(int n);
@@ -446,49 +485,9 @@ static int togglemode(int n);
 static int viewoptions(int n);
 static int showhelp(int n);
 static int quitsff(int n);
+static int callextfunc(int c);
 
 #include "config.h" // Configuration
-
-static void spawn(char *arg0, char *arg1, char *arg2, int detach, int sudo)
-{
-	pid_t pid;
-	char *args[5] = {SUDOER, arg0, arg1, arg2, NULL};
-	char **argv = sudo ? &args[0] : &args[1];
-	struct sigaction oldsigtstp, oldsigwinch;
-	struct sigaction act = {.sa_handler = SIG_IGN};
-
-	pid = fork();
-	if (pid > 0) {
-		sigaction(SIGTSTP, &act, &oldsigtstp);
-		sigaction(SIGWINCH, &act, &oldsigwinch);
-		waitpid(pid, NULL, 0);
-		sigaction(SIGTSTP, &oldsigtstp, NULL);
-		sigaction(SIGWINCH, &oldsigwinch, NULL);
-
-	} else if (pid == 0) {
-		if (detach) {
-			pid = fork(); // Fork a grandchild to detach
-			if (pid != 0)
-				_exit(EXIT_SUCCESS);
-			setsid();
-			// Suppress stdout and stderr
-			int fd = open("/dev/null", O_WRONLY, 0200);
-			if (fd != -1) {
-				dup2(fd, STDOUT_FILENO);
-				dup2(fd, STDERR_FILENO);
-				close(fd);
-			}
-		}
-
-		sigaction(SIGTSTP, &act, NULL);
-		act.sa_handler = SIG_DFL;
-		sigaction(SIGINT, &act, NULL);
-		sigaction(SIGPIPE, &act, NULL);
-		execvp(*argv, argv);
-		_exit(EXIT_SUCCESS);
-	} else
-		seterrnum(__LINE__, errno);
-}
 
 static int shiftcursor(int step, int scrl)
 {
@@ -498,8 +497,8 @@ static int shiftcursor(int step, int scrl)
 	cursel = MAX(0, MIN(ndents - 1, cursel + step));
 
 	if ((step == 1 || step == -1) && scrl == 0) {
-		if ((cursel < curscroll + ((onscr + 2) / 4) && step < 0)
-		|| (cursel >= curscroll + onscr - ((onscr + 2) / 4) && step > 0))
+		if ((cursel < curscroll + ((onscr + 2) >> 2) && step < 0)
+		|| (cursel >= curscroll + onscr - ((onscr + 2) >> 2) && step > 0))
 			curscroll += step;
 	} else
 		curscroll += scrl;
@@ -518,24 +517,24 @@ static int movecursor(int n)
 
 static int movequarterpage(int n)
 {
-	return shiftcursor(onscr / 4 * n, 0);
+	return shiftcursor(n * MAX(2, onscr >> 2), 0);
 }
 
 static int scrollpage(int n)
 {
-	int step = (xlines - 5) * n;
+	int step = n * MAX(2, onscr - 1);
 	return shiftcursor(step, step);
 }
 
 static int scrolleighth(int n)
 {
-	int step = ((ndents + 3) / 8) * n;
+	int step = n * MAX(1, (ndents + 3) >> 3);
 	return shiftcursor(step, step);
 }
 
 static int movetoedge(int n)
 {
-	return shiftcursor(ndents * n, 0);
+	return shiftcursor(n * ndents, 0);
 }
 
 static void savehiststat(Histstat *hs)
@@ -554,12 +553,16 @@ static Histpath *inithistpath(Histpath *hp, const char *path)
 
 	if (lstat(path, &sb) == -1 && seterrnum(__LINE__, errno))
 		return NULL;
+	if (hp->path == path)
+		return hp;
 	if (!S_ISDIR(sb.st_mode))
 		name = xbasename(path);
 
 	char *end = memccpy(hp->path, path, '\0', PATH_MAX - 1);
-	if (name)
+	if (name) {
 		xdirname(hp->path);
+		end -= 2;
+	}
 
 	// Each level of path corresponds to a histstat. Add one more for current level
 	hp->nhs = 0;
@@ -723,28 +726,17 @@ static int refreshview(int n)
 	return GO_RELOAD;
 }
 
-static int openfile(int n)
+static int openfile(int n __attribute__((unused)))
 {
-	Entry *ent = &pdents[cursel];
-
 	if (ndents == 0)
 		return GO_NONE;
 
+	Entry *ent = &pdents[cursel];
 	makepath(ptab->hp->path, ent->name, gpbuf);
-	switch (n) {
-	case 1:
-		if (!(ent->flag & E_REG_FILE))
-			return GO_NONE;
-		endwin();
-		spawn(editor, gpbuf, NULL, FALSE, gcfg.mode == 1);
-		refresh();
-		return refreshview(0);
 
-	default :
-		if (ent->flag & E_DIR_DIRLNK)
-			return enterdir(0);
-		spawn(OPENER, gpbuf, NULL, TRUE, FALSE);
-	}
+	if (ent->flag & E_DIR_DIRLNK)
+		return enterdir(0);
+	spawn(opener, gpbuf, NULL, TRUE);
 	return GO_STATBAR;
 }
 
@@ -794,7 +786,7 @@ static void deleteselstat(struct selstat *ss)
 	free(ss);
 	ptab->cfg.havesel = 0;
 	if (!ptab->ss)
-		ptab->cfg.selmode = 0;
+		ptab->cfg.mansel = 0;
 }
 
 static void deleteallselstat(struct selstat *ss)
@@ -822,7 +814,7 @@ static struct selstat *getselstat(void)
 	if (ndents == 0)
 		return NULL;
 
-	if (ptab->cfg.havesel == 0) {
+	if (!ptab->cfg.havesel) {
 		ss = addselstat(ss, ptab->hp->path);
 		if (ss)
 			ptab->cfg.havesel = 1;
@@ -854,8 +846,7 @@ static int appendselection(Entry *ent)
 	ss->endp += ent->nlen;
 	ent->flag |= E_SEL;
 	++gtab[gcfg.ct].nsel;
-	if (!ptab->cfg.selmode)
-		ptab->cfg.selmode = 1;
+	ptab->cfg.mansel = 1;
 	return TRUE;
 }
 
@@ -899,6 +890,9 @@ static void removeselection(Entry *ent)
 
 static int toggleselection(int n)
 {
+	if (ndents == 0)
+		return GO_NONE;
+
 	if (pdents[cursel].flag & E_SEL)
 		removeselection(&pdents[cursel]);
 	else
@@ -917,17 +911,17 @@ static int selectall(int n __attribute__((unused)))
 static int invertselection(int n __attribute__((unused)))
 {
 	struct selstat *ss = getselstat();
+	int mansel = ptab->cfg.mansel;
 
 	if (!ss)
 		return GO_STATBAR;
 
 	ss->endp = ss->nbuf;
-
 	for (int i = 0; i < ndents; ++i) {
 		if (pdents[i].flag & E_SEL) {
 			pdents[i].flag &= ~E_SEL;
 			--gtab[gcfg.ct].nsel;
-		} else
+		} else if (i != cursel || mansel)
 			appendselection(&pdents[i]);
 	}
 
@@ -945,23 +939,23 @@ static int selectrange(int n)
 
 	if (markent == -1) {
 		markent = cursel;
-		ptab->cfg.selmode = 1;
+		ptab->cfg.mansel = 1;
 		return GO_FASTDRAW;
 	}
 
 	if (n > 0) {
-		for (int i = markent; (step > 0) ? i <= cursel : i >= cursel; i += step)
+		for (int i = markent; (step == 1) ? i <= cursel : i >= cursel; i += step)
 			if (!(pdents[i].flag & E_SEL))
 				appendselection(&pdents[i]);
 	} else {
-		for (int i = markent; (step > 0) ? i <= cursel : i >= cursel; i += step)
+		for (int i = markent; (step == 1) ? i <= cursel : i >= cursel; i += step)
 			if (pdents[i].flag & E_SEL)
 				removeselection(&pdents[i]);
 	}
 
 	markent = -1;
 	if (!ptab->ss)
-		ptab->cfg.selmode = 0;
+		ptab->cfg.mansel = 0;
 	return GO_REDRAW;
 }
 
@@ -971,7 +965,7 @@ static int clearselection(int n __attribute__((unused)))
 	ptab->ss = NULL;
 	ptab->nsel = 0;
 	ptab->cfg.havesel = 0;
-	ptab->cfg.selmode = 0;
+	ptab->cfg.mansel = 0;
 	markent = -1;
 
 	for (int i = 0; i < ptab->nde; ++i)
@@ -1108,9 +1102,9 @@ static int closetab(int n __attribute__((unused)))
 
 static int togglemode(int n __attribute__((unused)))
 {
-	if (gcfg.mode == 2)
+	if (gcfg.runmode == 2)
 		return GO_NONE;
-	gcfg.mode ^= 1;
+	gcfg.runmode ^= 1;
 	return GO_FASTDRAW;
 }
 
@@ -1481,7 +1475,7 @@ static int writeselection(int fd)
 {
 	ssize_t len;
 	struct selstat *ss;
-	int selcur = ptab->cfg.selmode == 0 && ndents > 0;
+	int selcur = !ptab->cfg.mansel && ndents > 0;
 
 	if (selcur && !appendselection(&pdents[cursel]))
 		return FALSE;
@@ -1589,8 +1583,8 @@ static int callextfunc(int c)
 	pid_t pid, gpid = 0;
 	int fd, len, ctl = GO_STATBAR;
 	struct sigaction oldsigtstp, oldsigwinch;
-	char *args[5] = {SUDOER, extfunc, pipepath, (char [2]){c, '\0'}, NULL};
-	char **argv = (gcfg.mode == 1) ? &args[0] : &args[1];
+	char *args[5] = {sudoer, extfunc, pipepath, (char [2]){c, '\0'}, NULL};
+	char **argv = (gcfg.runmode == 1) ? &args[0] : &args[1];
 
 	if ((!cfgpath || !extfunc || !pipepath) && seterrnum(__LINE__, ENOENT))
 		return GO_STATBAR;
@@ -1603,7 +1597,7 @@ static int callextfunc(int c)
 		if (mkdir(cfgpath, 0700) == -1 && seterrnum(__LINE__, errno))
 			return GO_STATBAR;
 	}
-	if (mkfifo(pipepath, 0600) == -1 && seterrnum(__LINE__, errno))
+	if (mkfifo(pipepath, 0600) == -1 && errno != EEXIST && seterrnum(__LINE__, errno))
 		return GO_STATBAR;
 
 	endwin();
@@ -1613,7 +1607,7 @@ static int callextfunc(int c)
 		sigaction(SIGWINCH, &(struct sigaction){.sa_handler = SIG_IGN}, &oldsigwinch);
 		if ((fd = open(pipepath, O_RDONLY)) != -1) { // Blocking can be interrupted by SIGCHLD (set in initsff)
 			if (read(fd, gpbuf, 1) == 1) {
-				if (isdigit(gpbuf[0]) && (len = read(fd, &gpbuf[1], 8)) != -1) {
+				if (isdigit(gpbuf[0]) && (len = read(fd, &gpbuf[1], 9)) != -1) {
 					gpbuf[len + 1] = '\0';
 					gpid = (pid_t)strtol(gpbuf, NULL, 10);
 				} else
@@ -1630,7 +1624,8 @@ static int callextfunc(int c)
 				ctl = handlepipedata(fd, 0);
 				close(fd);
 			}
-		}
+		} else if (errno != EINTR)
+			seterrnum(__LINE__, errno);
 		waitpid(pid, NULL, 0);
 		sigaction(SIGTSTP, &oldsigtstp, NULL);
 		sigaction(SIGWINCH, &oldsigwinch, NULL);
@@ -1645,7 +1640,6 @@ static int callextfunc(int c)
 	} else
 		seterrnum(__LINE__, errno);
 	refresh();
-	unlink(pipepath);
 	return ctl;
 }
 
@@ -1939,7 +1933,7 @@ static void printenttime(const time_t *timep)
 
 static void printent(const Entry *ent, int sel, int mark)
 {
-	int attr = COLOR_PAIR(C_DETAIL)	| (mark || (sel && ptab->cfg.selmode) ? A_REVERSE : 0);
+	int attr = COLOR_PAIR(C_DETAIL)	| (mark || (sel && ptab->cfg.mansel) ? A_REVERSE : 0);
 
 	if (sel)
 		addch('>' | A_BOLD);
@@ -1968,8 +1962,8 @@ static void printent(const Entry *ent, int sel, int mark)
 
 	attr = COLOR_PAIR(ent->type)
 		| (ent->flag & E_DIR_DIRLNK ? A_BOLD : 0)
-		| ((ent->flag & E_SEL) || (sel && ptab->cfg.selmode == 0) ? A_REVERSE : 0)
-		| ((sel && ptab->cfg.selmode == 1) ? A_UNDERLINE : 0);
+		| ((ent->flag & E_SEL) || (sel && !ptab->cfg.mansel) ? A_REVERSE : 0)
+		| ((sel && ptab->cfg.mansel) ? A_UNDERLINE : 0);
 
 	attron(attr);
 	if (ptab->hp->stat->flag != S_ROOT)
@@ -2012,7 +2006,7 @@ static void redraw(const char *path)
 	int pcols = xcols - (TABS_MAX + 1) * 2 - 1;
 	addch(' ');
 	attron(COLOR_PAIR(C_PATHBAR) | A_BOLD);
-	if (home && strncmp(home, path, homelen) == 0) {
+	if (home && strncmp(home, path, homelen) == 0 && (path[homelen] == '/' || path[homelen] == '\0')) {
 		path += homelen;
 		--pcols;
 		addch('~'); // Replace home path with '~'
@@ -2057,28 +2051,27 @@ static void redraw(const char *path)
 	}
 
 	// Draw scroll indicator
-	j = (ndents > 0) ? ndents : 1;
+	j = MAX(1, ndents);
 	btm = (j <= onscr) ? onscr
-		: MAX(1, ((onscr * onscr << 1) / j + 1) >> 1); // indicator height, round a/b by (a*2/b+1)/2
-	j = (curscroll == 0 || j <= onscr) ? 2
-		: 2 + (((curscroll * (onscr - btm) << 1) / (j - onscr) + 1) >> 1); // starting row to drawing
+		: ((onscr * onscr << 1) / j + 1) >> 1; // indicator height, round a/b by (a*2/b+1)/2
+	btm = MAX(1, btm);
+	j = (curscroll == 0 || j <= onscr) ? 1
+		: 1 + (((curscroll * (onscr - btm) << 1) / (j - onscr) + 1) >> 1); // starting row to drawing
 	attron(COLOR_PAIR(C_DETAIL));
-	mvaddch(1, xcols -1, '=');
-	for (int i = 0; i < btm; ++i, ++j)
-		mvaddch(j, xcols - 1, ' ' | A_REVERSE);
-	mvaddch(xlines - 2, xcols - 1 , '=');
+	mvaddch(1, xcols - 1, '=');
+	while (--btm >= 0)
+		mvaddch(++j, xcols - 1, ' ' | A_REVERSE);
+	mvaddch(xlines - 2, xcols - 1, '=');
 	attrset(A_NORMAL);
-	xcols = -xcols; // set to skip fastredraw
+	gcfg.redrawn = 1; // set to skip fastredraw
 }
 
 static void fastredraw(void)
 {
-	if (xcols <= 0) { // skip fastredraw if redraw has already done
-		xcols = -xcols;
+	if (gcfg.redrawn || ndents == 0) { // bypass fastredraw after a full redraw
+		gcfg.redrawn = 0;
 		return;
-	} else if (ndents == 0)
-		return;
-
+	}
 	if (lastsel >= curscroll && lastsel < onscr + curscroll && lastsel < ndents && lastsel != cursel) {
 		move(2 + lastsel - curscroll, 0);
 		printent(&pdents[lastsel], FALSE, lastsel == markent);
@@ -2102,11 +2095,11 @@ static void statusbar(void)
 		return;
 	}
 
-	attron(COLOR_PAIR(gcfg.mode != 0 ? C_WARN : C_STATBAR));
+	attron(COLOR_PAIR(gcfg.runmode != 0 ? C_WARN : C_STATBAR));
 	printw("%d/%d ", ndents > 0 ? cursel + 1 : 0, ndents);
 
 	attron(A_REVERSE);
-	printw(" %d ", (ndents > 0 && !ptab->cfg.selmode) ? 1 : ptab->nsel);
+	printw(" %d ", (ndents > 0 && !ptab->cfg.mansel) ? 1 : ptab->nsel);
 	attroff(A_REVERSE);
 	addch(' ');
 
@@ -2332,9 +2325,13 @@ static int initsff(char *arg0, char *argx)
 	if (!home || !home[0] || access(home, R_OK | X_OK) == -1)
 		home = NULL;
 
-	editor = getenv("EDITOR");
-	if (!editor || !editor[0])
-		editor = EDITOR;
+	opener = getenv("SFF_OPENER");
+	if (!opener || !opener[0])
+		opener = OPENER;
+
+	sudoer = getenv("SFF_SUDOER");
+	if (!sudoer || !sudoer[0])
+		sudoer = SUDOER;
 
 	// Set config path: XDG_CONFIG_HOME/sff or ~/.config/sff
 	char *xdgcfg = getenv("XDG_CONFIG_HOME");
@@ -2364,7 +2361,7 @@ static int initsff(char *arg0, char *argx)
 	}
 
 	if (getuid() == 0)
-		gcfg.mode = 2;
+		gcfg.runmode = 2;
 	return TRUE;
 }
 

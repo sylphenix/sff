@@ -4,8 +4,7 @@
 #else
 #define OPENER    "xdg-open"  // File opener on Linux/BSD
 #endif
-#define EDITOR    "vi"        // Default editor
-#define SUDOER    "sudo"      // Backend for sudo mode
+#define SUDOER    "sudo"      // Utility for sudo mode
 
 static Settings gcfg = {
 	.showhidden = 0,  // Show hidden files
@@ -45,9 +44,8 @@ static const Key keys[] = {
 	{ KEY_END,      'G',        movetoedge,       1,    "    End, G  Move to bottom" },
 	{ '-',           0,         switchhistpath,   0,    "         -  Toggle previous path" },
 	{ 'r',           0,         refreshview,      1,    "         r  Reload" },
-	{ 'e',           0,         openfile,         1,    "         e  Edit file" },
-	{ '\r',         KEY_ENTER,  openfile,         2,    " Enter, ^M  Open file" },
-	{ '`',           0,         gotohome,         1,    "         `  Go to home dir" },
+	{ '\r',         KEY_ENTER,  openfile,         0,    " Enter, ^M  Open file" },
+	{ '`',           0,         gotohome,         0,    "         `  Go to home dir" },
 	{ '1',           0,         switchtab,        0,    "         1  Tab 1" },
 	{ '2',           0,         switchtab,        1,    "         2  Tab 2" },
 	{ '3',           0,         switchtab,        2,    "         3  Tab 3" },

@@ -138,7 +138,7 @@ sff_do_new()
 
 	_err=''
 	[ "$(head -n 1 "$exbuf1")" ] && { head -n 1 "$exbuf1" | tr -d '\n' | tr '\035' '\n' | xargs -0 mkdir -p || _err=1; }
-	[ "$(sed -n '2p' "$exbuf1")" ] && { sed -n '2p' "$exbuf1" | tr '\035' '\n' | xargs -0 touch || _err=1; }
+	[ "$(tail -n +2 "$exbuf1")" ] && { tail -n +2 "$exbuf1" | tr '\035' '\n' | xargs -0 touch || _err=1; }
 	[ "$_err" ] && { printf "Press Enter to continue "; read -r _x; }
 }
 
@@ -165,7 +165,11 @@ sff_write_cbuf()
 	sff_init_bufs
 	sffpipe_get_sel
 	tr '\n\0' '\035\n' <"$sel" >"$cpbuf"
-	[ "$1" = 'mv' ] && chmod u+s "$cpbuf"
+	if [ "$1" = 'mv' ]; then
+		chmod u+s "$cpbuf"
+	else
+		chmod u-s "$cpbuf"
+	fi
 	sffpipe_clear_sel
 }
 
@@ -192,7 +196,7 @@ sff_paste()
 	sff_pwd_perm
 
 	_x=''; _op='copy'
-	[ -u "$cpbuf" ] && { _op='move'; chmod u-s "$cpbuf"; }
+	[ -u "$cpbuf" ] && _op='move'
 
 	_existf=$(sed 's|^.*/||' "$cpbuf" | tr '\n\035' '\0\n' | xargs -0 ls -1d -- 2>/dev/null | head -n 80)
 	if [ "$_existf" ]; then
@@ -367,6 +371,22 @@ sff_delete()
 	rm -f "$tsel"
 }
 
+sff_edit_file()
+{
+	sffpipe_get_sel
+	tr '\n\0' '\035\n' <"$sel" >"$tsel"
+	[ ! -s "$tsel" ] && sff_abort
+
+	while IFS='' read -r _path; do
+		_path=$(printf "%s" "$_path" | tr '\035' '\n')
+		set -- "$@" "$_path"
+	done <"$tsel"
+
+	rm -f "$tsel"
+	sffpipe_refresh -c
+	LC_ALL='' exec "$EDITOR" "$@"
+}
+
 sff_chmod_chown()
 {
 	printf "\nPermission or user:group (e.g., 644, -R a+x, root:wheel)\n"
@@ -401,11 +421,7 @@ sff_file_stat()
 	while IFS='' read -r _path; do
 		echo ""
 		_path=$(printf "%s" "$_path" | tr '\035' '\n')
-		if stat --version >/dev/null 2>&1; then
-			stat "$_path"
-		else
-			stat -x "$_path"
-		fi
+		stat -x "$_path" 2>/dev/null || stat "$_path"
 		file -bi "$_path"
 		file -b "$_path"
 	done <"$tsel"
@@ -468,7 +484,7 @@ run_pl()
 
 # === key bindings ===
 case "$2" in                  #?> Extension functions:
-'n') sff_new;;                #?>     Alt-n  Create new files (ends with '/' for dirs)
+'n') sff_new;;                #?>     Alt-n  Create new file (append '/' for dir)
 'd') sff_delete;;             #?>     Alt-d  Delete
 'y') sff_write_cbuf 'cp';;    #?>     Alt-y  Copy
 'x') sff_write_cbuf 'mv';;    #?>     Alt-x  Cut
@@ -478,6 +494,7 @@ case "$2" in                  #?> Extension functions:
 'P') sff_paste;;              #?>     Alt-P  Paste and keep copy buffer
 'r') sff_rename;;             #?>     Alt-r  Rename
 'Y') sff_duplicate;;          #?>     Alt-Y  Duplicate
+'e') sff_edit_file;;          #?>     Alt-e  Edit file
 'm') sff_chmod_chown;;        #?>     Alt-m  Change permissions or owner
 'f') sff_find;;               #?>     Alt-f  Advanced search via 'find'
 'i') sff_file_stat;;          #?>     Alt-i  Show file status

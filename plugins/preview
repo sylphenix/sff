@@ -59,7 +59,8 @@ preview_loop_tui()
 			;;
 		*) _rows=$(tput lines); _cols=$(tput cols)
 			case "$_mime" in
-			text/*) { printf "    --- %s ---\n" "$_mime"; head -n "$_rows" "$_path"; } | less -SX +gq
+			text/*) printf "    --- %s ---\n" "$_mime"
+				head -n "$((_rows - 2))" "$_path" | expand -t 4 | cut -c 1-"$_cols"
 				continue ;;
 			inode/directory) { printf "    --- %s ---  (%s files)\n" "$_mime" \
 					$(find "$_path"/ -mindepth 1 -maxdepth 1 ! -name . ! -name .. 2>/dev/null | wc -l); \
