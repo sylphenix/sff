@@ -40,8 +40,8 @@
 * Correctly display link targets and extensions with multi-byte characters in status bar
 * Prevent jumping to root directory via Quick Find in search result tab
 * In auto-select mode, 'Invert select' excludes the current file
-* Fixed errors in 'Create new file' and 'Show File Status' on Alpine
-* Fixed text preview issue for preview plugin on Alpine
+* Fixed issues with 'Create new file' and 'Show File Status' on Alpine
+* Fixed text preview issues with the preview plugin on Alpine
 * Fixed home path replacement to avoid partial matches in path bar
 
 
