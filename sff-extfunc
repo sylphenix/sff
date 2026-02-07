@@ -389,14 +389,16 @@ sff_edit_file()
 
 sff_chmod_chown()
 {
-	printf "\nPermission or user:group (e.g., 644, -R a+x, root:wheel)\n"
+	printf "\nPermission or user:group (e.g., 644, a+x, root:wheel)\n"
 	printf "[empty to cancel]: "; read -r _x
 	[ -z "$_x" ] && exit 0
+	printf "Apply recursively? (y/n) [n]: "; read -r _x2
+	case "$_x2" in [yY]) _x2='-R';; *) _x2='';; esac
 
 	sffpipe_get_sel
 	case "$_x" in
-	*:*) xargs -0 chown $_x <"$sel";;
-	*) xargs -0 chmod $_x <"$sel";;
+	*:*) xargs -0 chown $_x2 $_x <"$sel";;
+	*) xargs -0 chmod $_x2 $_x <"$sel";;
 	esac || { printf "Press Enter to continue "; read -r _x; }
 	sffpipe_refresh
 }
