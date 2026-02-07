@@ -151,7 +151,7 @@ sff_undo_new()
 	tr '\n\0' '\035\n' <"$exbuf2" | head -n 160
 	echo "^^^" $(tr '\n\0' '\035\n' <"$exbuf2" | wc -l) "files will be deleted"
 	printf "Undo '%s'? (y/n) [n]: " "$_op"; read -r _x
-	[ "$_x" != 'y' ] && exit 0
+	case "$_x" in [yY]) :;; *) exit 0;; esac
 
 	printf "un%s" "$_op" >"$lastop"
 	sffpipe_refresh
@@ -299,7 +299,7 @@ sff_undo_move()
 	echo ""
 	xargs -0 -n 2 printf "%s -> %s\n" <"$exbuf2" | head -n 160
 	printf "Undo '%s'? (y/n) [n]: " "$_op"; read -r _x
-	[ "$_x" != 'y' ] && exit 0
+	case "$_x" in [yY]) :;; *) exit 0;; esac
 
 	printf "un%s" "$_op" >"$lastop"
 	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf1" | head -n 1 | tr '\035\n' '\n\0')"
@@ -363,7 +363,7 @@ sff_delete()
 	echo ""
 	head -n 160 "$tsel"
 	printf "Permanently delete %s files? (y/n) [n]: " $(wc -l <"$tsel"); read -r _x
-	[ "$_x" != 'y' ] && exit 0
+	case "$_x" in [yY]) :;; *) exit 0;; esac
 	sffpipe_refresh -c
 
 	tr '\n\035' '\0\n' <"$tsel" | xargs -0 rm -rf \
