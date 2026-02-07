@@ -23,6 +23,7 @@
 * 'Edit file' now supports opening multiple files at once
 * FIFO for extension script is now removed only at program exit
 * Set minimum steps to 2 for 'Scroll page' and 'Move quarter page'
+* 'Change permissions/owner' recursive option now uses interactive prompt
 
 
 ### Removed
