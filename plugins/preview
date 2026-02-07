@@ -106,7 +106,7 @@ case "$2" in
 	else
 		if [ -z "$SFF_PV_TERM" ]; then
 			printf "\nSFF_PV_TERM: not set\n"
-			printf "Terminal emulator for preview (empty to cancel): "; read -r _x
+			printf "Terminal emulator for preview [empty to cancel]: "; read -r _x
 			[ -z "$_x" ] && exit 0
 			SFF_PV_TERM=$_x
 		fi
