@@ -390,7 +390,7 @@ sff_edit_file()
 sff_chmod_chown()
 {
 	printf "\nPermission or user:group (e.g., 644, -R a+x, root:wheel)\n"
-	printf "(empty to cancel): "; read -r _x
+	printf "[empty to cancel]: "; read -r _x
 	[ -z "$_x" ] && exit 0
 
 	sffpipe_get_sel
@@ -403,11 +403,11 @@ sff_chmod_chown()
 
 sff_find()
 {
-	printf "\nSearch filename (e.g., *.jpg, lib???, *)\n"
-	printf "(empty to cancel): "; read -r _x
+	printf "\nSearch pattern (e.g., *.jpg, lib?.so)\n"
+	printf "[empty to cancel]: "; read -r _x
 	[ -z "$_x" ] && exit 0
 	printf "More options (optional): "; read -r _x2
-	echo "Searching in $PWD/ ..."
+	echo "Searching... (in $PWD)"
 	{ printf "?"; find ./ $_x2 -name "$_x" -print0 2>/dev/null | tr '\n\0' '\035\n' \
 		| sed -e 's|^\./*||' -e '/^[./]$/d' -e '/^\.\.$/d' -e '/^$/d' | tr '\n\035' '\0\n'; } >"$sffpipe"
 }
