@@ -44,7 +44,7 @@
 * Fixed issues with 'Create new file' and 'Show File Status' on Alpine
 * Fixed text preview issues with the preview plugin on Alpine
 * Fixed home path replacement to avoid partial matches in path bar
-* Accept both 'y' and 'Y' in confirmation prompts
+* Accept both lowercase and uppercase letters in confirmation prompts
 
 
 ## 1.2 <small>(2025-09-04)</small>

@@ -118,7 +118,7 @@ sff_new()
 		printf "\n%s\n" "$_existf"
 		echo "^^^ file exists"
 		printf "(e)dit list / (c)ancel [e]: "; read -r _x
-		[ "$_x" = 'c' ] && sff_abort "$_tlist"
+		case "$_x" in [cC]) sff_abort "$_tlist";; esac
 	done
 
 	_pwd=$(printf '%s' "$PWD" | tr '\n' '\035' | sed 's/[\|&]/\\&/g')
@@ -203,10 +203,10 @@ sff_paste()
 		printf "\n%s\n" "$_existf"
 		echo "^^^ files exist"
 		printf "(s)kip all / (i)nteractive / (o)verwrite all / (c)ancel [c]: "; read -r _x
-		[ "${_x%[sio]}" -o -z "$_x" ] && sff_abort
+		case "$_x" in [sSiIoO]) :;; *) sff_abort;; esac
 	fi
 
-	_pwd=$(printf '%s' "$PWD" | tr '\n' '\035' | sed 's/[\|&]/\\&/g')
+	_pwd=$(printf "%s" "$PWD" | tr '\n' '\035' | sed 's/[\|&]/\\&/g')
 	sed "s|$|$_pwd/|" "$cpbuf" | tr '\037\n\035' '\0\0\n' >"$exbuf1"
 
 	case "$_op" in
@@ -229,16 +229,16 @@ sff_do_paste()
 	case "$1" in
 	'copy') printf "\nCopying...\n"
 		case "$2" in
-		'o'|'w') xargs -0 -n 2 cp -afv <"$exbuf1";;
-		's') xargs -0 -n 2 cp -anv <"$exbuf1";;
-		'i') xargs -0 -n 2 -o cp -aiv <"$exbuf1";;
+		[oOw]) xargs -0 -n 2 cp -afv <"$exbuf1";;
+		[sS]) xargs -0 -n 2 cp -anv <"$exbuf1";;
+		[iI]) xargs -0 -n 2 -o cp -aiv <"$exbuf1";;
 		esac
 		;;
 	'move') printf "\nMoving...\n"
 		case "$2" in
-		'o'|'w') xargs -0 -n 2 mv -fv <"$exbuf1";;
-		's') xargs -0 -n 2 mv -nv <"$exbuf1";;
-		'i') xargs -0 -n 2 -o mv -iv <"$exbuf1";;
+		[oOw]) xargs -0 -n 2 mv -fv <"$exbuf1";;
+		[sS]) xargs -0 -n 2 mv -nv <"$exbuf1";;
+		[iI]) xargs -0 -n 2 -o mv -iv <"$exbuf1";;
 		esac
 		;;
 	esac || { printf "Press Enter to continue "; read -r _x; }
@@ -273,7 +273,7 @@ sff_rename()
 
 		[ -z "$_dupnames" ] && [ -z "$_existf" ] && break
 		printf "(e)dit list / (c)ancel [e]: "; read -r _x
-		[ "$_x" = 'c' ] && sff_abort "$_tlist"
+		case "$_x" in [cC]) sff_abort "$_tlist";; esac
 	done
 
 	tr '\037\n\035' '\0\0\n' <"$tbuf2" >"$exbuf1"

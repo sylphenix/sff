@@ -87,7 +87,7 @@ extract_archive()
 		esac
 
 		case "$_x" in
-		'e') if [ -e "${_wdir}/$_bname" ]; then
+		[eE]) if [ -e "${_wdir}/$_bname" ]; then
 				printf "\n'%s' exists. Overwrite? (y/n) [n]: " "$_bname"; read -r _x2
 				case "$_x2" in [yY]) :;; *) continue;; esac
 			fi
@@ -112,7 +112,7 @@ extract_archive()
 			[ -e "$_tdir" ] && rm -rf "$_tdir"
 			;;
 
-		'l') unset LC_ALL
+		[lL]) unset LC_ALL
 			echo ""
 			case "$(printf "%s" "$_name" | tr 'A-Z' 'a-z')" in
 			*?.tar.?*|*?.t?*) tar -tvf "$_path";;
