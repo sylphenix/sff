@@ -87,9 +87,9 @@ extract_archive()
 		esac
 
 		case "$_x" in
-		'e') if [ -e "${_wdir}/$_bname" ]; then
+		[eE]) if [ -e "${_wdir}/$_bname" ]; then
 				printf "\n'%s' exists. Overwrite? (y/n) [n]: " "$_bname"; read -r _x2
-				[ "$_x2" != 'y' ] && continue
+				case "$_x2" in [yY]) :;; *) continue;; esac
 			fi
 	 		_tdir=$(mktemp -d "${_wdir}/tmp.XXXXXX")
 			[ -e "${_wdir}/$_bname" ] && rm -rf "${_wdir}/$_bname"
@@ -112,7 +112,7 @@ extract_archive()
 			[ -e "$_tdir" ] && rm -rf "$_tdir"
 			;;
 
-		'l') unset LC_ALL
+		[lL]) unset LC_ALL
 			echo ""
 			case "$(printf "%s" "$_name" | tr 'A-Z' 'a-z')" in
 			*?.tar.?*|*?.t?*) tar -tvf "$_path";;
@@ -142,11 +142,12 @@ create_archive()
 	[ ! -s "$tsel" ] && return 0
 
 	while true; do
-		printf "\nArchive name (empty to cancel): "; read -r _name
+		printf "\nArchive name (include extension, e.g., .tar.gz)\n"
+		printf "[empty to cancel]: "; read -r _name
 		[ -z "$_name" ] && return 0
 		if [ -e "$_name" ]; then
 			printf "\n'%s' exists. Overwrite? (y/n) [n]: " "$_name"; read -r _x
-			[ "$_x" = 'y' ] && break
+			case "$_x" in [yY]) break;; esac
 		else
 			break
 		fi
