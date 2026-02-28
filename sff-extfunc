@@ -386,7 +386,7 @@ sff_edit_file()
 	done <"$tsel"
 
 	rm -f "$tsel"
-	sffpipe_refresh -c
+	sffpipe_refresh
 	LC_ALL='' exec "$EDITOR" "$@"
 }
 
