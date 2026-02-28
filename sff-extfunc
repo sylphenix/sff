@@ -134,11 +134,14 @@ sff_new()
 sff_do_new()
 {
 	printf "new" >"$lastop"
-	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr '\035\n' '\n\0')"
+	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr -d '\n' | tr '\035' '\n')"
 
 	_err=''
-	[ "$(head -n 1 "$exbuf1")" ] && { head -n 1 "$exbuf1" | tr -d '\n' | tr '\035' '\n' | xargs -0 mkdir -p || _err=1; }
-	[ "$(tail -n +2 "$exbuf1")" ] && { tail -n +2 "$exbuf1" | tr '\035' '\n' | xargs -0 touch || _err=1; }
+	[ "$(head -c 1 "$exbuf1" | tr -d '\n')" ] \
+	&& { head -n 1 "$exbuf1" | tr -d '\n' | tr '\035' '\n' | xargs -0 mkdir -p || _err=1; }
+
+	[ "$(tail -c 1 "$exbuf1" | tr -d '\n' | tr '\0' 'A')" ] \
+	&& { tail -n +2 "$exbuf1" | tr '\035' '\n' | xargs -0 touch || _err=1; }
 	[ "$_err" ] && { printf "Press Enter to continue "; read -r _x; }
 }
 
@@ -224,7 +227,7 @@ sff_do_paste()
 {
 	printf "%s" "$1" >"$lastop"
 	[ "$2" != 'w' ] && touch -mt 202310011200.00 "$lastop"
-	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr '\035\n' '\n\0')"
+	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr -d '\n' | tr '\035' '\n')"
 
 	case "$1" in
 	'copy') printf "\nCopying...\n"
@@ -286,7 +289,7 @@ sff_rename()
 sff_do_rename()
 {
 	printf "rename" >"$lastop"
-	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr '\035\n' '\n\0')"
+	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr -d '\n' | tr '\035' '\n')"
 
 	xargs -0 -n 2 mv -nv <"$exbuf1" \
 	|| { printf "Press Enter to continue "; read -r _x; }
@@ -302,7 +305,7 @@ sff_undo_move()
 	case "$_x" in [yY]) :;; *) exit 0;; esac
 
 	printf "un%s" "$_op" >"$lastop"
-	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf1" | head -n 1 | tr '\035\n' '\n\0')"
+	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf1" | head -n 1 | tr -d '\n' | tr '\035' '\n')"
 
 	xargs -0 -n 2 mv -n <"$exbuf2" \
 	|| { printf "Press Enter to continue "; read -r _x; }
@@ -347,7 +350,7 @@ sff_duplicate()
 sff_do_duplicate()
 {
 	printf "duplicate" >"$lastop"
-	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr '\035\n' '\n\0')"
+	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr -d '\n' | tr '\035' '\n')"
 
 	echo "Duplicating..."
 	xargs -0 -n 2 cp -an <"$exbuf1" \
