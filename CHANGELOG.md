@@ -1,7 +1,7 @@
 # Changelog
 
 
-## Unreleased
+## 1.3 <small>(2026-03-06)</small>
 
 ### Added
 
