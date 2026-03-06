@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2023-2025 Shi Yanling
+ * Copyright (c) 2024-2026 Shi Yanling
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -49,7 +49,7 @@
 #define NCURSES_WIDECHAR 1
 #include <curses.h>
 
-#define VERSION        "1.2"
+#define VERSION        "1.3"
 #define EXTFNNAME      "sff-extfunc"
 #define EXTFNPREFIX    "/usr/local/lib/sff"
 #define EXTFNPREFIX2   "/usr/lib/sff"
