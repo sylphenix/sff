@@ -1281,14 +1281,14 @@ static int quitsff(int n __attribute__((unused)))
 
 static void usage(void)
 {
-	printf("Usage: sff [OPTIONS] [PATH]\n\n"
-		"Option    Meaning\n"
+	printf("sff "VERSION"\n\n"
+		"Usage: sff [OPTIONS] [PATH]\n\n"
+		"Options:\n"
 		"  -c      Sort with case sensitivity\n"
 		"  -d keys Show details: 't'ime, 'o'wner, 'p'erm, 's'ize, 'n'one\n"
 		"  -H      Show hidden files\n"
 		"  -m      Mix dirs and files when sorting\n"
 		"  -o      Open files on right arrow or 'l' key\n"
-		"  -v      Print version and exit\n"
 		"  -h      Print this help and exit\n");
 }
 
@@ -2406,7 +2406,7 @@ int main(int argc, char *argv[])
 {
 	int opt;
 
-	while ((opt = getopt(argc, argv, "bcd:Hmovh")) != -1) {
+	while ((opt = getopt(argc, argv, "cd:Hmoh")) != -1) {
 		switch (opt) {
 		case 'c': gcfg.caseinsen = 0;
 			break;
@@ -2428,11 +2428,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'o': gcfg.openfile = 1;
 			break;
-		case 'v': printf("sff "VERSION"\n");
-			return EXIT_SUCCESS;
 		case 'h': usage();
 			return EXIT_SUCCESS;
-		default: dprintf(STDOUT_FILENO,	"Try 'sff -h' for available options.\n");
+		default: usage();
 			return EXIT_FAILURE;
 		}
 	}
