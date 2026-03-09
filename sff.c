@@ -151,6 +151,7 @@ typedef struct {
 	unsigned int newent     : 1;  // Mark new entry
 	unsigned int refresh    : 1;  // Force screen refresh during redraw
 	unsigned int redrawn    : 1;  // Screen has been redrawn
+	unsigned int openfile   : 1;  // Open files on right arrow or 'l' key
 } Settings;
 
 typedef struct {
@@ -470,7 +471,6 @@ static int enterdir(int n);
 static int gotoparent(int n);
 static int gotohome(int n);
 static int refreshview(int n);
-static int openfile(int n);
 static int toggleselection(int n);
 static int selectall(int n);
 static int invertselection(int n);
@@ -625,19 +625,25 @@ static int switchhistpath(int n)
 	return GO_RELOAD;
 }
 
-static int enterdir(int n __attribute__((unused)))
+static int enterdir(int n)
 {
 	Histpath *hp = ptab->hp;
 	Histpath *hp2 = ((hp - ghpath) & 1) ? hp - 1 : hp + 1;
 	Histstat *hs = hp->stat;
 	unsigned int nhs = hs - hp->hs + 1;
 	char *newpath = gpbuf;
-	Entry *ent = &pdents[cursel];
 
-	if (ndents == 0 || !(ent->flag & E_DIR_DIRLNK))
+	if (ndents == 0)
 		return GO_NONE;
 
+	Entry *ent = &pdents[cursel];
 	makepath(hp->path, ent->name, newpath);
+	if (!(ent->flag & E_DIR_DIRLNK)) {
+		if (n == 1 || gcfg.openfile == 1)
+			spawn(opener, gpbuf, NULL, TRUE);
+		return GO_STATBAR;
+	}
+
 	if (hs->flag == S_ROOT) {
 		if (strcmp(newpath, hp2->path) == 0)
 			return switchhistpath(1);
@@ -724,20 +730,6 @@ static int refreshview(int n)
 	} else if (n == 2)
 		return GO_SORT;
 	return GO_RELOAD;
-}
-
-static int openfile(int n __attribute__((unused)))
-{
-	if (ndents == 0)
-		return GO_NONE;
-
-	Entry *ent = &pdents[cursel];
-	makepath(ptab->hp->path, ent->name, gpbuf);
-
-	if (ent->flag & E_DIR_DIRLNK)
-		return enterdir(0);
-	spawn(opener, gpbuf, NULL, TRUE);
-	return GO_STATBAR;
 }
 
 static struct selstat *addselstat(struct selstat *ss, const char *path)
@@ -1289,13 +1281,14 @@ static int quitsff(int n __attribute__((unused)))
 
 static void usage(void)
 {
-	printf("Usage: sff [OPTIONS] [PATH]\n\n"
-		"Option    Meaning\n"
+	printf("sff "VERSION"\n\n"
+		"Usage: sff [OPTIONS] [PATH]\n\n"
+		"Options:\n"
 		"  -c      Sort with case sensitivity\n"
 		"  -d keys Show details: 't'ime, 'o'wner, 'p'erm, 's'ize, 'n'one\n"
 		"  -H      Show hidden files\n"
 		"  -m      Mix dirs and files when sorting\n"
-		"  -v      Print version and exit\n"
+		"  -o      Open files on right arrow or 'l' key\n"
 		"  -h      Print this help and exit\n");
 }
 
@@ -2413,7 +2406,7 @@ int main(int argc, char *argv[])
 {
 	int opt;
 
-	while ((opt = getopt(argc, argv, "bcd:Hmvh")) != -1) {
+	while ((opt = getopt(argc, argv, "cd:Hmoh")) != -1) {
 		switch (opt) {
 		case 'c': gcfg.caseinsen = 0;
 			break;
@@ -2433,11 +2426,11 @@ int main(int argc, char *argv[])
 			break;
 		case 'm': gcfg.dirontop = 0;
 			break;
-		case 'v': printf("sff "VERSION"\n");
-			return EXIT_SUCCESS;
+		case 'o': gcfg.openfile = 1;
+			break;
 		case 'h': usage();
 			return EXIT_SUCCESS;
-		default: dprintf(STDOUT_FILENO,	"Try 'sff -h' for available options.\n");
+		default: usage();
 			return EXIT_FAILURE;
 		}
 	}

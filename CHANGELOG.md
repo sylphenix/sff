@@ -1,6 +1,20 @@
 # Changelog
 
 
+## Unreleased
+
+### Added
+
+* `-o` option to open files on right arrow or 'l' key ([#35][35])
+
+[35]: https://codeberg.org/sylphenix/sff/issues/35
+
+
+### Changed
+
+*  Moved version info from `-v` to `-h` and removed `-v` option
+
+
 ## 1.3 <small>(2026-03-06)</small>
 
 ### Added

@@ -18,6 +18,7 @@ static Settings gcfg = {
 	.showperm   = 0,  // Show permissions info
 	.showsize   = 1,  // Show size info
 	.timetype   = 1,  // (0: access, 1: modify, 2: change)
+	.openfile   = 0,  // Open files on right arrow or 'l' key
 };
 
 /* Key definitions */
@@ -44,7 +45,7 @@ static const Key keys[] = {
 	{ KEY_END,      'G',        movetoedge,       1,    "    End, G  Move to bottom" },
 	{ '-',           0,         switchhistpath,   0,    "         -  Toggle previous path" },
 	{ 'r',           0,         refreshview,      1,    "         r  Reload" },
-	{ '\r',         KEY_ENTER,  openfile,         0,    " Enter, ^M  Open file" },
+	{ '\r',         KEY_ENTER,  enterdir,         1,    " Enter, ^M  Open file" },
 	{ '`',           0,         gotohome,         0,    "         `  Go to home dir" },
 	{ '1',           0,         switchtab,        0,    "         1  Tab 1" },
 	{ '2',           0,         switchtab,        1,    "         2  Tab 2" },
