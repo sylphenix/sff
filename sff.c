@@ -137,10 +137,6 @@ typedef struct {
 	unsigned int caseinsen  : 1;  // Case insensitive
 	unsigned int natural    : 1;  // Natural numeric sorting
 	unsigned int reverse    : 1;  // Reverse sort
-	unsigned int showtime   : 1;  // Show time info
-	unsigned int showowner  : 1;  // Show owner:group info
-	unsigned int showperm   : 1;  // Show permissions info
-	unsigned int showsize   : 1;  // Show size info
 	unsigned int timetype   : 2;  // (0: access, 1: modify, 2: change)
 	unsigned int havesel    : 1;  // Have selection in current path
 	unsigned int mansel     : 1;  // Manual select mode
@@ -185,6 +181,7 @@ static char *cfgpath = NULL, *extfunc = NULL, *pipepath = NULL, *pvfifo = NULL;
 static char *pnamebuf = NULL, *pfindbuf = NULL, *pfindend = NULL, *findname = NULL;
 static Entry *pdents = NULL;
 static Tabs *ptab = NULL;
+static char columns[8] = {0};
 
 alignas(max_align_t) static char gpbuf[PATH_MAX * sizeof(wchar_t)] = {0};
 alignas(max_align_t) static Tabs gtab[TABS_MAX + 1] = {{0}};
@@ -1119,6 +1116,13 @@ static int getinput(WINDOW *w)
 	return (c == ERR) ? 0 : c;
 }
 
+static void setcolumns(int c)
+{
+	for (char *p = columns; *p; ++p)
+		if (*p == c || *p == c - 32)
+			*p = *p > 96 ? *p - 32 : *p + 32;
+}
+
 static int viewoptions(int n __attribute__((unused)))
 {
 	int i, c = 0;
@@ -1133,45 +1137,45 @@ static int viewoptions(int n __attribute__((unused)))
 	box(dpo, 0, 0);
 	mvwaddstr(dpo, i = 0, 6, " View options ");
 	mvwaddstr(dpo, i += 2, 2, "[.]");
-	wattron(dpo, cfg->showhidden ? A_REVERSE : 0); waddstr(dpo, "show hidden"); wattrset(dpo, A_NORMAL);
-	waddstr(dpo, "  [/]");
-	wattron(dpo, cfg->dirontop ? A_REVERSE : 0); waddstr(dpo, "dirs on top"); wattrset(dpo, A_NORMAL);
+	wattron(dpo, cfg->showhidden ? A_REVERSE : 0); waddstr(dpo, "show hidden");
+	wattrset(dpo, A_NORMAL); waddstr(dpo, "  [/]");
+	wattron(dpo, cfg->dirontop ? A_REVERSE : 0); waddstr(dpo, "dirs on top");
 
-	mvwaddstr(dpo, i += 2, 2, "Sort by:");
+	wattrset(dpo, A_NORMAL); mvwaddstr(dpo, i += 2, 2, "Sort by:");
 	mvwaddstr(dpo, ++i, 2, "  (n)");
-	wattron(dpo, (cfg->sortby == 0) ? A_REVERSE : 0); waddstr(dpo, "name"); wattrset(dpo, A_NORMAL);
-	waddstr(dpo, "  (s)");
-	wattron(dpo, (cfg->sortby == 1) ? A_REVERSE : 0); waddstr(dpo, "size"); wattrset(dpo, A_NORMAL);
-	waddstr(dpo, "  (t)");
-	wattron(dpo, (cfg->sortby == 2) ? A_REVERSE : 0); waddstr(dpo, "time"); wattrset(dpo, A_NORMAL);
-	waddstr(dpo, "  (e)");
-	wattron(dpo, (cfg->sortby == 3) ? A_REVERSE : 0); waddstr(dpo, "extension"); wattrset(dpo, A_NORMAL);
-	mvwaddstr(dpo, i += 2, 2, "  [c]");
-	wattron(dpo, !cfg->caseinsen ? A_REVERSE : 0); waddstr(dpo, "case-sensitive"); wattrset(dpo, A_NORMAL);
-	waddstr(dpo, "  [v]");
-	wattron(dpo, cfg->natural ? A_REVERSE : 0); waddstr(dpo, "natural"); wattrset(dpo, A_NORMAL);
-	waddstr(dpo, "  [r]");
-	wattron(dpo, cfg->reverse ? A_REVERSE : 0); waddstr(dpo, "reverse"); wattrset(dpo, A_NORMAL);
+	wattron(dpo, (cfg->sortby == 0) ? A_REVERSE : 0); waddstr(dpo, "name");
+	wattrset(dpo, A_NORMAL); waddstr(dpo, "  (s)");
+	wattron(dpo, (cfg->sortby == 1) ? A_REVERSE : 0); waddstr(dpo, "size");
+	wattrset(dpo, A_NORMAL); waddstr(dpo, "  (t)");
+	wattron(dpo, (cfg->sortby == 2) ? A_REVERSE : 0); waddstr(dpo, "time");
+	wattrset(dpo, A_NORMAL); waddstr(dpo, "  (e)");
+	wattron(dpo, (cfg->sortby == 3) ? A_REVERSE : 0); waddstr(dpo, "extension");
+	wattrset(dpo, A_NORMAL); mvwaddstr(dpo, i += 2, 2, "  [c]");
+	wattron(dpo, !cfg->caseinsen ? A_REVERSE : 0); waddstr(dpo, "case-sensitive");
+	wattrset(dpo, A_NORMAL); waddstr(dpo, "  [v]");
+	wattron(dpo, cfg->natural ? A_REVERSE : 0); waddstr(dpo, "natural");
+	wattrset(dpo, A_NORMAL); waddstr(dpo, "  [r]");
+	wattron(dpo, cfg->reverse ? A_REVERSE : 0); waddstr(dpo, "reverse");
 
-	mvwaddstr(dpo, i += 2, 2, "Detail info:");
+	wattrset(dpo, A_NORMAL); mvwaddstr(dpo, i += 2, 2, "Detail info:");
 	mvwaddstr(dpo, ++i, 2, "  [i]");
-	wattron(dpo, cfg->showtime ? A_REVERSE : 0); waddstr(dpo, "time"); wattrset(dpo, A_NORMAL);
-	waddstr(dpo, "  [u]");
-	wattron(dpo, cfg->showowner ? A_REVERSE : 0); waddstr(dpo, "owner"); wattrset(dpo, A_NORMAL);
-	waddstr(dpo, "  [p]");
-	wattron(dpo, cfg->showperm ? A_REVERSE : 0); waddstr(dpo, "permissions"); wattrset(dpo, A_NORMAL);
-	waddstr(dpo, "  [z]");
-	wattron(dpo, cfg->showsize ? A_REVERSE : 0); waddstr(dpo, "size"); wattrset(dpo, A_NORMAL);
-	mvwaddstr(dpo, i += 2, 2, "  (d)default  (x)none");
+	wattron(dpo, strchr(columns, 't') ? A_REVERSE : 0); waddstr(dpo, "time");
+	wattrset(dpo, A_NORMAL); waddstr(dpo, "  [u]");
+	wattron(dpo, strchr(columns, 'o') ? A_REVERSE : 0); waddstr(dpo, "owner");
+	wattrset(dpo, A_NORMAL); waddstr(dpo, "  [p]");
+	wattron(dpo, strchr(columns, 'p') ? A_REVERSE : 0); waddstr(dpo, "permissions");
+	wattrset(dpo, A_NORMAL); waddstr(dpo, "  [z]");
+	wattron(dpo, strchr(columns, 's') ? A_REVERSE : 0); waddstr(dpo, "size");
+	wattrset(dpo, A_NORMAL); mvwaddstr(dpo, i += 2, 2, "  (d)default  (x)none");
 
-	mvwaddstr(dpo, i += 2, 2, "Time type:");
+	wattrset(dpo, A_NORMAL); mvwaddstr(dpo, i += 2, 2, "Time type:");
 	mvwaddstr(dpo, ++i, 2, "  (a)");
-	wattron(dpo, (cfg->timetype == 0) ? A_REVERSE : 0); waddstr(dpo, "access"); wattrset(dpo, A_NORMAL);
-	waddstr(dpo, "  (m)");
-	wattron(dpo, (cfg->timetype == 1) ? A_REVERSE : 0); waddstr(dpo, "modify"); wattrset(dpo, A_NORMAL);
-	waddstr(dpo, "  (h)");
-	wattron(dpo, (cfg->timetype == 2) ? A_REVERSE : 0); waddstr(dpo, "change"); wattrset(dpo, A_NORMAL);
-	mvwaddstr(dpo, i += 2, 2, "Press 'o' or Esc to close");
+	wattron(dpo, (cfg->timetype == 0) ? A_REVERSE : 0); waddstr(dpo, "access");
+	wattrset(dpo, A_NORMAL); waddstr(dpo, "  (m)");
+	wattron(dpo, (cfg->timetype == 1) ? A_REVERSE : 0); waddstr(dpo, "modify");
+	wattrset(dpo, A_NORMAL); waddstr(dpo, "  (h)");
+	wattron(dpo, (cfg->timetype == 2) ? A_REVERSE : 0); waddstr(dpo, "change");
+	wattrset(dpo, A_NORMAL); mvwaddstr(dpo, i += 2, 2, "Press 'o' or Esc to close");
 
 	while (c == 0) {
 		prefresh(dpo, 0, 0, (xlines - h) / 2, (xcols - w) / 2, (xlines - h) / 2 + h, (xcols - w) / 2 + w);
@@ -1198,20 +1202,18 @@ static int viewoptions(int n __attribute__((unused)))
 		case 'r': cfg->reverse ^= 1;
 			break;
 
-		case 'i': cfg->showtime ^= 1;
+		case 'i': setcolumns('t');
 			break;
-		case 'u': cfg->showowner ^= 1;
+		case 'u': setcolumns('o');
 			break;
-		case 'p': cfg->showperm ^= 1;
+		case 'p': setcolumns('p');
 			break;
-		case 'z': cfg->showsize ^= 1;
+		case 'z': setcolumns('s');
 			break;
-		case 'd': cfg->showtime = gcfg.showtime;
-			cfg->showowner = gcfg.showowner;
-			cfg->showperm = gcfg.showperm;
-			cfg->showsize = gcfg.showsize;
+		case 'd': memccpy(columns, defcols, '\0', 5);
 			break;
-		case 'x': cfg->showtime = cfg->showowner = cfg->showperm = cfg->showsize = 0;
+		case 'x': for (char *p = columns; *p; ++p)
+				*p = (*p > 96 && *p != 'n') ? *p - 32 : *p;
 			break;
 
 		case 'a': cfg->timetype = 0;
@@ -1285,11 +1287,11 @@ static void usage(void)
 		"Usage: sff [OPTIONS] [PATH]\n\n"
 		"Options:\n"
 		"  -c      Sort with case sensitivity\n"
-		"  -d keys Show details: 't'ime, 'o'wner, 'p'erm, 's'ize, 'n'one\n"
 		"  -H      Show hidden files\n"
-		"  -m      Mix dirs and files when sorting\n"
+		"  -l keys Columns: 't/T'ime, 'o/O'wner, 'p/P'erm, 's/S'ize, 'n'ame\n"
+		"  -m      Mix directories and files when sorting\n"
 		"  -o      Open files on right arrow or 'l' key\n"
-		"  -h      Print this help and exit\n");
+		"  -h      Show this help and exit\n");
 }
 
 static int xstrverscmp (const char *s1, const char *s2, int ci)
@@ -1921,63 +1923,69 @@ static void printenttime(const time_t *timep)
 	struct tm t;
 
 	localtime_r(timep, &t);
-	printw("%s-%02d-%02d %02d:%02d ", xitoa(t.tm_year + 1900), t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min);
+	printw(" %s-%02d-%02d %02d:%02d ", xitoa(t.tm_year + 1900), t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min);
 }
 
 static void printent(const Entry *ent, int sel, int mark)
 {
-	int attr = COLOR_PAIR(C_DETAIL)	| (mark || (sel && ptab->cfg.mansel) ? A_REVERSE : 0);
+	int x, y;
+	int attr1 = sel ? 0 : COLOR_PAIR(C_DETAIL); // for details
+	int attr2 = A_BOLD | (mark || (sel && ptab->cfg.mansel) ? COLOR_PAIR(C_STATBAR) | A_REVERSE // for marks
+				: (gcfg.newent && (ent->flag & E_NEW) ? COLOR_PAIR(C_NEWFILE) | A_REVERSE : 0));
+	int attr3 = COLOR_PAIR(ent->type) // for filename
+				| (ent->flag & E_DIR_DIRLNK ? A_BOLD : 0)
+				| ((ent->flag & E_SEL) || (sel && !ptab->cfg.mansel) ? A_REVERSE : 0)
+				| (sel && ptab->cfg.mansel ? A_UNDERLINE : 0);
 
-	if (sel)
-		addch('>' | A_BOLD);
-	else
-		addch(' ');
-
-	attron(attr);
-	if (ptab->cfg.showtime)
-		printenttime(&ent->sec);
-
-	if (ptab->cfg.showowner)
-		printw("%7.6s:%-7.6s", getpwname(ent->uid), getgrname(ent->gid));
-
-	if (ptab->cfg.showperm)
-		printw(" %c%c%c ", '0' + ((ent->mode >> 6) & 7), '0' + ((ent->mode >> 3) & 7), '0' + (ent->mode & 7));
-
-	if (ptab->cfg.showsize)
-		printw("%7s ", (ent->flag & E_REG_FILE) ? tohumansize(ent->size) : filetypechar(ent->type));
-
-	attron(gcfg.newent && (ent->flag & E_NEW) ? (COLOR_PAIR(C_NEWFILE) | A_REVERSE) : 0);
-	if (sel)
-		addch('>' | A_BOLD);
-	else
-		addch(' ');
-	attrset(A_NORMAL);
-
-	attr = COLOR_PAIR(ent->type)
-		| (ent->flag & E_DIR_DIRLNK ? A_BOLD : 0)
-		| ((ent->flag & E_SEL) || (sel && !ptab->cfg.mansel) ? A_REVERSE : 0)
-		| ((sel && ptab->cfg.mansel) ? A_UNDERLINE : 0);
-
-	attron(attr);
-	if (ptab->hp->stat->flag != S_ROOT)
-		addwstr(fitnamecols(ent->name, ncols));
-	else
-		addwstr(fitpathcols(ent->name, ncols));
-	attrset(A_NORMAL);
+	attrset(attr1);
+	for (char *p = columns; *p; ++p) {
+		switch (*p) {
+		case 'n': addch((sel ? '>' : ' ') | attr2);
+			getyx(stdscr, y, x);
+			attrset(attr3);
+			if (ptab->hp->stat->flag != S_ROOT)
+				addwstr(fitnamecols(ent->name, ncols));
+			else
+				addwstr(fitpathcols(ent->name, ncols));
+			move(y, x + ncols);
+			attrset(attr1);
+			break;
+		case 's': printw("%7s ", (ent->flag & E_REG_FILE) ? tohumansize(ent->size) : filetypechar(ent->type));
+			break;
+		case 't': printenttime(&ent->sec);
+			break;
+		case 'p': printw(" %c%c%c ", '0' + ((ent->mode >> 6) & 7), '0' + ((ent->mode >> 3) & 7), '0' + (ent->mode & 7));
+			break;
+		case 'o': printw("%7.6s:%-7.6s", getpwname(ent->uid), getgrname(ent->gid));
+		}
+	}
 }
 
 static void redraw(const char *path)
 {
-	getmaxyx(stdscr, xlines, xcols);
-	int dcols = (ptab->cfg.showtime ? 17 : 0) + (ptab->cfg.showowner ? 15 : 0)
-		+ (ptab->cfg.showperm ? 5 : 0) + (ptab->cfg.showsize ? 8 : 0) + 2;
-	struct selstat *ss = ptab->ss;
 	static int homelen = 0;
+	int dcols = 0, sp = 0, n = 0;
 
-	if (homelen == 0 && home)
-		homelen = strlen(home);
+	for (char *p = columns; *p; ++p) {
+		switch (*p) {
+		case 'n': if (++n == 1)
+				sp = dcols + 1;
+			else
+				*p = '@';
+			break;
+		case 's': dcols += 8;
+			break;
+		case 't': dcols += 18;
+			break;
+		case 'p': dcols += 5;
+			break;
+		case 'o': dcols += 15;
+		}
+	}
+	getmaxyx(stdscr, xlines, xcols);
 	onscr = xlines - 4;
-	ncols = xcols - dcols - 1;
+	ncols = xcols - dcols - 2;
+
 	shiftcursor(0, 0);
 	erase();
 	if (gcfg.refresh) {
@@ -1986,6 +1994,7 @@ static void redraw(const char *path)
 	}
 
 	// Print tabs tag
+	attrset(A_NORMAL);
 	for (int i = 0; i <= TABS_MAX; ++i) {
 		if (gtab[i].cfg.enabled == 1)
 			addch((i < TABS_MAX ? i + '1' : '#')
@@ -1996,66 +2005,66 @@ static void redraw(const char *path)
 	}
 
 	// Print path
-	int pcols = xcols - (TABS_MAX + 1) * 2 - 1;
+	n = xcols - (TABS_MAX + 1) * 2 - 1;
+	if (homelen == 0 && home)
+		homelen = strlen(home);
+	attrset(COLOR_PAIR(C_PATHBAR) | A_BOLD);
 	addch(' ');
-	attron(COLOR_PAIR(C_PATHBAR) | A_BOLD);
 	if (home && strncmp(home, path, homelen) == 0 && (path[homelen] == '/' || path[homelen] == '\0')) {
 		path += homelen;
-		--pcols;
+		--n;
 		addch('~'); // Replace home path with '~'
 	}
-	addwstr(fitpathcols(path, pcols));
-	attrset(A_NORMAL);
+	addwstr(fitpathcols(path, n));
 
 	// Print entries
-	if (curscroll > 0 && ncols > 0)
-		mvaddstr(1, dcols, "<<");
-
-	int j = 1, btm = MIN(onscr + curscroll, ndents);
-	for (int i = curscroll; i < btm; ++i) {
+	if (curscroll > 0 && ncols > 0) {
+		attrset(COLOR_PAIR(C_DETAIL));
+		mvaddstr(1, sp, "<<");
+	}
+	n = MIN(onscr + curscroll, ndents);
+	for (int i = curscroll, j = 2; i < n; ++i, ++j) {
 		if (ptab->cfg.havesel && !(pdents[i].flag & E_SEL_SCANED)) {
-			if (findinbuf(ss->nbuf, ss->endp - ss->nbuf, pdents[i].name, pdents[i].nlen))
+			if (findinbuf(ptab->ss->nbuf, ptab->ss->endp - ptab->ss->nbuf, pdents[i].name, pdents[i].nlen))
 				pdents[i].flag |= E_SEL;
 			pdents[i].flag |= E_SEL_SCANED;
 		}
-		move(++j, 0);
+		move(j, 0);
 		printent(&pdents[i], i == cursel, i == markent);
 	}
-
-	if (btm < ndents && ncols > 0)
-		mvaddstr(xlines - 2, dcols, ">>");
+	if (n < ndents && ncols > 0) {
+		attrset(COLOR_PAIR(C_DETAIL));
+		mvaddstr(xlines - 2, sp, ">>");
+	}
 
 	// Print filter
 	if (ptab->ftlen != 0) {
-		attron(COLOR_PAIR(F_SOCK));
+		attrset(COLOR_PAIR(F_SOCK));
 		mvaddstr(xlines - 2, 0, "Filter: ");
 		addnstr(ptab->filt, xcols - 8);
-		attrset(A_NORMAL);
 		addch(' ' | (ptab->ftlen > 0 ? A_REVERSE : 0));
 	}
 
 	// Print quick find
 	if (ptab->fdlen > 0) {
-		attron(COLOR_PAIR(F_EXEC));
+		attrset(COLOR_PAIR(F_EXEC));
 		mvaddstr(xlines - 2, 0, "Quick find: ");
 		addnstr(ptab->find, xcols - 12);
-		attrset(A_NORMAL);
 		addch(' ' | A_REVERSE);
 	}
 
 	// Draw scroll indicator
-	j = MAX(1, ndents);
-	btm = (j <= onscr) ? onscr
-		: ((onscr * onscr << 1) / j + 1) >> 1; // indicator height, round a/b by (a*2/b+1)/2
-	btm = MAX(1, btm);
-	j = (curscroll == 0 || j <= onscr) ? 1
-		: 1 + (((curscroll * (onscr - btm) << 1) / (j - onscr) + 1) >> 1); // starting row to drawing
-	attron(COLOR_PAIR(C_DETAIL));
+	sp = MAX(1, ndents);
+	n = (sp <= onscr) ? onscr
+		: ((onscr * onscr << 1) / sp + 1) >> 1; // indicator height, round a/b by (a*2/b+1)/2
+	n = MAX(1, n);
+	sp = (curscroll == 0 || sp <= onscr) ? 1
+		: 1 + (((curscroll * (onscr - n) << 1) / (sp - onscr) + 1) >> 1); // starting row to drawing
+	attrset(COLOR_PAIR(C_DETAIL));
 	mvaddch(1, xcols - 1, '=');
-	while (--btm >= 0)
-		mvaddch(++j, xcols - 1, ' ' | A_REVERSE);
+	while (--n >= 0)
+		mvaddch(++sp, xcols - 1, ' ' | A_REVERSE);
 	mvaddch(xlines - 2, xcols - 1, '=');
-	attrset(A_NORMAL);
 	gcfg.redrawn = 1; // set to skip fastredraw
 }
 
@@ -2081,14 +2090,13 @@ static void statusbar(void)
 	clrtoeol();
 
 	if (errline != 0) {
-		attron(COLOR_PAIR(C_WARN));
+		attrset(COLOR_PAIR(C_WARN));
 		printw("Failed (%s): %s", xitoa(errline), strerror(errnum));
-		attrset(A_NORMAL);
 		errline = 0;
 		return;
 	}
 
-	attron(COLOR_PAIR(gcfg.runmode != 0 ? C_WARN : C_STATBAR));
+	attrset(COLOR_PAIR(gcfg.runmode != 0 ? C_WARN : C_STATBAR));
 	printw("%d/%d ", ndents > 0 ? cursel + 1 : 0, ndents);
 
 	attron(A_REVERSE);
@@ -2133,7 +2141,6 @@ static void statusbar(void)
 	getyx(stdscr, n, x);
 	if (xcols - x > 7)
 		mvaddstr(n, xcols - 7, "[?]help");
-	attrset(A_NORMAL);
 }
 
 static void filterentry(void)
@@ -2353,6 +2360,9 @@ static int initsff(char *arg0, char *argx)
 		return FALSE;
 	}
 
+	if (!strchr(defcols, 'n'))
+		memccpy(defcols + MIN(strlen(defcols), 4), "n", '\0', 2);
+	memccpy(columns, defcols, '\0', 5);
 	if (getuid() == 0)
 		gcfg.runmode = 2;
 	return TRUE;
@@ -2404,25 +2414,13 @@ static void cleanup(void)
 
 int main(int argc, char *argv[])
 {
-	int opt;
-
-	while ((opt = getopt(argc, argv, "cd:Hmoh")) != -1) {
+	for (int opt; (opt = getopt(argc, argv, "cHl:moh")) != -1;) {
 		switch (opt) {
 		case 'c': gcfg.caseinsen = 0;
 			break;
-		case 'd': gcfg.showtime = gcfg.showowner = gcfg.showperm = gcfg.showsize = 0;
-			for (int i = 0; optarg[i]; ++i) {
-				if (optarg[i] == 't')
-					gcfg.showtime = 1;
-				if (optarg[i] == 'o')
-					gcfg.showowner = 1;
-				if (optarg[i] == 'p')
-					gcfg.showperm = 1;
-				if (optarg[i] == 's')
-					gcfg.showsize = 1;
-			}
-			break;
 		case 'H': gcfg.showhidden = 1;
+			break;
+		case 'l': memccpy(defcols, optarg, '\0', 5);
 			break;
 		case 'm': gcfg.dirontop = 0;
 			break;

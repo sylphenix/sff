@@ -13,13 +13,11 @@ static Settings gcfg = {
 	.caseinsen  = 1,  // Case insensitive
 	.natural    = 1,  // Natural numeric sorting
 	.reverse    = 0,  // Reverse sort
-	.showtime   = 1,  // Show time info
-	.showowner  = 0,  // Show owner:group info
-	.showperm   = 0,  // Show permissions info
-	.showsize   = 1,  // Show size info
 	.timetype   = 1,  // (0: access, 1: modify, 2: change)
 	.openfile   = 0,  // Open files on right arrow or 'l' key
 };
+
+static char defcols[8] = "tOPsn"; // Columns: 't'ime, 'o'wner, 'p'erm, 's'ize, 'n'ame, Uppercase for placeholders
 
 /* Key definitions */
 #define CTRL(c)     ((c) & 0x1f)
