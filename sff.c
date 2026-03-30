@@ -2098,32 +2098,21 @@ static void statusbar(void)
 
 	attrset(COLOR_PAIR(gcfg.runmode != 0 ? C_WARN : C_STATBAR));
 	printw("%d/%d ", ndents > 0 ? cursel + 1 : 0, ndents);
-
 	attron(A_REVERSE);
 	printw(" %d ", (ndents > 0 && !ptab->cfg.mansel) ? 1 : ptab->nsel);
 	attroff(A_REVERSE);
-	addch(' ');
 
 	int n, x;
 	if (ndents > 0) {
 		Entry *ent = &pdents[cursel];
-
-		addch(filetypechar(ent->type)[1]);
-		addstr(strperms(ent->mode));
-		addch(' ');
-
-		addstr(getpwname(ent->uid));
-		addch(':');
-		addstr(getgrname(ent->gid));
-
-		printw("  %s ", tohumansize(ent->size));
-
+		printw("  %c%s %s:%s  %s", filetypechar(ent->type)[1], strperms(ent->mode),
+			getpwname(ent->uid), getgrname(ent->gid), tohumansize(ent->size));
 		printenttime(&ent->sec);
 
 		getyx(stdscr, n, x);
 		n = xcols - x;
 		if (ent->type == F_LNK && n > 1) {
-			char *p = &gpbuf[PATH_MAX * (sizeof(wchar_t) - 1) - 1]; // fitnamecols uses gpbuf, so uses last portion here
+			char *p = &gpbuf[PATH_MAX * (sizeof(wchar_t) - 1) - 1]; // fitnamecols use gpbuf, so use last portion here
 			if ((x = readlink(ent->name, p, PATH_MAX - 1)) > 1) {
 				p[x] = '\0';
 				addstr("->");
