@@ -19,7 +19,15 @@
 
 
 ### Removed
+
 * `-v` and `-d` options (replaced by `-h` and `-l` respectively)
+
+
+### Fixed
+
+* Preview plugin: TUI layout corruption in Ghostty ([#38][38])
+
+[38]: https://codeberg.org/sylphenix/sff/issues/38
 
 
 ## 1.3 <small>(2026-03-06)</small>
