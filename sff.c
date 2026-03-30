@@ -1125,17 +1125,13 @@ static void setcolumns(int c)
 
 static int viewoptions(int n __attribute__((unused)))
 {
-	int i, c = 0;
-	int h = MIN(20, xlines), w = MIN(50, xcols);
+	int i = 0, c = 0, h = MIN(20, xlines), w = MIN(50, xcols);
 	Settings *cfg = &gtab[gcfg.ct].cfg;
 	WINDOW *dpo = newpad(h, w);
 
-	if (gcfg.ct == TABS_MAX)
-		cfg->showhidden = 1;
-
 	werase(dpo);
 	box(dpo, 0, 0);
-	mvwaddstr(dpo, i = 0, 6, " View options ");
+	mvwaddstr(dpo, 0, 6, " View options ");
 	mvwaddstr(dpo, i += 2, 2, "[.]");
 	wattron(dpo, cfg->showhidden ? A_REVERSE : 0); waddstr(dpo, "show hidden");
 	wattrset(dpo, A_NORMAL); waddstr(dpo, "  [/]");
