@@ -1,4 +1,4 @@
-.Dd January 13, 2026
+.Dd March 31, 2026
 .Dt SFF 1
 .Os
 .Sh NAME
@@ -27,25 +27,29 @@ is not specified.
 .Sh OPTIONS
 The following options are available:
 .Bl -tag -width indent
-.It Fl c
-Enable case sensitivity when sorting by filename.
-.It Fl d Ar keys
-Specify the details to show by default.
-Valid keys include:
-.Pp
-    \fBt\fR    Time
-    \fBo\fR    Owner and group
-    \fBp\fR    Permissions
-    \fBs\fR    Size
-    \fBn\fR    No details
 .It Fl H
 Show hidden files.
+.It Fl c
+Enable case sensitivity when sorting by filename.
 .It Fl h
 Display program help and exit.
+.It Fl l Ar keys
+Specify columns in order. A maximum of 5 keys are accepted.
+Uppercase letters denote columns that are hidden by default but can be toggled on in the view options dialog.
+.Pp
+Valid keys include:
+.br
+    \fBt\fR, \fBT\fR    Time
+    \fBo\fR, \fBO\fR    Owner and group
+    \fBp\fR, \fBP\fR    Permissions
+    \fBs\fR, \fBS\fR    Size
+    \fBn\fR       Name
 .It Fl m
 Mix directories and files when sorting.
-.It Fl v
-Print version information and exit.
+.It Fl o
+Open files on right arrow or 'l' key.
+.It Fl p
+Show permissions as symbolic strings.
 .El
 .Sh KEY BINDINGS
 Press '?' or 'F1' in

@@ -6,13 +6,30 @@
 ### Added
 
 * `-o` option to open files on right arrow or 'l' key ([#35][35])
+* `-l` option to specify columns in order
+* `-p` option to show permissions as symbolic strings ([#34][34])
 
 [35]: https://codeberg.org/sylphenix/sff/issues/35
+[34]: https://codeberg.org/sylphenix/sff/issues/34
 
 
 ### Changed
 
-*  Moved version info from `-v` to `-h` and removed `-v` option
+* Moved version info from `-v` to `-h`
+* Display current entry details in foreground color and removed cursor at line start
+* In manual selection mode, current entry details are no longer reversed
+
+
+### Removed
+
+* `-v` and `-d` options (replaced by `-h` and `-l` respectively)
+
+
+### Fixed
+
+* Preview plugin: TUI layout corruption in Ghostty ([#38][38])
+
+[38]: https://codeberg.org/sylphenix/sff/issues/38
 
 
 ## 1.3 <small>(2026-03-06)</small>

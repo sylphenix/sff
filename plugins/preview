@@ -111,12 +111,14 @@ case "$2" in
 			SFF_PV_TERM=$_x
 		fi
 
+		command -v "$SFF_PV_TERM" >/dev/null 2>&1 || echo "$SFF_PV_TERM: not found"
+
 		case "$SFF_PV_TERM" in
-		'kitty'|'gnome-terminal') "$SFF_PV_TERM" -- "$0" "$sffpipe" 'loop' &
+		'kitty'|'gnome-terminal') "$SFF_PV_TERM" -- "$0" "$sffpipe" 'loop' >/dev/null 2>&1 &
 			;;
-		'xfce4-terminal'|'terminator') "$SFF_PV_TERM" -e "\"$0\" \"$sffpipe\" loop" &
+		'xfce4-terminal'|'terminator') "$SFF_PV_TERM" -e "\"$0\" \"$sffpipe\" loop" >/dev/null 2>&1 &
 			;;
-		*) "$SFF_PV_TERM" -e "$0" "$sffpipe" 'loop' &
+		*) "$SFF_PV_TERM" -e "$0" "$sffpipe" 'loop' >/dev/null 2>&1 &
 			;;
 		esac
 	fi
