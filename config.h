@@ -7,6 +7,7 @@
 #define SUDOER    "doas"      // Utility for sudo mode
 
 static Settings gcfg = {
+	.cols = "tOPsn",  // Columns: 't'ime, 'o'wner, 'p'erm, 's'ize, 'n'ame, Uppercase for placeholders
 	.showhidden = 1,  // Show hidden files
 	.dirontop   = 1,  // Sort directories on the top
 	.sortby     = 0,  // (0: name, 1: size, 2: time, 3: extension)
@@ -17,8 +18,6 @@ static Settings gcfg = {
 	.openfile   = 0,  // Open files on right arrow or 'l' key
 	.symbperm   = 0,  // Show permissions as symbolic strings
 };
-
-static char defcols[8] = "tOPsn"; // Columns: 't'ime, 'o'wner, 'p'erm, 's'ize, 'n'ame, Uppercase for placeholders
 
 /* Key definitions */
 #define CTRL(c)     ((c) & 0x1f)
