@@ -130,6 +130,7 @@ struct selstat {
 };
 
 typedef struct {
+	char cols[8];  // Columns: 't'ime, 'o'wner, 'p'erm, 's'ize, 'n'ame, Uppercase for placeholders
 	unsigned int enabled    : 1;
 	unsigned int showhidden : 1;  // Show hidden files
 	unsigned int dirontop   : 1;  // Sort directories on the top
@@ -182,7 +183,6 @@ static char *cfgpath = NULL, *extfunc = NULL, *pipepath = NULL, *pvfifo = NULL;
 static char *pnamebuf = NULL, *pfindbuf = NULL, *pfindend = NULL, *findname = NULL;
 static Entry *pdents = NULL;
 static Tabs *ptab = NULL;
-static char columns[8] = {0};
 
 alignas(max_align_t) static char gpbuf[PATH_MAX * sizeof(wchar_t)] = {0};
 alignas(max_align_t) static Tabs gtab[TABS_MAX + 1] = {{0}};
@@ -1117,9 +1117,9 @@ static int getinput(WINDOW *w)
 	return (c == ERR) ? 0 : c;
 }
 
-static void setcolumns(int c)
+static void setcolumns(char *cols, int c)
 {
-	for (char *p = columns; *p; ++p)
+	for (char *p = cols; *p; ++p)
 		if (*p == c || *p == c - 32)
 			*p = *p > 96 ? *p - 32 : *p + 32;
 }
@@ -1132,7 +1132,7 @@ static int viewoptions(int n __attribute__((unused)))
 
 	werase(dpo);
 	box(dpo, 0, 0);
-	mvwaddstr(dpo, 0, 6, " View options ");
+	mvwaddstr(dpo, 0, 6, " View Options ");
 	mvwaddstr(dpo, i += 2, 2, "[.]");
 	wattron(dpo, cfg->showhidden ? A_REVERSE : 0); waddstr(dpo, "show hidden");
 	wattrset(dpo, A_NORMAL); waddstr(dpo, "  [/]");
@@ -1156,13 +1156,13 @@ static int viewoptions(int n __attribute__((unused)))
 
 	wattrset(dpo, A_NORMAL); mvwaddstr(dpo, i += 2, 2, "Detail info:");
 	mvwaddstr(dpo, ++i, 2, "  [i]");
-	wattron(dpo, strchr(columns, 't') ? A_REVERSE : 0); waddstr(dpo, "time");
+	wattron(dpo, strchr(cfg->cols, 't') ? A_REVERSE : 0); waddstr(dpo, "time");
 	wattrset(dpo, A_NORMAL); waddstr(dpo, "  [u]");
-	wattron(dpo, strchr(columns, 'o') ? A_REVERSE : 0); waddstr(dpo, "owner");
+	wattron(dpo, strchr(cfg->cols, 'o') ? A_REVERSE : 0); waddstr(dpo, "owner");
 	wattrset(dpo, A_NORMAL); waddstr(dpo, "  [p]");
-	wattron(dpo, strchr(columns, 'p') ? A_REVERSE : 0); waddstr(dpo, "permissions");
+	wattron(dpo, strchr(cfg->cols, 'p') ? A_REVERSE : 0); waddstr(dpo, "permissions");
 	wattrset(dpo, A_NORMAL); waddstr(dpo, "  [z]");
-	wattron(dpo, strchr(columns, 's') ? A_REVERSE : 0); waddstr(dpo, "size");
+	wattron(dpo, strchr(cfg->cols, 's') ? A_REVERSE : 0); waddstr(dpo, "size");
 	wattrset(dpo, A_NORMAL); mvwaddstr(dpo, i += 2, 2, "  (d)default  (x)none");
 
 	wattrset(dpo, A_NORMAL); mvwaddstr(dpo, i += 2, 2, "Time type:");
@@ -1198,17 +1198,17 @@ static int viewoptions(int n __attribute__((unused)))
 		case 'r': cfg->reverse ^= 1;
 			break;
 
-		case 'i': setcolumns('t');
+		case 'i': setcolumns(cfg->cols, 't');
 			break;
-		case 'u': setcolumns('o');
+		case 'u': setcolumns(cfg->cols, 'o');
 			break;
-		case 'p': setcolumns('p');
+		case 'p': setcolumns(cfg->cols, 'p');
 			break;
-		case 'z': setcolumns('s');
+		case 'z': setcolumns(cfg->cols, 's');
 			break;
-		case 'd': memccpy(columns, defcols, '\0', 5);
+		case 'd': memccpy(cfg->cols, gcfg.cols, '\0', 5);
 			break;
-		case 'x': for (char *p = columns; *p; ++p)
+		case 'x': for (char *p = cfg->cols; *p; ++p)
 				*p = (*p > 96 && *p != 'n') ? *p - 32 : *p;
 			break;
 
@@ -1935,7 +1935,7 @@ static void printent(const Entry *ent, int sel, int mark)
 				| (sel && ptab->cfg.mansel ? A_UNDERLINE : 0);
 
 	attrset(attr1);
-	for (char *p = columns; *p; ++p) {
+	for (char *p = ptab->cfg.cols; *p; ++p) {
 		switch (*p) {
 		case 'n': addch((sel ? '>' : ' ') | attr2);
 			getyx(stdscr, y, x);
@@ -1966,7 +1966,7 @@ static void redraw(const char *path)
 	static int homelen = 0;
 	int dcols = 0, sp = 0, n = 0;
 
-	for (char *p = columns; *p; ++p) {
+	for (char *p = ptab->cfg.cols; *p; ++p) {
 		switch (*p) {
 		case 'n': if (++n == 1)
 				sp = dcols + 1;
@@ -2342,14 +2342,13 @@ static int initsff(char *arg0, char *argx)
 		seterrnum(__LINE__, errno);
 
 	// Initialize first tab
+	if (!strchr(gcfg.cols, 'n'))
+		memccpy(gcfg.cols + MIN(strlen(gcfg.cols), 4), "n", '\0', 2);
 	if (!abspath(argx, gpbuf) || !inittab(gpbuf, 0) || chdir(ghpath[0].path) == -1) {
 		perror(xitoa(__LINE__));
 		return FALSE;
 	}
 
-	if (!strchr(defcols, 'n'))
-		memccpy(defcols + MIN(strlen(defcols), 4), "n", '\0', 2);
-	memccpy(columns, defcols, '\0', 5);
 	if (getuid() == 0)
 		gcfg.runmode = 2;
 	return TRUE;
@@ -2407,7 +2406,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'H': gcfg.showhidden = 1;
 			break;
-		case 'l': memccpy(defcols, optarg, '\0', 5);
+		case 'l': memccpy(gcfg.cols, optarg, '\0', 5);
 			break;
 		case 'm': gcfg.dirontop = 0;
 			break;
