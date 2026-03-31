@@ -148,6 +148,7 @@ typedef struct {
 	unsigned int refresh    : 1;  // Force screen refresh during redraw
 	unsigned int redrawn    : 1;  // Screen has been redrawn
 	unsigned int openfile   : 1;  // Open files on right arrow or 'l' key
+	unsigned int symbperm   : 1;  // Show permissions as symbolic strings
 } Settings;
 
 typedef struct {
@@ -1175,7 +1176,6 @@ static int viewoptions(int n __attribute__((unused)))
 
 	while (c == 0) {
 		prefresh(dpo, 0, 0, (xlines - h) / 2, (xcols - w) / 2, (xlines - h) / 2 + h, (xcols - w) / 2 + w);
-
 		c = getinput(dpo);
 		switch (c) {
 		case '.': cfg->showhidden ^= 1;
@@ -1287,6 +1287,7 @@ static void usage(void)
 		"  -l keys Columns: 't/T'ime, 'o/O'wner, 'p/P'erm, 's/S'ize, 'n'ame\n"
 		"  -m      Mix directories and files when sorting\n"
 		"  -o      Open files on right arrow or 'l' key\n"
+		"  -p      Show permissions as symbolic strings\n"
 		"  -h      Show this help and exit\n");
 }
 
@@ -1950,7 +1951,10 @@ static void printent(const Entry *ent, int sel, int mark)
 			break;
 		case 't': printenttime(&ent->sec);
 			break;
-		case 'p': printw(" %c%c%c ", '0' + ((ent->mode >> 6) & 7), '0' + ((ent->mode >> 3) & 7), '0' + (ent->mode & 7));
+		case 'p': if (gcfg.symbperm)
+				printw(" %c%s ", filetypechar(ent->type)[1], strperms(ent->mode));
+			else
+				printw(" %c%c%c ", '0' + ((ent->mode >> 6) & 7), '0' + ((ent->mode >> 3) & 7), '0' + (ent->mode & 7));
 			break;
 		case 'o': printw("%7.6s:%-7.6s", getpwname(ent->uid), getgrname(ent->gid));
 		}
@@ -1973,7 +1977,7 @@ static void redraw(const char *path)
 			break;
 		case 't': dcols += 18;
 			break;
-		case 'p': dcols += 5;
+		case 'p': dcols += gcfg.symbperm ? 12 : 5;
 			break;
 		case 'o': dcols += 15;
 		}
@@ -2224,9 +2228,7 @@ static int qfindinput(int c)
 
 static void browse(void)
 {
-	int c, ctl = GO_RELOAD;
-
-	for (;;) {
+	for (int c, ctl = GO_RELOAD;;) {
 		switch (ctl) {
 		case GO_RELOAD:
 			ptab = &gtab[gcfg.ct];
@@ -2399,7 +2401,7 @@ static void cleanup(void)
 
 int main(int argc, char *argv[])
 {
-	for (int opt; (opt = getopt(argc, argv, "cHl:moh")) != -1;) {
+	for (int opt; (opt = getopt(argc, argv, "cHl:moph")) != -1;) {
 		switch (opt) {
 		case 'c': gcfg.caseinsen = 0;
 			break;
@@ -2410,6 +2412,8 @@ int main(int argc, char *argv[])
 		case 'm': gcfg.dirontop = 0;
 			break;
 		case 'o': gcfg.openfile = 1;
+			break;
+		case 'p': gcfg.symbperm = 1;
 			break;
 		case 'h': usage();
 			return EXIT_SUCCESS;

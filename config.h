@@ -15,6 +15,7 @@ static Settings gcfg = {
 	.reverse    = 0,  // Reverse sort
 	.timetype   = 1,  // (0: access, 1: modify, 2: change)
 	.openfile   = 0,  // Open files on right arrow or 'l' key
+	.symbperm   = 0,  // Show permissions as symbolic strings
 };
 
 static char defcols[8] = "tOPsn"; // Columns: 't'ime, 'o'wner, 'p'erm, 's'ize, 'n'ame, Uppercase for placeholders
