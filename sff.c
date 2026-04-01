@@ -687,8 +687,8 @@ static int enterdir(int n)
 
 static int gotoparent(int n __attribute__((unused)))
 {
-	char *path = gtab[gcfg.ct].hp->path;
-	Histstat *hs = gtab[gcfg.ct].hp->stat;
+	char *path = ptab->hp->path;
+	Histstat *hs = ptab->hp->stat;
 
 	if ((path[0] == '/' && path[1] == '\0') || hs->flag == S_ROOT)
 		return GO_NONE;
@@ -762,14 +762,14 @@ static void deleteselstat(struct selstat *ss)
 	if (!ss)
 		return;
 
-	gtab[gcfg.ct].ss = NULL;
+	ptab->ss = NULL;
 	if (ss->prev) {
 		ss->prev->next = ss->next;
-		gtab[gcfg.ct].ss = ss->prev;
+		ptab->ss = ss->prev;
 	}
 	if (ss->next) {
 		ss->next->prev = ss->prev;
-		gtab[gcfg.ct].ss = ss->next;
+		ptab->ss = ss->next;
 	}
 
 	free(ss->nbuf);
@@ -835,7 +835,7 @@ static int appendselection(Entry *ent)
 	memccpy(ss->endp, ent->name, '\0', ent->nlen);
 	ss->endp += ent->nlen;
 	ent->flag |= E_SEL;
-	++gtab[gcfg.ct].nsel;
+	++ptab->nsel;
 	ptab->cfg.mansel = 1;
 	return TRUE;
 }
@@ -875,7 +875,7 @@ static void removeselection(Entry *ent)
 		deleteselstat(ss);
 
 	ent->flag &= ~E_SEL;
-	--gtab[gcfg.ct].nsel;
+	--ptab->nsel;
 }
 
 static int toggleselection(int n)
@@ -910,7 +910,7 @@ static int invertselection(int n __attribute__((unused)))
 	for (int i = 0; i < ndents; ++i) {
 		if (pdents[i].flag & E_SEL) {
 			pdents[i].flag &= ~E_SEL;
-			--gtab[gcfg.ct].nsel;
+			--ptab->nsel;
 		} else if (i != cursel || mansel)
 			appendselection(&pdents[i]);
 	}
@@ -1127,7 +1127,7 @@ static void setcolumns(char *cols, int c)
 static int viewoptions(int n __attribute__((unused)))
 {
 	int i = 0, c = 0, h = MIN(20, xlines), w = MIN(50, xcols);
-	Settings *cfg = &gtab[gcfg.ct].cfg;
+	Settings *cfg = &ptab->cfg;
 	WINDOW *dpo = newpad(h, w);
 
 	werase(dpo);
@@ -1291,7 +1291,7 @@ static void usage(void)
 		"  -h      Show this help and exit\n");
 }
 
-static int xstrverscmp (const char *s1, const char *s2, int ci)
+static int xstrverscmp(const char *s1, const char *s2, int ci)
 {
 	const unsigned char *p1 = (const unsigned char *)s1;
 	const unsigned char *p2 = (const unsigned char *)s2;
@@ -1337,7 +1337,7 @@ static int xstrverscmp (const char *s1, const char *s2, int ci)
 	return diff;
 }
 
-static int xstrcasecmp (const char *s1, const char *s2)
+static int xstrcasecmp(const char *s1, const char *s2)
 {
 	const unsigned char *p1 = (const unsigned char *)s1;
 	const unsigned char *p2 = (const unsigned char *)s2;
@@ -1419,7 +1419,7 @@ static int reventrycmp(const void *va, const void *vb)
 	const Entry *pa = (Entry *)va, *pb = (Entry *)vb;
 	int fa = pa->flag & E_DIR_DIRLNK, fb = pb->flag & E_DIR_DIRLNK;
 
-	if (gtab[gcfg.ct].cfg.dirontop && fa != fb) { // Dirs on top
+	if (ptab->cfg.dirontop && fa != fb) { // Dirs on top
  		if (fb)
 			return 1;
 		return -1;
