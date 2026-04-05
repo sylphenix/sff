@@ -83,7 +83,7 @@ check_fifo()
 {
 	if [ -p "$pvfifo" ]; then
 		rm -f "$pvfifo"
-		printf "#q" >"$sffpipe"
+		[ -p "$sffpipe" ] && printf "#q" >"$sffpipe"
 		exit 0
 	fi
 }
@@ -123,7 +123,7 @@ case "$2" in
 		esac
 	fi
 	wait_for_fifo
-	printf "#p" >"$sffpipe"
+	[ -p "$sffpipe" ] && printf "#p" >"$sffpipe"
 	;;
 
 'gui') :

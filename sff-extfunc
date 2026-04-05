@@ -44,34 +44,33 @@ tbuf2="${tmpdir}/sff-tmpbuf2-$uid"
 
 unset LESS
 export LC_ALL=C
-[ ! -p "$sffpipe" ] && exit 0
 
 # === sff extension functions ===
 
 sffpipe_clear_sel()
 {
-	printf "." >"$sffpipe"
+	[ -p "$sffpipe" ] && printf "." >"$sffpipe"
 }
 
 sffpipe_refresh()
 {
 	[ "$1" = '-c' ] && _x='.' || _x=''
-	printf "*%s" "$_x" >"$sffpipe"
+	[ -p "$sffpipe" ] && printf "*%s" "$_x" >"$sffpipe"
 }
 
 sffpipe_sel_file()
 {
-	printf "@%s\0" "$1" >"$sffpipe"
+	[ -p "$sffpipe" ] && printf "@%s\0" "$1" >"$sffpipe"
 }
 
 sffpipe_enter_dir()
 {
-	printf ">%s\0" "$1" >"$sffpipe"
+	[ -p "$sffpipe" ] && printf ">%s\0" "$1" >"$sffpipe"
 }
 
 sffpipe_get_sel()
 {
-	printf "%s" "$$" >"$sffpipe"
+	[ -p "$sffpipe" ] && printf "%s" "$$" >"$sffpipe"
 	sel=$sffpipe
 }
 
