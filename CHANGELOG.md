@@ -28,6 +28,7 @@
 ### Fixed
 
 * Preview plugin: TUI layout corruption in Ghostty ([#38][38])
+* Unexpected jump to another file when renaming fails
 
 [38]: https://codeberg.org/sylphenix/sff/issues/38
 

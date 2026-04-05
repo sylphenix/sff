@@ -1539,6 +1539,8 @@ static int handlepipedata(int fd, int op)
 			return GO_STATBAR;
 		memccpy(ptab->hp->stat->name, xbasename(gpbuf), '\0', NAME_MAX);
 		findname = ptab->hp->stat->name;
+		ptab->hp->stat->cur = cursel;
+		ptab->hp->stat->scrl = curscroll;
 		gcfg.newent = 1;
 		clearselection(0);
 		return GO_RELOAD;
