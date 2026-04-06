@@ -13,7 +13,7 @@ PWD=${PWD:-$(pwd)}
 
 sffpipe_enter_dir()
 {
-	printf ">%s\0" "$1" >"$sffpipe"
+	[ -p "$sffpipe" ] && printf ">%s\0" "$1" >"$sffpipe"
 }
 
 if ! fzf --version >/dev/null; then

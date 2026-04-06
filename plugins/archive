@@ -51,17 +51,17 @@ export LC_ALL=C
 sffpipe_refresh()
 {
 	[ "$1" = '-c' ] && _x='.' || _x=''
-	printf "*%s" "$_x" >"$sffpipe"
+	[ -p "$sffpipe" ] && printf "*%s" "$_x" >"$sffpipe"
 }
 
 sffpipe_sel_file()
 {
-	printf "@%s\0" "$1" >"$sffpipe"
+	[ -p "$sffpipe" ] && printf "@%s\0" "$1" >"$sffpipe"
 }
 
 sffpipe_get_sel()
 {
-	printf "%s" "$$" >"$sffpipe"
+	[ -p "$sffpipe" ] && printf "%s" "$$" >"$sffpipe"
 	sel=$sffpipe
 }
 

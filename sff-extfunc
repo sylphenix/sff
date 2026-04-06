@@ -44,34 +44,33 @@ tbuf2="${tmpdir}/sff-tmpbuf2-$uid"
 
 unset LESS
 export LC_ALL=C
-[ ! -p "$sffpipe" ] && exit 0
 
 # === sff extension functions ===
 
 sffpipe_clear_sel()
 {
-	printf "." >"$sffpipe"
+	[ -p "$sffpipe" ] && printf "." >"$sffpipe"
 }
 
 sffpipe_refresh()
 {
 	[ "$1" = '-c' ] && _x='.' || _x=''
-	printf "*%s" "$_x" >"$sffpipe"
+	[ -p "$sffpipe" ] && printf "*%s" "$_x" >"$sffpipe"
 }
 
 sffpipe_sel_file()
 {
-	printf "@%s\0" "$1" >"$sffpipe"
+	[ -p "$sffpipe" ] && printf "@%s\0" "$1" >"$sffpipe"
 }
 
 sffpipe_enter_dir()
 {
-	printf ">%s\0" "$1" >"$sffpipe"
+	[ -p "$sffpipe" ] && printf ">%s\0" "$1" >"$sffpipe"
 }
 
 sffpipe_get_sel()
 {
-	printf "%s" "$$" >"$sffpipe"
+	[ -p "$sffpipe" ] && printf "%s" "$$" >"$sffpipe"
 	sel=$sffpipe
 }
 
@@ -107,7 +106,7 @@ sff_new()
 	: >"$_tlist"
 
 	while true; do
-		LC_ALL='' "$EDITOR" "$_tlist"
+		LC_ALL= $EDITOR "$_tlist"
 		[ -e "$_tlist" ] && sed -e 's|^/*||' -e 's|[ \t]*$||' -e '/^$/d' "$_tlist" >"$tbuf1"
 		[ ! -s "$tbuf1" ] && sff_abort "$_tlist"
 
@@ -263,7 +262,7 @@ sff_rename()
 	fi
 
 	while true; do
-		LC_ALL='' "$EDITOR" "$_tlist"
+		LC_ALL= $EDITOR "$_tlist"
 		sed -e 's|^.*/||' -e 's|^[ \t]*$||' "$_tlist" | paste -d '/' "$tsel" "$tbuf1" - \
 		| sed -e '/^\(.*\)\1$/d' -e '/^/d' -e '/\/$/d' >"$tbuf2"
 		[ ! -s "$tbuf2" ] && sff_abort "$_tlist"
@@ -387,7 +386,7 @@ sff_edit_file()
 
 	rm -f "$tsel"
 	sffpipe_refresh
-	LC_ALL='' exec "$EDITOR" "$@"
+	LC_ALL= exec $EDITOR "$@"
 }
 
 sff_chmod_chown()
