@@ -1,4 +1,6 @@
+.github/
 backup/
 bin-pack/
+sff-patches/
 sff
 sff.o
