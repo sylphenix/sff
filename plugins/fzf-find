@@ -9,7 +9,6 @@
 # Author: Shi Yanling
 
 sffpipe=$1
-PWD=${PWD:-$(pwd)}
 
 sffpipe_enter_dir()
 {
@@ -21,4 +20,4 @@ if ! fzf --version >/dev/null; then
 	exit 0
 fi
 _path=$(fzf)
-[ "$_path" ] && sffpipe_enter_dir "${PWD}/$_path"
+[ "$_path" ] && sffpipe_enter_dir "$(pwd)/$_path"

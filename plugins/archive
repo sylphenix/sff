@@ -38,15 +38,18 @@
 #
 # Author: Shi Yanling
 
+export LC_ALL=C
+cwd=$(pwd)
+uid=$(id -u)
+
 sffpipe=$1
 sffdir=${sffpipe%/*}
 tmpdir=${TMPDIR:-/tmp}
 [ ! -w "$tmpdir" ] && tmpdir=$sffdir
-uid=$(id -u)
+
 tsel="${tmpdir}/sff-tmpsel-$uid"
 tbuf1="${tmpdir}/sff-tmpbuf2-$uid"
 type 7zz >/dev/null 2>&1 && _7z='7zz' || _7z='7z'
-export LC_ALL=C
 
 sffpipe_refresh()
 {
@@ -153,7 +156,7 @@ create_archive()
 		fi
 	done
 
-	_pwd=$(printf '%s' "$PWD" | tr '\n' '\035' | sed -e 's/[^^]/[&]/g' -e 's/\^/\\^/g')
+	_pwd=$(printf '%s' "$cwd" | tr '\n' '\035' | sed -e 's/[^^]/[&]/g' -e 's/\^/\\^/g')
 	if [ "$(sed "/^$_pwd\//d" "$tsel")" ]; then
 		tr '\n\035' '\0\n' <"$tsel" >"$tbuf1"
 	else

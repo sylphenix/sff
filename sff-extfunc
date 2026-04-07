@@ -27,12 +27,15 @@
 # SUCH DAMAGE.
 
 EDITOR=${EDITOR:-vi}
-PWD=${PWD:-$(pwd)}
+export LC_ALL=C
+unset LESS
+cwd=$(pwd)
+uid=$(id -u)
+
 sffpipe=$1
 sffdir=${sffpipe%/*}
 tmpdir=${TMPDIR:-/tmp}
 [ ! -w "$tmpdir" ] && tmpdir=$sffdir
-uid=$(id -u)
 
 exbuf1="${sffdir}/.exec-buf1"
 exbuf2="${sffdir}/.exec-buf2"
@@ -42,8 +45,6 @@ tsel="${tmpdir}/sff-tmpsel-$uid"
 tbuf1="${tmpdir}/sff-tmpbuf1-$uid"
 tbuf2="${tmpdir}/sff-tmpbuf2-$uid"
 
-unset LESS
-export LC_ALL=C
 
 # === sff extension functions ===
 
@@ -91,8 +92,8 @@ sff_abort()
 
 sff_pwd_perm()
 {
-	if [ ! -w "$PWD" ]; then
-		printf "\n%s: Permission denied\n" "$PWD"
+	if [ ! -w "$cwd" ]; then
+		printf "\n%s: Permission denied\n" "$cwd"
 		printf "Press Enter to continue "; read -r _x
 		exit 0
 	fi
@@ -120,7 +121,7 @@ sff_new()
 		case "$_x" in [cC]) sff_abort "$_tlist";; esac
 	done
 
-	_pwd=$(printf '%s' "$PWD" | tr '\n' '\035' | sed 's/[\|&]/\\&/g')
+	_pwd=$(printf '%s' "$cwd" | tr '\n' '\035' | sed 's/[\|&]/\\&/g')
 	sed "s|^|$_pwd/|" "$tbuf2" | tr '\n\035' '\0\n' >"$exbuf2"
 	sed -e '/\//!d' -e 's|/[^/]*$||' -e "s|^|$_pwd/|" "$tbuf1" | sort -u | tr '\n' '\0' >"$exbuf1"
 	printf "\n" >>"$exbuf1"
@@ -208,7 +209,7 @@ sff_paste()
 		case "$_x" in [sSiIoO]) :;; *) sff_abort;; esac
 	fi
 
-	_pwd=$(printf "%s" "$PWD" | tr '\n' '\035' | sed 's/[\|&]/\\&/g')
+	_pwd=$(printf "%s" "$cwd" | tr '\n' '\035' | sed 's/[\|&]/\\&/g')
 	sed "s|$|$_pwd/|" "$cpbuf" | tr '\037\n\035' '\0\0\n' >"$exbuf1"
 
 	case "$_op" in
@@ -411,7 +412,7 @@ sff_find()
 	printf "[empty to cancel]: "; read -r _x
 	[ -z "$_x" ] && exit 0
 	printf "More options (optional): "; read -r _x2
-	echo "Searching... (in $PWD)"
+	echo "Searching... (in $cwd)"
 	{ printf "?"; find ./ $_x2 -name "$_x" -print0 2>/dev/null | tr '\n\0' '\035\n' \
 		| sed -e 's|^\./*||' -e '/^[./]$/d' -e '/^\.\.$/d' -e '/^$/d' | tr '\n\035' '\0\n'; } >"$sffpipe"
 }
@@ -439,7 +440,7 @@ sff_disk_usage()
 	echo ""
 	xargs -0 du -shc <"$sel" | sort -h
 	echo ""
-	df -h "$PWD"
+	df -h "$cwd"
 	printf "Press Enter to continue "; read -r _x
 }
 
