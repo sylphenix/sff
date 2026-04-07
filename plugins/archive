@@ -145,8 +145,7 @@ create_archive()
 	[ ! -s "$tsel" ] && return 0
 
 	while true; do
-		printf "\nArchive name (include extension, e.g., .tar.gz)\n"
-		printf "[empty to cancel]: "; read -r _name
+		printf "\nArchive name (include extension): "; read -r _name
 		[ -z "$_name" ] && return 0
 		if [ -e "$_name" ]; then
 			printf "\n'%s' exists. Overwrite? (y/n) [n]: " "$_name"; read -r _x
