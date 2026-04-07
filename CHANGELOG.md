@@ -18,6 +18,7 @@
 * Moved version info from `-v` to `-h`
 * Display current entry details in foreground color and removed cursor at line start
 * In manual selection mode, current entry details are no longer reversed
+* Preview plugin: Enabled colors in directory preview
 
 
 ### Removed
