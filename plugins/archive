@@ -49,7 +49,7 @@ tmpdir=${TMPDIR:-/tmp}
 
 tsel="${tmpdir}/sff-tmpsel-$uid"
 tbuf1="${tmpdir}/sff-tmpbuf2-$uid"
-type 7zz >/dev/null 2>&1 && _7z='7zz' || _7z='7z'
+command -v 7zz >/dev/null 2>&1 && _7z='7zz' || _7z='7z'
 
 sffpipe_refresh()
 {
@@ -77,7 +77,7 @@ extract_archive()
 	printf "\n(l)ist contents / (e)xtract / (c)ancel [c]: "; read -r _x
 
 	_selfile=''
-	while IFS='' read -r _path <&3; do
+	while IFS= read -r _path <&3; do
 		_path=$(printf "%s" "$_path" | tr '\035' '\n')
 		_wdir=${_path%/*}
 		_name=${_path##*/}
@@ -99,11 +99,11 @@ extract_archive()
 
 			echo "Extracting..."
 			case "$(printf "%s" "$_name" | tr 'A-Z' 'a-z')" in
-			*?.tar.?*|*?.t?*) cd "$_tdir" && tar -xvf "$_path";;
-			*?.gz) gunzip -k "$_path";;
-			*?.bz2) bunzip2 -k "$_path";;
-			*?.xz) unxz -k "$_path";;
-			*?.?*) cd "$_tdir" && "$_7z" x -aoa "$_path";;
+			*?.tar.?*|*?.t?*) cd "$_tdir" && LC_ALL= tar -xvf "$_path";;
+			*?.gz) LC_ALL= gunzip -k "$_path";;
+			*?.bz2) LC_ALL= bunzip2 -k "$_path";;
+			*?.xz) LC_ALL= unxz -k "$_path";;
+			*?.?*) cd "$_tdir" && LC_ALL= $_7z x -aoa "$_path";;
 			esac && _selfile="$_bname" || { printf "Press Enter to continue "; read -r _x2; }
 
 			_num=$(find "$_tdir"/ -mindepth 1 -maxdepth 1 ! -name . ! -name .. -print0 | tr '\n\0' '\035\n' | wc -l)
@@ -115,14 +115,13 @@ extract_archive()
 			[ -e "$_tdir" ] && rm -rf "$_tdir"
 			;;
 
-		[lL]) unset LC_ALL
-			echo ""
+		[lL]) echo ""
 			case "$(printf "%s" "$_name" | tr 'A-Z' 'a-z')" in
-			*?.tar.?*|*?.t?*) tar -tvf "$_path";;
-			*?.gz) zcat "$_path";;
-			*?.bz2) bzcat "$_path";;
-			*?.xz) xzcat "$_path";;
-			*?.?*) "$_7z" l "$_path";;
+			*?.tar.?*|*?.t?*) LC_ALL= tar -tvf "$_path";;
+			*?.gz) LC_ALL= zcat "$_path";;
+			*?.bz2) LC_ALL= bzcat "$_path";;
+			*?.xz) LC_ALL= xzcat "$_path";;
+			*?.?*) LC_ALL= $_7z l "$_path";;
 			esac
 			printf "Press Enter to continue "; read -r _x2
 			;;
@@ -162,7 +161,9 @@ create_archive()
 		sed "s|^$_pwd/||" "$tsel" | tr '\n\035' '\0\n' >"$tbuf1"
 	fi
 	[ -e "$_name" ] && rm -f "$_name"
+	sffpipe_sel_file "$_name"
 
+	unset LC_ALL
 	case "$(printf "%s" "$_name" | tr 'A-Z' 'a-z')" in
 	*?.tar.?*|*?.t?*) xargs -0 tar -cavf "$_name" -- <"$tbuf1";;
 	*.gz) xargs -0 gzip -fk -- <"$tbuf1";;
@@ -170,14 +171,7 @@ create_archive()
 	*.xz) xargs -0 xz -fk -- <"$tbuf1";;
 	*?.zip|*?.7z) xargs -0 "$_7z" a "$_name" -- <"$tbuf1";;
 	*) printf "\nUnsupported archive format\n"; false;;
-	esac
-
-	if [ "$?" -eq 0 ]; then
-		 sffpipe_sel_file "$_name"
-	else
-		sffpipe_refresh
-		printf "Press Enter to continue "; read -r _x
-	fi
+	esac || { printf "Press Enter to continue "; read -r _x; }
 }
 
 case "$2" in
