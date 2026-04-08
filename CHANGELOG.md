@@ -31,6 +31,7 @@
 * Preview plugin: TUI layout corruption in Ghostty ([#38][38])
 * Unexpected jump to another file when renaming fails
 * Editor invocation to support commands with arguments ([#40][40])
+* Non-ASCII character display issues in extension functions and plugins
 
 [38]: https://codeberg.org/sylphenix/sff/issues/38
 [40]: https://codeberg.org/sylphenix/sff/issues/40
