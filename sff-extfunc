@@ -324,7 +324,7 @@ sff_duplicate()
 	[ -z "$_x" ] && exit 0
 
 	: >"$exbuf1"; : >"$exbuf2"
-	while IFS='' read -r _path; do
+	while IFS= read -r _path; do
 		_num=1
 		_path=$(printf "%s" "$_path" | tr '\035' '\n')
 
@@ -380,7 +380,7 @@ sff_edit_file()
 	tr '\n\0' '\035\n' <"$sel" >"$tsel"
 	[ ! -s "$tsel" ] && sff_abort
 
-	while IFS='' read -r _path; do
+	while IFS= read -r _path; do
 		_path=$(printf "%s" "$_path" | tr '\035' '\n')
 		set -- "$@" "$_path"
 	done <"$tsel"
@@ -421,7 +421,7 @@ sff_file_stat()
 	tr '\n\0' '\035\n' <"$sel" >"$tsel"
 	[ ! -s "$tsel" ] && sff_abort
 
-	while IFS='' read -r _path; do
+	while IFS= read -r _path; do
 		echo ""
 		_path=$(printf "%s" "$_path" | tr '\035' '\n')
 		stat -x "$_path" 2>/dev/null || stat "$_path"
@@ -436,7 +436,7 @@ sff_disk_usage()
 {
 	sffpipe_get_sel
 	echo ""
-	xargs -0 du -shc <"$sel" | sort -h
+	LC_ALL= xargs -0 du -shc <"$sel" | sort -h
 	echo ""
 	df -h "$cwd"
 	printf "Press Enter to continue "; read -r _x
@@ -478,7 +478,8 @@ run_pl()
 		printf "\nPlugin '%s' not found\n" "$1"
 		printf "Press Enter to continue "; read -r _x
 	else
-		LC_ALL='' exec "$_plugin" "$sffpipe" "$2"
+		unset LC_ALL
+		exec "$_plugin" "$sffpipe" "$2"
 	fi
 }
 
