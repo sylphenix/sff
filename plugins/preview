@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/bin/sh
 
 # Description: File preview
 #
@@ -40,7 +40,7 @@ preview_loop_tui()
 {
 	mkfifo "$pvfifo" || exit 0
 	while IFS= read -r _path; do
-		while _x=$(timeout 0.005 sh -c 'IFS= read -r _x && printf "%s" "$_x"'); do
+		while _x=$(timeout 0.01 sh -c 'IFS= read -r _x; printf "%s" "$_x"'); do
 			_path=$_x
 		done
 		clear
