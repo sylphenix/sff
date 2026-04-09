@@ -100,9 +100,9 @@ extract_archive()
 			echo "Extracting..."
 			case "$(printf "%s" "$_name" | tr 'A-Z' 'a-z')" in
 			*?.tar.?*|*?.t?*) cd "$_tdir" && LC_ALL= tar -xvf "$_path";;
-			*?.gz) LC_ALL= gunzip -k "$_path";;
-			*?.bz2) LC_ALL= bunzip2 -k "$_path";;
-			*?.xz) LC_ALL= unxz -k "$_path";;
+			*?.gz) gunzip -k "$_path";;
+			*?.bz2) bunzip2 -k "$_path";;
+			*?.xz) unxz -k "$_path";;
 			*?.?*) cd "$_tdir" && LC_ALL= $_7z x -aoa "$_path";;
 			esac && _selfile="$_bname" || { printf "Press Enter to continue "; read -r _x2; }
 
@@ -163,13 +163,12 @@ create_archive()
 	[ -e "$_name" ] && rm -f "$_name"
 	sffpipe_sel_file "$_name"
 
-	unset LC_ALL
 	case "$(printf "%s" "$_name" | tr 'A-Z' 'a-z')" in
-	*?.tar.?*|*?.t?*) xargs -0 tar -cavf "$_name" -- <"$tbuf1";;
+	*?.tar.?*|*?.t?*) LC_ALL= xargs -0 tar -cavf "$_name" -- <"$tbuf1";;
 	*.gz) xargs -0 gzip -fk -- <"$tbuf1";;
 	*.bz2) xargs -0 bzip2 -fk -- <"$tbuf1";;
 	*.xz) xargs -0 xz -fk -- <"$tbuf1";;
-	*?.zip|*?.7z) xargs -0 "$_7z" a "$_name" -- <"$tbuf1";;
+	*?.zip|*?.7z) LC_ALL= xargs -0 "$_7z" a "$_name" -- <"$tbuf1";;
 	*) printf "\nUnsupported archive format\n"; false;;
 	esac || { printf "Press Enter to continue "; read -r _x; }
 }
