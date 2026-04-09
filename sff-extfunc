@@ -465,7 +465,7 @@ sff_redo()
 
 sff_help()
 {
-	sed -n '/[ ][#][?][>][ ]/p' "$0" | sed 's/^.*[#][?][>]//' | less
+	sed -n '/[#][?][>]/p' "$0" | sed 's/^.*[#][?][>]//' | less
 }
 
 run_pl()
@@ -488,27 +488,29 @@ run_pl()
 
 # === key bindings ===
 case "$2" in                  #?> Extension functions:
-'n') sff_new;;                #?>     Alt-n  Create new file (append '/' for dir)
-'d') sff_delete;;             #?>     Alt-d  Delete
-'y') sff_write_cbuf 'cp';;    #?>     Alt-y  Copy
-'x') sff_write_cbuf 'mv';;    #?>     Alt-x  Cut
-'v') sff_view_cbuf;;          #?>     Alt-v  View copy/cut buffer
-'V') sff_clear_cbuf;;         #?>     Alt-V  Clear copy/cut buffer
-'p') sff_paste 'd';;          #?>     Alt-p  Paste
-'P') sff_paste;;              #?>     Alt-P  Paste and keep copy buffer
-'r') sff_rename;;             #?>     Alt-r  Rename
-'Y') sff_duplicate;;          #?>     Alt-Y  Duplicate
-'e') sff_edit_file;;          #?>     Alt-e  Edit file
-'m') sff_chmod_chown;;        #?>     Alt-m  Change permissions or owner
-'f') sff_find;;               #?>     Alt-f  Advanced search via 'find'
-'i') sff_file_stat;;          #?>     Alt-i  Show file status
-'I') sff_disk_usage;;         #?>     Alt-I  Show disk usage
-'u') sff_undo;;               #?>     Alt-u  Undo last operation
-'U') sff_redo;;               #?>     Alt-U  Redu last operation
-'/') sff_help;;               #?>     Alt-/  Show this help
+'n') sff_new;;                #?>     n  Create new file (append '/' for dir)
+'d') sff_delete;;             #?>     d  Delete
+'y') sff_write_cbuf 'cp';;    #?>     y  Copy
+'x') sff_write_cbuf 'mv';;    #?>     x  Cut
+'v') sff_view_cbuf;;          #?>     v  View copy/cut buffer
+'V') sff_clear_cbuf;;         #?>     V  Clear copy/cut buffer
+'p') sff_paste 'd';;          #?>     p  Paste
+'P') sff_paste;;              #?>     P  Paste and keep buffer
+'r') sff_rename;;             #?>     r  Rename
+'Y') sff_duplicate;;          #?>     Y  Duplicate
+'e') sff_edit_file;;          #?>     e  Edit file
+'m') sff_chmod_chown;;        #?>     m  Change permissions or owner
+'f') sff_find;;               #?>     f  Advanced search via 'find'
+'i') sff_file_stat;;          #?>     i  File status
+'I') sff_disk_usage;;         #?>     I  Disk usage
+'u') sff_undo;;               #?>     u  Undo last operation
+'U') sff_redo;;               #?>     U  Redo last operation
+'/') sff_help;;               #?>     /  Show this help
                               #?> Plugins:
-'F') run_pl 'fzf-find';;      #?>     Alt-F  Search via 'fzf'
-'=') run_pl 'preview' 'tui';; #?>     Alt-=  Toggle preview
-'z') run_pl 'archive' 'e';;   #?>     Alt-z  Extract archive
-'Z') run_pl 'archive' 'c';;   #?>     Alt-Z  Create archive
-esac                          #?> Press 'q' to leave this page.
+'F') run_pl 'fzf-find';;      #?>     F  Search via 'fzf'
+'=') run_pl 'preview' 'tui';; #?>     =  Toggle preview
+'z') run_pl 'archive' 'e';;   #?>     z  Extract archive
+'Z') run_pl 'archive' 'c';;   #?>     Z  Create archive
+esac                          #?>
+                              #?>Use Alt+<Key> or 'u'-<Key> to invoke
+                              #?>Press 'q' to leave this page

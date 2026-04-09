@@ -481,6 +481,7 @@ static int switchtab(int n);
 static int closetab(int n);
 static int togglemode(int n);
 static int viewoptions(int n);
+static int prefixkey(int n);
 static int showhelp(int n);
 static int quitsff(int n);
 static int callextfunc(int c);
@@ -1232,6 +1233,18 @@ static int viewoptions(int n __attribute__((unused)))
 	return refreshview(strchr(".amh", c) ? 0 : 2);
 }
 
+static int prefixkey(int n __attribute__((unused)))
+{
+	attrset(A_NORMAL);
+	mvaddstr(xlines - 2, 0, "Key for extension function:    ");
+	timeout(2000);
+	int ctl = GO_REDRAW, c = getinput(stdscr);
+	timeout(-1);
+	if (c > 31)
+		ctl = callextfunc(c);
+	return (ctl < GO_REDRAW) ? GO_REDRAW : ctl;
+}
+
 static int showhelp(int n __attribute__((unused)))
 {
 	int klines = (int)LENGTH(keys), plines = klines + 8;
@@ -1246,9 +1259,9 @@ static int showhelp(int n __attribute__((unused)))
 	for (int i = 0; i < klines; ++i)
 		wprintw(help, "  %s\n", keys[i].cmnt);
 
-	waddstr(help, "\nNote: All file operations are implemented by extension functions.\n"
-			"To get help for extension functions, press Alt-/ in the main view.\n"
-			"Press 'q' or Esc to leave this page.");
+	waddstr(help, "\nNote: File operations are implemented by extension functions\n"
+			"For help with that, press Alt+'/' or 'u'-'/' in main view\n"
+			"Press 'q' or Esc to leave this page");
 
 	for (int c = 0, start = 0; c != ESC && c != 'q'; ) {
 		getmaxyx(stdscr, xlines, xcols);
@@ -2363,7 +2376,7 @@ static void setupcurses(void)
 	nonl();
 	curs_set(FALSE);
 	keypad(stdscr, TRUE);
-	set_escdelay(80);
+	set_escdelay(50);
 
 	define_key("\033[1;5A", CTRL_UP);
 	define_key("\033[1;5B", CTRL_DOWN);
