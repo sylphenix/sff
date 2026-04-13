@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/bin/sh
 
 # Description: File preview
 #
@@ -34,12 +34,13 @@ pvfifo="${sffpipe}.pv"
 tmpdir=${TMPDIR:-/tmp}
 [ ! -w "$tmpdir" ] && tmpdir=$sffdir
 tmppvfile="${tmpdir}/sff-tmppv-$(id -u)"
+ls --color=always >/dev/null 2>&1 && _ls='ls -1Ap --color=always' || _ls='ls -1Ap'
 
 preview_loop_tui()
 {
 	mkfifo "$pvfifo" || exit 0
-	while IFS='' read -r _path; do
-		while _x=$(timeout 0.005 sh -c 'IFS="" read -r _x && printf "%s" "$_x"'); do
+	while IFS= read -r _path; do
+		while _x=$(timeout 0.01 sh -c 'IFS= read -r _x; printf "%s" "$_x"'); do
 			_path=$_x
 		done
 		clear
@@ -59,12 +60,12 @@ preview_loop_tui()
 			;;
 		*) _rows=$(tput lines); _cols=$(tput cols)
 			case "$_mime" in
-			text/*) printf "    --- %s ---\n" "$_mime"
-				head -n "$((_rows - 2))" "$_path" | expand -t 4 | cut -c 1-"$_cols"
+			text/*) { printf "    --- %s ---\n" "$_mime"; head -n "$_rows" "$_path"; } \
+					| less -XS -x4 +gq
 				continue ;;
-			inode/directory) { printf "    --- %s ---  (%s files)\n" "$_mime" \
+			inode/directory) { printf "    --- %s --- (%s files)\n" "$_mime" \
 					$(find "$_path"/ -mindepth 1 -maxdepth 1 ! -name . ! -name .. 2>/dev/null | wc -l); \
-					ls -1Ap "$_path"; } | head -n "$((_rows - 1))" | cut -c 1-"$_cols"
+					$_ls "$_path"; } | less -XSR~ +gq
 				continue ;;
 			esac
 			;;
@@ -106,7 +107,7 @@ case "$2" in
 	else
 		if [ -z "$SFF_PV_TERM" ]; then
 			printf "\nSFF_PV_TERM: not set\n"
-			printf "Terminal emulator for preview [empty to cancel]: "; read -r _x
+			printf "Terminal emulator for preview: "; read -r _x
 			[ -z "$_x" ] && exit 0
 			SFF_PV_TERM=$_x
 		fi

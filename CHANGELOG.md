@@ -5,9 +5,10 @@
 
 ### Added
 
-* `-o` option to open files on right arrow or 'l' key ([#35][35])
+* `-o` option to open files on right arrow or `l` key ([#35][35])
 * `-l` option to specify columns in order
 * `-p` option to show permissions as symbolic strings ([#34][34])
+* Prefix key for extension functions
 
 [35]: https://codeberg.org/sylphenix/sff/issues/35
 [34]: https://codeberg.org/sylphenix/sff/issues/34
@@ -18,6 +19,8 @@
 * Moved version info from `-v` to `-h`
 * Display current entry details in foreground color and removed cursor at line start
 * In manual selection mode, current entry details are no longer reversed
+* Preview plugin: Enabled colors in directory preview
+* Removed forced new-file marking and extended new-file time threshold to 300s
 
 
 ### Removed
@@ -30,6 +33,7 @@
 * Preview plugin: TUI layout corruption in Ghostty ([#38][38])
 * Unexpected jump to another file when renaming fails
 * Editor invocation to support commands with arguments ([#40][40])
+* Non-ASCII character display issues in extension functions and plugins
 
 [38]: https://codeberg.org/sylphenix/sff/issues/38
 [40]: https://codeberg.org/sylphenix/sff/issues/40

@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/bin/sh
 
 # Description: Extract and create archives
 #
@@ -38,15 +38,18 @@
 #
 # Author: Shi Yanling
 
+export LC_ALL=C
+cwd=$(pwd)
+uid=$(id -u)
+
 sffpipe=$1
 sffdir=${sffpipe%/*}
 tmpdir=${TMPDIR:-/tmp}
 [ ! -w "$tmpdir" ] && tmpdir=$sffdir
-uid=$(id -u)
+
 tsel="${tmpdir}/sff-tmpsel-$uid"
 tbuf1="${tmpdir}/sff-tmpbuf2-$uid"
-type 7zz >/dev/null 2>&1 && _7z='7zz' || _7z='7z'
-export LC_ALL=C
+command -v 7zz >/dev/null 2>&1 && _7z='7zz' || _7z='7z'
 
 sffpipe_refresh()
 {
@@ -74,7 +77,7 @@ extract_archive()
 	printf "\n(l)ist contents / (e)xtract / (c)ancel [c]: "; read -r _x
 
 	_selfile=''
-	while IFS='' read -r _path <&3; do
+	while IFS= read -r _path <&3; do
 		_path=$(printf "%s" "$_path" | tr '\035' '\n')
 		_wdir=${_path%/*}
 		_name=${_path##*/}
@@ -96,11 +99,11 @@ extract_archive()
 
 			echo "Extracting..."
 			case "$(printf "%s" "$_name" | tr 'A-Z' 'a-z')" in
-			*?.tar.?*|*?.t?*) cd "$_tdir" && tar -xvf "$_path";;
+			*?.tar.?*|*?.t?*) cd "$_tdir" && LC_ALL= tar -xvf "$_path";;
 			*?.gz) gunzip -k "$_path";;
 			*?.bz2) bunzip2 -k "$_path";;
 			*?.xz) unxz -k "$_path";;
-			*?.?*) cd "$_tdir" && "$_7z" x -aoa "$_path";;
+			*?.?*) cd "$_tdir" && LC_ALL= $_7z x -aoa "$_path";;
 			esac && _selfile="$_bname" || { printf "Press Enter to continue "; read -r _x2; }
 
 			_num=$(find "$_tdir"/ -mindepth 1 -maxdepth 1 ! -name . ! -name .. -print0 | tr '\n\0' '\035\n' | wc -l)
@@ -112,14 +115,13 @@ extract_archive()
 			[ -e "$_tdir" ] && rm -rf "$_tdir"
 			;;
 
-		[lL]) unset LC_ALL
-			echo ""
+		[lL]) echo ""
 			case "$(printf "%s" "$_name" | tr 'A-Z' 'a-z')" in
-			*?.tar.?*|*?.t?*) tar -tvf "$_path";;
-			*?.gz) zcat "$_path";;
-			*?.bz2) bzcat "$_path";;
-			*?.xz) xzcat "$_path";;
-			*?.?*) "$_7z" l "$_path";;
+			*?.tar.?*|*?.t?*) LC_ALL= tar -tvf "$_path";;
+			*?.gz) LC_ALL= zcat "$_path";;
+			*?.bz2) LC_ALL= bzcat "$_path";;
+			*?.xz) LC_ALL= xzcat "$_path";;
+			*?.?*) LC_ALL= $_7z l "$_path";;
 			esac
 			printf "Press Enter to continue "; read -r _x2
 			;;
@@ -142,8 +144,7 @@ create_archive()
 	[ ! -s "$tsel" ] && return 0
 
 	while true; do
-		printf "\nArchive name (include extension, e.g., .tar.gz)\n"
-		printf "[empty to cancel]: "; read -r _name
+		printf "\nArchive name (include extension): "; read -r _name
 		[ -z "$_name" ] && return 0
 		if [ -e "$_name" ]; then
 			printf "\n'%s' exists. Overwrite? (y/n) [n]: " "$_name"; read -r _x
@@ -153,29 +154,23 @@ create_archive()
 		fi
 	done
 
-	_pwd=$(printf '%s' "$PWD" | tr '\n' '\035' | sed -e 's/[^^]/[&]/g' -e 's/\^/\\^/g')
+	_pwd=$(printf '%s' "$cwd" | tr '\n' '\035' | sed -e 's/[^^]/[&]/g' -e 's/\^/\\^/g')
 	if [ "$(sed "/^$_pwd\//d" "$tsel")" ]; then
 		tr '\n\035' '\0\n' <"$tsel" >"$tbuf1"
 	else
 		sed "s|^$_pwd/||" "$tsel" | tr '\n\035' '\0\n' >"$tbuf1"
 	fi
 	[ -e "$_name" ] && rm -f "$_name"
+	sffpipe_sel_file "$_name"
 
 	case "$(printf "%s" "$_name" | tr 'A-Z' 'a-z')" in
-	*?.tar.?*|*?.t?*) xargs -0 tar -cavf "$_name" -- <"$tbuf1";;
+	*?.tar.?*|*?.t?*) LC_ALL= xargs -0 tar -cavf "$_name" -- <"$tbuf1";;
 	*.gz) xargs -0 gzip -fk -- <"$tbuf1";;
 	*.bz2) xargs -0 bzip2 -fk -- <"$tbuf1";;
 	*.xz) xargs -0 xz -fk -- <"$tbuf1";;
-	*?.zip|*?.7z) xargs -0 "$_7z" a "$_name" -- <"$tbuf1";;
+	*?.zip|*?.7z) LC_ALL= xargs -0 "$_7z" a "$_name" -- <"$tbuf1";;
 	*) printf "\nUnsupported archive format\n"; false;;
-	esac
-
-	if [ "$?" -eq 0 ]; then
-		 sffpipe_sel_file "$_name"
-	else
-		sffpipe_refresh
-		printf "Press Enter to continue "; read -r _x
-	fi
+	esac || { printf "Press Enter to continue "; read -r _x; }
 }
 
 case "$2" in
