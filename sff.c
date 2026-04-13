@@ -958,10 +958,8 @@ static int clearselection(int n __attribute__((unused)))
 	ptab->cfg.havesel = 0;
 	ptab->cfg.mansel = 0;
 	markent = -1;
-
 	for (int i = 0; i < ptab->nde; ++i)
-		if (pdents[i].flag & E_SEL)
-			pdents[i].flag &= ~E_SEL;
+		pdents[i].flag &= ~E_SEL;
 	return GO_REDRAW;
 }
 
