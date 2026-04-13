@@ -138,10 +138,10 @@ sff_do_new()
 
 	_err=''
 	[ "$(head -c 1 "$exbuf1" | tr -d '\n')" ] \
-	&& { head -n 1 "$exbuf1" | tr -d '\n' | tr '\035' '\n' | xargs -0 mkdir -p || _err=1; }
+	&& { head -n 1 "$exbuf1" | tr -d '\n' | tr '\035' '\n' | LC_ALL= xargs -0 mkdir -p || _err=1; }
 
 	[ "$(tail -c 1 "$exbuf1" | tr -d '\n' | tr '\0' 'A')" ] \
-	&& { tail -n +2 "$exbuf1" | tr '\035' '\n' | xargs -0 touch || _err=1; }
+	&& { tail -n +2 "$exbuf1" | tr '\035' '\n' | LC_ALL= xargs -0 touch || _err=1; }
 	[ "$_err" ] && { printf "Press Enter to continue "; read -r _x; }
 }
 
@@ -159,7 +159,7 @@ sff_undo_new()
 	printf "un%s" "$_op" >"$lastop"
 	sffpipe_refresh
 
-	xargs -0 rm -rf <"$exbuf2" \
+	LC_ALL= xargs -0 rm -rf <"$exbuf2" \
 	|| { printf "Press Enter to continue "; read -r _x; }
 }
 
@@ -229,6 +229,7 @@ sff_do_paste()
 	[ "$2" != 'w' ] && touch -mt 202310011200.00 "$lastop"
 	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr -d '\n' | tr '\035' '\n')"
 
+	unset LC_ALL
 	case "$1" in
 	'copy') printf "\nCopying...\n"
 		case "$2" in
@@ -291,7 +292,7 @@ sff_do_rename()
 	printf "rename" >"$lastop"
 	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr -d '\n' | tr '\035' '\n')"
 
-	xargs -0 -n 2 mv -nv <"$exbuf1" \
+	LC_ALL= xargs -0 -n 2 mv -nv <"$exbuf1" \
 	|| { printf "Press Enter to continue "; read -r _x; }
 }
 
@@ -307,7 +308,7 @@ sff_undo_move()
 	printf "un%s" "$_op" >"$lastop"
 	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf1" | head -n 1 | tr -d '\n' | tr '\035' '\n')"
 
-	xargs -0 -n 2 mv -n <"$exbuf2" \
+	LC_ALL= xargs -0 -n 2 mv -n <"$exbuf2" \
 	|| { printf "Press Enter to continue "; read -r _x; }
 }
 
@@ -353,7 +354,7 @@ sff_do_duplicate()
 	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr -d '\n' | tr '\035' '\n')"
 
 	echo "Duplicating..."
-	xargs -0 -n 2 cp -an <"$exbuf1" \
+	LC_ALL= xargs -0 -n 2 cp -an <"$exbuf1" \
 	|| { printf "Press Enter to continue "; read -r _x; }
 }
 
@@ -369,7 +370,7 @@ sff_delete()
 	case "$_x" in [yY]) :;; *) exit 0;; esac
 	sffpipe_refresh -c
 
-	tr '\n\035' '\0\n' <"$tsel" | xargs -0 rm -rf \
+	tr '\n\035' '\0\n' <"$tsel" | LC_ALL= xargs -0 rm -rf \
 	|| { printf "Press Enter to continue "; read -r _x; }
 	rm -f "$tsel"
 }
@@ -399,8 +400,8 @@ sff_chmod_chown()
 
 	sffpipe_get_sel
 	case "$_x" in
-	*:*) xargs -0 chown $_x2 $_x <"$sel";;
-	*) xargs -0 chmod $_x2 $_x <"$sel";;
+	*:*) LC_ALL= xargs -0 chown $_x2 $_x <"$sel";;
+	*) LC_ALL= xargs -0 chmod $_x2 $_x <"$sel";;
 	esac || { printf "Press Enter to continue "; read -r _x; }
 	sffpipe_refresh
 }
