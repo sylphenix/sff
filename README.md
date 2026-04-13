@@ -1,5 +1,10 @@
 # sff
 
+> ### Mirror Repository
+>
+> This repository is a mirror of the primary repository hosted on [Codeberg](https://codeberg.org/sylphenix/sff).
+
+
 sff (simple file finder) is a simple, fast, and feature-rich terminal file manager inspired by nnn and guided by the suckless philosophy.
 It aims to provide a reliable, efficient, and user-friendly file management experience with high extensibility.
 sff is fully compatible with POSIX-compliant systems. It has been extensively tested on GNU/Linux and FreeBSD.
