@@ -135,7 +135,6 @@ typedef struct {
 	unsigned int showhidden : 1;  // Show hidden files
 	unsigned int dirontop   : 1;  // Sort directories on the top
 	unsigned int sortby     : 3;  // (0: name, 1: size, 2: time, 3: extension)
-	unsigned int caseinsen  : 1;  // Case insensitive
 	unsigned int natural    : 1;  // Natural numeric sorting
 	unsigned int reverse    : 1;  // Reverse sort
 	unsigned int timetype   : 2;  // (0: access, 1: modify, 2: change)
@@ -1146,9 +1145,7 @@ static int viewoptions(int n __attribute__((unused)))
 	wattron(dpo, (cfg->sortby == 2) ? A_REVERSE : 0); waddstr(dpo, "time");
 	wattrset(dpo, A_NORMAL); waddstr(dpo, "  (e)");
 	wattron(dpo, (cfg->sortby == 3) ? A_REVERSE : 0); waddstr(dpo, "extension");
-	wattrset(dpo, A_NORMAL); mvwaddstr(dpo, i += 2, 2, "  [c]");
-	wattron(dpo, !cfg->caseinsen ? A_REVERSE : 0); waddstr(dpo, "case-sensitive");
-	wattrset(dpo, A_NORMAL); waddstr(dpo, "  [v]");
+	wattrset(dpo, A_NORMAL); mvwaddstr(dpo, i += 2, 2, "  [v]");
 	wattron(dpo, cfg->natural ? A_REVERSE : 0); waddstr(dpo, "natural");
 	wattrset(dpo, A_NORMAL); waddstr(dpo, "  [r]");
 	wattron(dpo, cfg->reverse ? A_REVERSE : 0); waddstr(dpo, "reverse");
@@ -1189,8 +1186,6 @@ static int viewoptions(int n __attribute__((unused)))
 		case 't': cfg->sortby = 2;
 			break;
 		case 'e': cfg->sortby = 3;
-			break;
-		case 'c': cfg->caseinsen ^= 1;
 			break;
 		case 'v': cfg->natural ^= 1;
 			break;
@@ -1293,7 +1288,6 @@ static void usage(void)
 	printf("sff "VERSION"\n\n"
 		"Usage: sff [OPTIONS] [PATH]\n\n"
 		"Options:\n"
-		"  -c      Sort with case sensitivity\n"
 		"  -H      Show hidden files\n"
 		"  -l keys Columns: 't/T'ime, 'o/O'wner, 'p/P'erm, 's/S'ize, 'n'ame\n"
 		"  -m      Mix directories and files when sorting\n"
@@ -1302,7 +1296,7 @@ static void usage(void)
 		"  -h      Show this help and exit\n");
 }
 
-static int xstrverscmp(const unsigned char *s1, const unsigned char *s2, int ci)
+static int xstrverscmp(const unsigned char *s1, const unsigned char *s2)
 {
 	static unsigned char lowertb[256] = {0};
 	int isdig1, isdig2, diff = 0, indig = 0;
@@ -1341,7 +1335,7 @@ static int xstrverscmp(const unsigned char *s1, const unsigned char *s2, int ci)
 		if (c1 == '\0' || c2 == '\0')
 			return c1 - c2;
 		indig = (c1 - '1' <= 8) & (c2 - '1' <= 8); // c1 and c2 are both 1-9
-		diff = ci ? lowertb[c1] - lowertb[c2] : (int)(c1 - c2);
+		diff = lowertb[c1] - lowertb[c2];
 	}
 	return diff;
 }
@@ -1392,9 +1386,7 @@ static int entrycmp(const void *va, const void *vb)
 	}
 
 	if (ptab->cfg.natural)
-		return xstrverscmp((const unsigned char *)pa->name, (const unsigned char *)pb->name, ptab->cfg.caseinsen);
-	if (ptab->cfg.caseinsen)
-		return strcasecmp(pa->name, pb->name);
+		return xstrverscmp((const unsigned char *)pa->name, (const unsigned char *)pb->name);
 	return strcoll(pa->name, pb->name);
 }
 
@@ -2385,10 +2377,8 @@ static void cleanup(void)
 
 int main(int argc, char *argv[])
 {
-	for (int opt; (opt = getopt(argc, argv, "cHl:moph")) != -1;) {
+	for (int opt; (opt = getopt(argc, argv, "Hl:moph")) != -1;) {
 		switch (opt) {
-		case 'c': gcfg.caseinsen = 0;
-			break;
 		case 'H': gcfg.showhidden = 1;
 			break;
 		case 'l': memccpy(gcfg.cols, optarg, '\0', 5);
