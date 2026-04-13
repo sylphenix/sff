@@ -5,9 +5,10 @@
 
 ### Added
 
-* `-o` option to open files on right arrow or 'l' key ([#35][35])
+* `-o` option to open files on right arrow or `l` key ([#35][35])
 * `-l` option to specify columns in order
 * `-p` option to show permissions as symbolic strings ([#34][34])
+* Prefix key for extension functions
 
 [35]: https://codeberg.org/sylphenix/sff/issues/35
 [34]: https://codeberg.org/sylphenix/sff/issues/34
@@ -19,6 +20,7 @@
 * Display current entry details in foreground color and removed cursor at line start
 * In manual selection mode, current entry details are no longer reversed
 * Preview plugin: Enabled colors in directory preview
+* Removed forced new-file marking and extended new-file time threshold to 300s
 
 
 ### Removed
