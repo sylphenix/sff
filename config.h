@@ -42,7 +42,7 @@ static const Key keys[] = {
 	{ KEY_HOME,     'g',        movetoedge,      -1,    "   Home, g  Move to top" },
 	{ KEY_END,      'G',        movetoedge,       1,    "    End, G  Move to bottom" },
 	{ '-',           0,         switchhistpath,   0,    "         -  Toggle previous path" },
-	{ 'r',           0,         refreshview,      1,    "         r  Reload" },
+	{ 'r',           0,         refreshview,      1,    "         r  Reload & toggle new marks" },
 	{ '\r',         KEY_ENTER,  enterdir,         1,    " Enter, ^M  Open file" },
 	{ '`',           0,         gotohome,         0,    "         `  Go to home dir" },
 	{ '1',           0,         switchtab,        0,    "         1  Tab 1" },

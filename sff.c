@@ -145,7 +145,7 @@ typedef struct {
 	unsigned int ct         : 3;  // Current tab
 	unsigned int lt         : 3;  // Last tab
 	unsigned int runmode    : 2;  // (0: normal mode, 1: sudo mode, 2: permanent sudo mode)
-	unsigned int newent     : 1;  // Mark new entry
+	unsigned int marknew    : 1;  // Show marks for new file
 	unsigned int refresh    : 1;  // Force screen refresh during redraw
 	unsigned int redrawn    : 1;  // Screen has been redrawn
 	unsigned int openfile   : 1;  // Open files on right arrow or 'l' key
@@ -724,7 +724,7 @@ static int refreshview(int n)
 	}
 
 	if (n == 1) {
-		gcfg.newent ^= 1;
+		gcfg.marknew ^= 1;
 		gcfg.refresh = 1;
 	} else if (n == 2)
 		return GO_SORT;
@@ -1527,7 +1527,6 @@ static int handlepipedata(int fd, int op)
 		findname = ptab->hp->stat->name;
 		ptab->hp->stat->cur = cursel;
 		ptab->hp->stat->scrl = curscroll;
-		gcfg.newent = 1;
 		clearselection(0);
 		return GO_RELOAD;
 
@@ -1677,7 +1676,7 @@ static void fillentry(int fd, Entry *ent, struct stat sb, time_t curtime)
 	default: ent->type = F_UNKN;
 	}
 
-	if (gcfg.newent && (curtime - sb.st_ctime <= 180))
+	if (gcfg.marknew && (curtime - sb.st_ctime < 300))
 		ent->flag |= E_NEW;
 }
 
@@ -1916,7 +1915,7 @@ static void printent(const Entry *ent, int sel, int mark)
 	int x, y;
 	int attr1 = sel ? 0 : COLOR_PAIR(C_DETAIL); // for details
 	int attr2 = A_BOLD | (mark || (sel && ptab->cfg.mansel) ? COLOR_PAIR(C_STATBAR) | A_REVERSE // for marks
-				: (gcfg.newent && (ent->flag & E_NEW) ? COLOR_PAIR(C_NEWFILE) | A_REVERSE : 0));
+				: (gcfg.marknew && (ent->flag & E_NEW) ? COLOR_PAIR(C_NEWFILE) | A_REVERSE : 0));
 	int attr3 = COLOR_PAIR(ent->type) // for filename
 				| (ent->flag & E_DIR_DIRLNK ? A_BOLD : 0)
 				| ((ent->flag & E_SEL) || (sel && !ptab->cfg.mansel) ? A_REVERSE : 0)
