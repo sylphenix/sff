@@ -1354,9 +1354,9 @@ static int entrycmp(const void *va, const void *vb)
 
 	switch (ptab->cfg.sortby) {
 	case 1:	// Sort by size
-		if (pb->size > pa->size)
+		if (pa->size > pb->size)
 			return 1;
-		if (pb->size < pa->size)
+		if (pa->size < pb->size)
 			return -1;
 		break;
 
