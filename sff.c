@@ -1304,71 +1304,46 @@ static void usage(void)
 		"  -h      Show this help and exit\n");
 }
 
-static int xstrverscmp(const char *s1, const char *s2, int ci)
+static int xstrverscmp(const unsigned char *s1, const unsigned char *s2, int ci)
 {
-	const unsigned char *p1 = (const unsigned char *)s1;
-	const unsigned char *p2 = (const unsigned char *)s2;
-	int diff = 0, indig = 0;
+	static unsigned char lowertb[256] = {0};
+	int isdig1, isdig2, diff = 0, indig = 0;
 
-	if (p1 == p2)
+	if (s1 == s2)
 		return 0;
 
-	for (unsigned int c1, c2; diff == 0 || indig; ++p1, ++p2) {
-		c1 = *p1;
-		c2 = *p2;
+	if (lowertb[1] == 0) {
+		for (int i = 0; i < 256; ++i)
+			lowertb[i] = i;
+		for (int i = 'A'; i <= 'Z'; ++i)
+			lowertb[i] = i + 32;
+	}
+
+	for (unsigned int c1, c2; diff == 0 || indig; ++s1, ++s2) {
+		c1 = *s1;
+		c2 = *s2;
 
 		if (indig) {
-			if (c1 - '0' <= 9) {
-				if (c2 - '0' <= 9) { // c1 and c2 are digit
-					if (diff)
-						continue;
-				} else // c1 is digit and c2 is not
-					return 1;
-			} else {
-				if (c2 - '0' <= 9) // c1 is not digit and c2 is
-					return -1;
-				else { // c1 and c2 are not digit
-					if (diff)
-						return diff;
-					indig = 0;
-				}
+			isdig1 = c1 - '0' <= 9;
+			isdig2 = c2 - '0' <= 9;
+			if (isdig1 & isdig2) { // c1 and c2 are both digits
+				if (diff == 0)
+					diff = c1 - c2;
+				continue;
 			}
-
-		} else if (c1 == '\0' || c2 == '\0') {
-			return c1 - c2;
-		} else if (c1 - '1' <= 8 && c2 - '1' <= 8) { // c1 and c2 are 1-9
-			indig = 1;
-		} else if (ci) {
-			if (c1 <= 'Z' && c1 >= 'A')
-				c1 += 32;
-			if (c2 <= 'Z' && c2 >= 'A')
-				c2 += 32;
+			if (isdig1) // c1 is digit and c2 is not
+				return 1;
+			if (isdig2) // c2 is digit and c1 is not
+				return -1;
+			if (diff) // both are not digits
+				return diff;
+			indig = 0;
 		}
 
-		diff = c1 - c2;
-	}
-	return diff;
-}
-
-static int xstrcasecmp(const char *s1, const char *s2)
-{
-	const unsigned char *p1 = (const unsigned char *)s1;
-	const unsigned char *p2 = (const unsigned char *)s2;
-	int diff = 0;
-
-	if (p1 == p2)
-		return 0;
-
-	for (unsigned int c1, c2; diff == 0; ++p1, ++p2) {
-		if ((c1 = *p1) == '\0')
-			return -1;
-		if ((c2 = *p2) == '\0')
-			return 1;
-		if (c1 <= 'Z' && c1 >= 'A')
-			c1 += 32;
-		if (c2 <= 'Z' && c2 >= 'A')
-			c2 += 32;
-		diff = c1 - c2;
+		if (c1 == '\0' || c2 == '\0')
+			return c1 - c2;
+		indig = (c1 - '1' <= 8) & (c2 - '1' <= 8); // c1 and c2 are both 1-9
+		diff = ci ? lowertb[c1] - lowertb[c2] : (int)(c1 - c2);
 	}
 	return diff;
 }
@@ -1412,18 +1387,16 @@ static int entrycmp(const void *va, const void *vb)
 				return 1;
 			if (!exta)
 				return -1;
-
-			int res = xstrcasecmp(++exta, ++extb);
+			int res = strcasecmp(exta, extb);
 			if (res)
 				return res;
 		}
 	}
 
 	if (ptab->cfg.natural)
-		return xstrverscmp(pa->name, pb->name, ptab->cfg.caseinsen);
-
+		return xstrverscmp((const unsigned char *)pa->name, (const unsigned char *)pb->name, ptab->cfg.caseinsen);
 	if (ptab->cfg.caseinsen)
-		return xstrcasecmp(pa->name, pb->name);
+		return strcasecmp(pa->name, pb->name);
 	return strcoll(pa->name, pb->name);
 }
 
