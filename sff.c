@@ -1157,7 +1157,7 @@ static int viewoptions(int n __attribute__((unused)))
 	wattron(dpo, strchr(cfg->cols, 'o') ? A_REVERSE : 0); waddstr(dpo, "owner");
 	wattrset(dpo, A_NORMAL); waddstr(dpo, "  [p]");
 	wattron(dpo, strchr(cfg->cols, 'p') ? A_REVERSE : 0); waddstr(dpo, "permissions");
-	wattrset(dpo, A_NORMAL); waddstr(dpo, "  [z]");
+	wattrset(dpo, A_NORMAL); waddstr(dpo, "  [y]");
 	wattron(dpo, strchr(cfg->cols, 's') ? A_REVERSE : 0); waddstr(dpo, "size");
 	wattrset(dpo, A_NORMAL); mvwaddstr(dpo, i += 2, 2, "  (d)default  (x)none");
 
@@ -1166,7 +1166,7 @@ static int viewoptions(int n __attribute__((unused)))
 	wattron(dpo, (cfg->timetype == 0) ? A_REVERSE : 0); waddstr(dpo, "access");
 	wattrset(dpo, A_NORMAL); waddstr(dpo, "  (m)");
 	wattron(dpo, (cfg->timetype == 1) ? A_REVERSE : 0); waddstr(dpo, "modify");
-	wattrset(dpo, A_NORMAL); waddstr(dpo, "  (h)");
+	wattrset(dpo, A_NORMAL); waddstr(dpo, "  (c)");
 	wattron(dpo, (cfg->timetype == 2) ? A_REVERSE : 0); waddstr(dpo, "change");
 	wattrset(dpo, A_NORMAL); mvwaddstr(dpo, i += 2, 2, "Press 'o' or Esc to close");
 
@@ -1198,7 +1198,7 @@ static int viewoptions(int n __attribute__((unused)))
 			break;
 		case 'p': setcolumns(cfg->cols, 'p');
 			break;
-		case 'z': setcolumns(cfg->cols, 's');
+		case 'y': setcolumns(cfg->cols, 's');
 			break;
 		case 'd': memccpy(cfg->cols, gcfg.cols, '\0', 5);
 			break;
@@ -1210,7 +1210,7 @@ static int viewoptions(int n __attribute__((unused)))
 			break;
 		case 'm': cfg->timetype = 1;
 			break;
-		case 'h': cfg->timetype = 2;
+		case 'c': cfg->timetype = 2;
 			break;
 		case 'o':
 			break;
@@ -1221,9 +1221,9 @@ static int viewoptions(int n __attribute__((unused)))
 	}
 
 	delwin(dpo);
-	if (c == ESC || strchr("oiupzdx", c))
+	if (c == ESC || strchr("oiupydx", c))
 		return GO_REDRAW;
-	return refreshview(strchr(".amh", c) ? 0 : 2);
+	return refreshview(strchr(".amc", c) ? 0 : 2);
 }
 
 static int prefixkey(int n __attribute__((unused)))
