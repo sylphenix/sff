@@ -16,16 +16,19 @@
 
 ### Changed
 
-* Moved version info from `-v` to `-h`
+* Moved version info from `-v` to `-h`; repurposed `-v` for natural sort
 * Display current entry details in foreground color and removed cursor at line start
 * In manual selection mode, current entry details are no longer reversed
 * Preview plugin: Enabled colors in directory preview
 * Removed forced new-file marking and extended new-file time threshold to 300s
+* Natural sort is now off by default; use `-v` to enable
+* Remapped View Options keys: `z`->`y`, `h`->`c`
+* Default size sort is now ascending
 
 
 ### Removed
 
-* `-v` and `-d` options (replaced by `-h` and `-l` respectively)
+* `-c` option and 'case-sensitive' setting in View Options
 
 
 ### Fixed
