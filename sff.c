@@ -1288,13 +1288,14 @@ static void usage(void)
 	printf("sff "VERSION"\n\n"
 		"Usage: sff [OPTIONS] [PATH]\n\n"
 		"Options:\n"
-		"  -H      Show hidden files\n"
-		"  -l keys Columns: 't/T'ime, 'o/O'wner, 'p/P'erm, 's/S'ize, 'n'ame\n"
-		"  -m      Mix directories and files when sorting\n"
-		"  -o      Open files on right arrow or 'l' key\n"
-		"  -p      Show permissions as symbolic strings\n"
-		"  -v      Natural sort of (version) numbers within text\n"
-		"  -h      Show this help and exit\n");
+		" -H        show hidden files\n"
+		" -l <keys> set column order: (uppercase hidden initially)\n"
+		"           't'ime, 'o'wner, 'p'erm, 's'ize, 'n'ame\n"
+		" -m        mix directories and files when sorting\n"
+		" -o        open files on right arrow or 'l' key\n"
+		" -p        show permissions as symbolic strings\n"
+		" -v        natural sort of (version) numbers within text\n"
+		" -h        display this help and exit\n");
 }
 
 static int xstrverscmp(const unsigned char *s1, const unsigned char *s2)
