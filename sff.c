@@ -149,6 +149,7 @@ typedef struct {
 	unsigned int redrawn    : 1;  // Screen has been redrawn
 	unsigned int openfile   : 1;  // Open files on right arrow or 'l' key
 	unsigned int symbperm   : 1;  // Show permissions as symbolic strings
+	unsigned int abbrdate   : 1;  // Use ls-style date format
 } Settings;
 
 typedef struct {
@@ -177,6 +178,7 @@ static int ndents = 0, tdents = 0, cursel = 0, lastsel = -1, curscroll = 0;
 static int markent = -1, errline = 0, errnum = 0;
 static int xlines, xcols, onscr, ncols;
 static size_t namebuflen = 0;
+static time_t curtime;
 static char *home, *opener, *sudoer;
 static char *cfgpath = NULL, *extfunc = NULL, *pipepath = NULL, *pvfifo = NULL;
 static char *pnamebuf = NULL, *pfindbuf = NULL, *pfindend = NULL, *findname = NULL;
@@ -1288,6 +1290,7 @@ static void usage(void)
 	printf("sff "VERSION"\n\n"
 		"Usage: sff [OPTIONS] [PATH]\n\n"
 		"Options:\n"
+		" -d        use ls-style date format\n"
 		" -H        show hidden files\n"
 		" -l <keys> set column order: (uppercase hidden initially)\n"
 		"           't'ime, 'o'wner, 'p'erm, 's'ize, 'n'ame\n"
@@ -1620,7 +1623,7 @@ static int callextfunc(int c)
 #define STVNSEC(X)  X##tim.tv_nsec
 #endif
 
-static void fillentry(int fd, Entry *ent, struct stat sb, time_t curtime)
+static void fillentry(int fd, Entry *ent, struct stat sb)
 {
 	switch (ptab->cfg.timetype) {
 	case 0: ent->sec = sb.st_atime;
@@ -1678,7 +1681,6 @@ static void loaddirentry(DIR *dirp, int fd)
 	size_t off = 0;
 	struct dirent *dp;
 	struct stat sb;
-	time_t curtime = time(NULL);
 	Entry *ent, *tmpent;
 
 	while ((dp = readdir(dirp))) {
@@ -1721,7 +1723,7 @@ static void loaddirentry(DIR *dirp, int fd)
 		ent->nlen = tmp - ent->name; // include terminational '\0'
 		off += ent->nlen;
 
-		fillentry(fd, ent, sb, curtime);
+		fillentry(fd, ent, sb);
 		++ndents;
 	}
 }
@@ -1729,7 +1731,6 @@ static void loaddirentry(DIR *dirp, int fd)
 static void loadsrchentry(int fd)
 {
 	struct stat sb;
-	time_t curtime = time(NULL);
 	Entry *ent, *tmpent;
 
 	for (char *name = pfindbuf, *end; name < pfindend && (end = memchr(name, '\0', PATH_MAX)); name = end + 1) {
@@ -1749,21 +1750,20 @@ static void loadsrchentry(int fd)
 		ent->name = name;
 		ent->nlen = end - name + 1;
 
-		fillentry(fd, ent, sb, curtime);
+		fillentry(fd, ent, sb);
 		++ndents;
 	}
 }
 
 static void loadentries(const char *path)
 {
-	int fd;
-	DIR *dirp = opendir(path);
-
 	ndents = 0;
+	curtime = time(NULL);
+	DIR *dirp = opendir(path);
 	if (!dirp && seterrnum(__LINE__, errno))
 		return;
-	fd = dirfd(dirp);
 
+	int fd = dirfd(dirp);
 	if (ptab->hp->stat->flag != S_ROOT)
 		loaddirentry(dirp, fd); // Load dir entry
 	else if (pfindbuf)
@@ -1894,12 +1894,21 @@ static char *filetypechar(int type)
 	return "<->";
 }
 
-static void printenttime(const time_t *timep)
+static void printenttime(const time_t *timep, int useabbr)
 {
-	struct tm t;
+	static const char *months[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun",
+				"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+	struct tm t, now;
 
 	localtime_r(timep, &t);
-	printw(" %s-%02d-%02d %02d:%02d ", xitoa(t.tm_year + 1900), t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min);
+	if (useabbr) {
+		localtime_r(&curtime, &now);
+		if (t.tm_year == now.tm_year)
+			printw(" %s %2d %02d:%02d ", months[t.tm_mon], t.tm_mday, t.tm_hour, t.tm_min);
+		else
+			printw(" %s %2d  %s ", months[t.tm_mon], t.tm_mday, xitoa(t.tm_year + 1900));
+	} else
+		printw(" %s-%02d-%02d %02d:%02d ", xitoa(t.tm_year + 1900), t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min);
 }
 
 static void printent(const Entry *ent, int sel, int mark)
@@ -1928,7 +1937,7 @@ static void printent(const Entry *ent, int sel, int mark)
 			break;
 		case 's': printw("%7s ", (ent->flag & E_REG_FILE) ? tohumansize(ent->size) : filetypechar(ent->type));
 			break;
-		case 't': printenttime(&ent->sec);
+		case 't': printenttime(&ent->sec, gcfg.abbrdate);
 			break;
 		case 'p': if (gcfg.symbperm)
 				printw(" %c%s ", filetypechar(ent->type)[1], strperms(ent->mode));
@@ -1954,7 +1963,7 @@ static void redraw(const char *path)
 			break;
 		case 's': dcols += 8;
 			break;
-		case 't': dcols += 18;
+		case 't': dcols += gcfg.abbrdate ? 14 : 18;
 			break;
 		case 'p': dcols += gcfg.symbperm ? 12 : 5;
 			break;
@@ -2086,7 +2095,7 @@ static void statusbar(void)
 		Entry *ent = &pdents[cursel];
 		printw("  %c%s %s:%s  %s", filetypechar(ent->type)[1], strperms(ent->mode),
 			getpwname(ent->uid), getgrname(ent->gid), tohumansize(ent->size));
-		printenttime(&ent->sec);
+		printenttime(&ent->sec, 0);
 
 		getyx(stdscr, n, x);
 		n = xcols - x;
@@ -2379,8 +2388,10 @@ static void cleanup(void)
 
 int main(int argc, char *argv[])
 {
-	for (int opt; (opt = getopt(argc, argv, "Hl:mopvh")) != -1;) {
+	for (int opt; (opt = getopt(argc, argv, "dHl:mopvh")) != -1;) {
 		switch (opt) {
+		case 'd': gcfg.abbrdate = 1;
+			break;
 		case 'H': gcfg.showhidden = 1;
 			break;
 		case 'l': memccpy(gcfg.cols, optarg, '\0', 5);
