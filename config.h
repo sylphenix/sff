@@ -16,6 +16,7 @@ static Settings gcfg = {
 	.timetype   = 1,  // (0: access, 1: modify, 2: change)
 	.openfile   = 0,  // Open files on right arrow or 'l' key
 	.symbperm   = 0,  // Show permissions as symbolic strings
+	.abbrdate   = 0,  // Use ls-style date format
 };
 
 /* Key definitions */
