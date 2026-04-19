@@ -1292,7 +1292,7 @@ static void usage(void)
 		"Options:\n"
 		" -d        use ls-style date format\n"
 		" -H        show hidden files\n"
-		" -l <keys> set column order: (uppercase hidden initially)\n"
+		" -l <keys> set column order: (uppercase to hide)\n"
 		"           't'ime, 'o'wner, 'p'erm, 's'ize, 'n'ame\n"
 		" -m        mix directories and files when sorting\n"
 		" -o        open files on right arrow or 'l' key\n"
@@ -2095,7 +2095,7 @@ static void statusbar(void)
 		Entry *ent = &pdents[cursel];
 		printw("  %c%s %s:%s  %s", filetypechar(ent->type)[1], strperms(ent->mode),
 			getpwname(ent->uid), getgrname(ent->gid), tohumansize(ent->size));
-		printenttime(&ent->sec, 0);
+		printenttime(&ent->sec, FALSE);
 
 		getyx(stdscr, n, x);
 		n = xcols - x;
