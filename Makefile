@@ -10,11 +10,13 @@ EXTFNPREFIX = ${PREFIX}/lib/sff
 # includes and libs
 INCS =
 LIBS = -lncursesw
+STATIC_LIBS = -lncursesw -ltinfo
 
 # flags
 CPPFLAGS =
 CFLAGS   = -std=c11 -O2 -Wall -Wextra -fstack-protector-strong ${INCS} ${CPPFLAGS}
 LDFLAGS  = ${LIBS}
+STATIC_LDFLAGS = -static ${STATIC_LIBS}
 
 # compiler and linker
 CC = cc
@@ -25,6 +27,8 @@ SRC = sff.c
 OBJ = ${SRC:.c=.o}
 
 all: options sff
+
+static: options sff-static
 
 options:
 	@echo sff build options:
@@ -43,8 +47,11 @@ ${OBJ}: config.h
 sff: ${OBJ}
 	${CC} -o $@ ${OBJ} ${LDFLAGS}
 
+sff-static: ${OBJ}
+	${CC} -o $@ ${OBJ} ${STATIC_LDFLAGS}
+
 clean:
-	rm -f sff ${OBJ} sff*.tar.gz
+	rm -f sff sff-static ${OBJ} sff*.tar.gz
 
 dist: clean
 	mkdir -p sff
@@ -67,4 +74,4 @@ uninstall:
 		"${DESTDIR}${EXTFNPREFIX}" \
 		"${DESTDIR}${MANPREFIX}/man1/sff.1.gz"
 
-.PHONY: all options clean dist install uninstall
+.PHONY: all static options clean dist install uninstall

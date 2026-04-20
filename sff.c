@@ -135,7 +135,6 @@ typedef struct {
 	unsigned int showhidden : 1;  // Show hidden files
 	unsigned int dirontop   : 1;  // Sort directories on the top
 	unsigned int sortby     : 3;  // (0: name, 1: size, 2: time, 3: extension)
-	unsigned int caseinsen  : 1;  // Case insensitive
 	unsigned int natural    : 1;  // Natural numeric sorting
 	unsigned int reverse    : 1;  // Reverse sort
 	unsigned int timetype   : 2;  // (0: access, 1: modify, 2: change)
@@ -150,6 +149,7 @@ typedef struct {
 	unsigned int redrawn    : 1;  // Screen has been redrawn
 	unsigned int openfile   : 1;  // Open files on right arrow or 'l' key
 	unsigned int symbperm   : 1;  // Show permissions as symbolic strings
+	unsigned int abbrdate   : 1;  // Use ls-style date format
 } Settings;
 
 typedef struct {
@@ -178,6 +178,7 @@ static int ndents = 0, tdents = 0, cursel = 0, lastsel = -1, curscroll = 0;
 static int markent = -1, errline = 0, errnum = 0;
 static int xlines, xcols, onscr, ncols;
 static size_t namebuflen = 0;
+static time_t curtime;
 static char *home, *opener, *sudoer;
 static char *cfgpath = NULL, *extfunc = NULL, *pipepath = NULL, *pvfifo = NULL;
 static char *pnamebuf = NULL, *pfindbuf = NULL, *pfindend = NULL, *findname = NULL;
@@ -958,10 +959,8 @@ static int clearselection(int n __attribute__((unused)))
 	ptab->cfg.havesel = 0;
 	ptab->cfg.mansel = 0;
 	markent = -1;
-
 	for (int i = 0; i < ptab->nde; ++i)
-		if (pdents[i].flag & E_SEL)
-			pdents[i].flag &= ~E_SEL;
+		pdents[i].flag &= ~E_SEL;
 	return GO_REDRAW;
 }
 
@@ -1148,9 +1147,7 @@ static int viewoptions(int n __attribute__((unused)))
 	wattron(dpo, (cfg->sortby == 2) ? A_REVERSE : 0); waddstr(dpo, "time");
 	wattrset(dpo, A_NORMAL); waddstr(dpo, "  (e)");
 	wattron(dpo, (cfg->sortby == 3) ? A_REVERSE : 0); waddstr(dpo, "extension");
-	wattrset(dpo, A_NORMAL); mvwaddstr(dpo, i += 2, 2, "  [c]");
-	wattron(dpo, !cfg->caseinsen ? A_REVERSE : 0); waddstr(dpo, "case-sensitive");
-	wattrset(dpo, A_NORMAL); waddstr(dpo, "  [v]");
+	wattrset(dpo, A_NORMAL); mvwaddstr(dpo, i += 2, 2, "  [v]");
 	wattron(dpo, cfg->natural ? A_REVERSE : 0); waddstr(dpo, "natural");
 	wattrset(dpo, A_NORMAL); waddstr(dpo, "  [r]");
 	wattron(dpo, cfg->reverse ? A_REVERSE : 0); waddstr(dpo, "reverse");
@@ -1162,7 +1159,7 @@ static int viewoptions(int n __attribute__((unused)))
 	wattron(dpo, strchr(cfg->cols, 'o') ? A_REVERSE : 0); waddstr(dpo, "owner");
 	wattrset(dpo, A_NORMAL); waddstr(dpo, "  [p]");
 	wattron(dpo, strchr(cfg->cols, 'p') ? A_REVERSE : 0); waddstr(dpo, "permissions");
-	wattrset(dpo, A_NORMAL); waddstr(dpo, "  [z]");
+	wattrset(dpo, A_NORMAL); waddstr(dpo, "  [y]");
 	wattron(dpo, strchr(cfg->cols, 's') ? A_REVERSE : 0); waddstr(dpo, "size");
 	wattrset(dpo, A_NORMAL); mvwaddstr(dpo, i += 2, 2, "  (d)default  (x)none");
 
@@ -1171,7 +1168,7 @@ static int viewoptions(int n __attribute__((unused)))
 	wattron(dpo, (cfg->timetype == 0) ? A_REVERSE : 0); waddstr(dpo, "access");
 	wattrset(dpo, A_NORMAL); waddstr(dpo, "  (m)");
 	wattron(dpo, (cfg->timetype == 1) ? A_REVERSE : 0); waddstr(dpo, "modify");
-	wattrset(dpo, A_NORMAL); waddstr(dpo, "  (h)");
+	wattrset(dpo, A_NORMAL); waddstr(dpo, "  (c)");
 	wattron(dpo, (cfg->timetype == 2) ? A_REVERSE : 0); waddstr(dpo, "change");
 	wattrset(dpo, A_NORMAL); mvwaddstr(dpo, i += 2, 2, "Press 'o' or Esc to close");
 
@@ -1192,8 +1189,6 @@ static int viewoptions(int n __attribute__((unused)))
 			break;
 		case 'e': cfg->sortby = 3;
 			break;
-		case 'c': cfg->caseinsen ^= 1;
-			break;
 		case 'v': cfg->natural ^= 1;
 			break;
 		case 'r': cfg->reverse ^= 1;
@@ -1205,7 +1200,7 @@ static int viewoptions(int n __attribute__((unused)))
 			break;
 		case 'p': setcolumns(cfg->cols, 'p');
 			break;
-		case 'z': setcolumns(cfg->cols, 's');
+		case 'y': setcolumns(cfg->cols, 's');
 			break;
 		case 'd': memccpy(cfg->cols, gcfg.cols, '\0', 5);
 			break;
@@ -1217,7 +1212,7 @@ static int viewoptions(int n __attribute__((unused)))
 			break;
 		case 'm': cfg->timetype = 1;
 			break;
-		case 'h': cfg->timetype = 2;
+		case 'c': cfg->timetype = 2;
 			break;
 		case 'o':
 			break;
@@ -1228,9 +1223,9 @@ static int viewoptions(int n __attribute__((unused)))
 	}
 
 	delwin(dpo);
-	if (c == ESC || strchr("oiupzdx", c))
+	if (c == ESC || strchr("oiupydx", c))
 		return GO_REDRAW;
-	return refreshview(strchr(".amh", c) ? 0 : 2);
+	return refreshview(strchr(".amc", c) ? 0 : 2);
 }
 
 static int prefixkey(int n __attribute__((unused)))
@@ -1295,16 +1290,18 @@ static void usage(void)
 	printf("sff "VERSION"\n\n"
 		"Usage: sff [OPTIONS] [PATH]\n\n"
 		"Options:\n"
-		"  -c      Sort with case sensitivity\n"
-		"  -H      Show hidden files\n"
-		"  -l keys Columns: 't/T'ime, 'o/O'wner, 'p/P'erm, 's/S'ize, 'n'ame\n"
-		"  -m      Mix directories and files when sorting\n"
-		"  -o      Open files on right arrow or 'l' key\n"
-		"  -p      Show permissions as symbolic strings\n"
-		"  -h      Show this help and exit\n");
+		" -d        use ls-style date format\n"
+		" -H        show hidden files\n"
+		" -l <keys> set column order: (uppercase to hide)\n"
+		"           't'ime, 'o'wner, 'p'erm, 's'ize, 'n'ame\n"
+		" -m        mix directories and files when sorting\n"
+		" -o        open files on right arrow or 'l' key\n"
+		" -p        show permissions as symbolic strings\n"
+		" -v        natural sort of (version) numbers within text\n"
+		" -h        display this help and exit\n");
 }
 
-static int xstrverscmp(const unsigned char *s1, const unsigned char *s2, int ci)
+static int xstrverscmp(const unsigned char *s1, const unsigned char *s2)
 {
 	static unsigned char lowertb[256] = {0};
 	int isdig1, isdig2, diff = 0, indig = 0;
@@ -1343,7 +1340,7 @@ static int xstrverscmp(const unsigned char *s1, const unsigned char *s2, int ci)
 		if (c1 == '\0' || c2 == '\0')
 			return c1 - c2;
 		indig = (c1 - '1' <= 8) & (c2 - '1' <= 8); // c1 and c2 are both 1-9
-		diff = ci ? lowertb[c1] - lowertb[c2] : (int)(c1 - c2);
+		diff = lowertb[c1] - lowertb[c2];
 	}
 	return diff;
 }
@@ -1362,9 +1359,9 @@ static int entrycmp(const void *va, const void *vb)
 
 	switch (ptab->cfg.sortby) {
 	case 1:	// Sort by size
-		if (pb->size > pa->size)
+		if (pa->size > pb->size)
 			return 1;
-		if (pb->size < pa->size)
+		if (pa->size < pb->size)
 			return -1;
 		break;
 
@@ -1394,9 +1391,7 @@ static int entrycmp(const void *va, const void *vb)
 	}
 
 	if (ptab->cfg.natural)
-		return xstrverscmp((const unsigned char *)pa->name, (const unsigned char *)pb->name, ptab->cfg.caseinsen);
-	if (ptab->cfg.caseinsen)
-		return strcasecmp(pa->name, pb->name);
+		return xstrverscmp((const unsigned char *)pa->name, (const unsigned char *)pb->name);
 	return strcoll(pa->name, pb->name);
 }
 
@@ -1628,7 +1623,7 @@ static int callextfunc(int c)
 #define STVNSEC(X)  X##tim.tv_nsec
 #endif
 
-static void fillentry(int fd, Entry *ent, struct stat sb, time_t curtime)
+static void fillentry(int fd, Entry *ent, struct stat sb)
 {
 	switch (ptab->cfg.timetype) {
 	case 0: ent->sec = sb.st_atime;
@@ -1686,7 +1681,6 @@ static void loaddirentry(DIR *dirp, int fd)
 	size_t off = 0;
 	struct dirent *dp;
 	struct stat sb;
-	time_t curtime = time(NULL);
 	Entry *ent, *tmpent;
 
 	while ((dp = readdir(dirp))) {
@@ -1729,7 +1723,7 @@ static void loaddirentry(DIR *dirp, int fd)
 		ent->nlen = tmp - ent->name; // include terminational '\0'
 		off += ent->nlen;
 
-		fillentry(fd, ent, sb, curtime);
+		fillentry(fd, ent, sb);
 		++ndents;
 	}
 }
@@ -1737,7 +1731,6 @@ static void loaddirentry(DIR *dirp, int fd)
 static void loadsrchentry(int fd)
 {
 	struct stat sb;
-	time_t curtime = time(NULL);
 	Entry *ent, *tmpent;
 
 	for (char *name = pfindbuf, *end; name < pfindend && (end = memchr(name, '\0', PATH_MAX)); name = end + 1) {
@@ -1757,21 +1750,20 @@ static void loadsrchentry(int fd)
 		ent->name = name;
 		ent->nlen = end - name + 1;
 
-		fillentry(fd, ent, sb, curtime);
+		fillentry(fd, ent, sb);
 		++ndents;
 	}
 }
 
 static void loadentries(const char *path)
 {
-	int fd;
-	DIR *dirp = opendir(path);
-
 	ndents = 0;
+	curtime = time(NULL);
+	DIR *dirp = opendir(path);
 	if (!dirp && seterrnum(__LINE__, errno))
 		return;
-	fd = dirfd(dirp);
 
+	int fd = dirfd(dirp);
 	if (ptab->hp->stat->flag != S_ROOT)
 		loaddirentry(dirp, fd); // Load dir entry
 	else if (pfindbuf)
@@ -1902,12 +1894,21 @@ static char *filetypechar(int type)
 	return "<->";
 }
 
-static void printenttime(const time_t *timep)
+static void printenttime(const time_t *timep, int useabbr)
 {
-	struct tm t;
+	static const char *months[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun",
+				"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+	struct tm t, now;
 
 	localtime_r(timep, &t);
-	printw(" %s-%02d-%02d %02d:%02d ", xitoa(t.tm_year + 1900), t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min);
+	if (useabbr) {
+		localtime_r(&curtime, &now);
+		if (t.tm_year == now.tm_year)
+			printw(" %s %2d %02d:%02d ", months[t.tm_mon], t.tm_mday, t.tm_hour, t.tm_min);
+		else
+			printw(" %s %2d  %s ", months[t.tm_mon], t.tm_mday, xitoa(t.tm_year + 1900));
+	} else
+		printw(" %s-%02d-%02d %02d:%02d ", xitoa(t.tm_year + 1900), t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min);
 }
 
 static void printent(const Entry *ent, int sel, int mark)
@@ -1936,7 +1937,7 @@ static void printent(const Entry *ent, int sel, int mark)
 			break;
 		case 's': printw("%7s ", (ent->flag & E_REG_FILE) ? tohumansize(ent->size) : filetypechar(ent->type));
 			break;
-		case 't': printenttime(&ent->sec);
+		case 't': printenttime(&ent->sec, gcfg.abbrdate);
 			break;
 		case 'p': if (gcfg.symbperm)
 				printw(" %c%s ", filetypechar(ent->type)[1], strperms(ent->mode));
@@ -1962,7 +1963,7 @@ static void redraw(const char *path)
 			break;
 		case 's': dcols += 8;
 			break;
-		case 't': dcols += 18;
+		case 't': dcols += gcfg.abbrdate ? 14 : 18;
 			break;
 		case 'p': dcols += gcfg.symbperm ? 12 : 5;
 			break;
@@ -2094,7 +2095,7 @@ static void statusbar(void)
 		Entry *ent = &pdents[cursel];
 		printw("  %c%s %s:%s  %s", filetypechar(ent->type)[1], strperms(ent->mode),
 			getpwname(ent->uid), getgrname(ent->gid), tohumansize(ent->size));
-		printenttime(&ent->sec);
+		printenttime(&ent->sec, FALSE);
 
 		getyx(stdscr, n, x);
 		n = xcols - x;
@@ -2387,9 +2388,9 @@ static void cleanup(void)
 
 int main(int argc, char *argv[])
 {
-	for (int opt; (opt = getopt(argc, argv, "cHl:moph")) != -1;) {
+	for (int opt; (opt = getopt(argc, argv, "dHl:mopvh")) != -1;) {
 		switch (opt) {
-		case 'c': gcfg.caseinsen = 0;
+		case 'd': gcfg.abbrdate = 1;
 			break;
 		case 'H': gcfg.showhidden = 1;
 			break;
@@ -2400,6 +2401,8 @@ int main(int argc, char *argv[])
 		case 'o': gcfg.openfile = 1;
 			break;
 		case 'p': gcfg.symbperm = 1;
+			break;
+		case 'v': gcfg.natural = 1;
 			break;
 		case 'h': usage();
 			return EXIT_SUCCESS;

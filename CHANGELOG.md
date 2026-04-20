@@ -6,26 +6,32 @@
 ### Added
 
 * `-o` option to open files on right arrow or `l` key ([#35][35])
-* `-l` option to specify columns in order
+* `-l` option to specify columns in order; supersedes the previous `-d`
 * `-p` option to show permissions as symbolic strings ([#34][34])
-* Prefix key for extension functions
+* Prefix key `u` for extension functions
+* ls-style date display format; use `-d` to enable ([#39][39])
 
 [35]: https://codeberg.org/sylphenix/sff/issues/35
 [34]: https://codeberg.org/sylphenix/sff/issues/34
+[39]: https://codeberg.org/sylphenix/sff/issues/39
 
 
 ### Changed
 
-* Moved version info from `-v` to `-h`
+* Moved version info from `-v` to `-h`; repurposed `-v` for natural sort
 * Display current entry details in foreground color and removed cursor at line start
 * In manual selection mode, current entry details are no longer reversed
 * Preview plugin: Enabled colors in directory preview
-* Removed forced new-file marking and extended new-file time threshold to 300s
+* Removed forced new-file marking; extended new-file time threshold to 300s
+* Natural sort is now off by default; use `-v` to enable
+* Remapped View Options keys: `z`->`y`, `h`->`c`
+* Default size sort is now ascending
+* Advanced search now uses smart case sensitivity
 
 
 ### Removed
 
-* `-v` and `-d` options (replaced by `-h` and `-l` respectively)
+* `-c` option and 'case-sensitive' setting in View Options
 
 
 ### Fixed

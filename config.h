@@ -11,12 +11,12 @@ static Settings gcfg = {
 	.showhidden = 0,  // Show hidden files
 	.dirontop   = 1,  // Sort directories on the top
 	.sortby     = 0,  // (0: name, 1: size, 2: time, 3: extension)
-	.caseinsen  = 1,  // Case insensitive
 	.natural    = 1,  // Natural numeric sorting
 	.reverse    = 0,  // Reverse sort
 	.timetype   = 1,  // (0: access, 1: modify, 2: change)
 	.openfile   = 0,  // Open files on right arrow or 'l' key
 	.symbperm   = 0,  // Show permissions as symbolic strings
+	.abbrdate   = 0,  // Use ls-style date format
 };
 
 /* Key definitions */
