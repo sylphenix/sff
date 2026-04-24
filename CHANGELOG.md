@@ -18,20 +18,20 @@
 
 ### Changed
 
-* Moved version info from `-v` to `-h`; repurposed `-v` for natural sort
+* Moved version info from `-v` to `-h`
 * Display current entry details in foreground color and removed cursor at line start
 * In manual selection mode, current entry details are no longer reversed
 * Preview plugin: Enabled colors in directory preview
 * Removed forced new-file marking; extended new-file time threshold to 300s
-* Natural sort is now off by default; use `-v` to enable
 * Remapped View Options keys: `z`->`y`, `h`->`c`
 * Default size sort is now ascending
 * Advanced search now uses smart case sensitivity
+* Natural sort now uses locale collation for non-numeric characters
 
 
 ### Removed
 
-* `-c` option and 'case-sensitive' setting in View Options
+* `-v`, `-c` option and 'case-sensitive' setting in View Options
 
 
 ### Fixed
