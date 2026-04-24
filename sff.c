@@ -1297,13 +1297,13 @@ static void usage(void)
 		" -m        mix directories and files when sorting\n"
 		" -o        open files on right arrow or 'l' key\n"
 		" -p        show permissions as symbolic strings\n"
-		" -v        natural sort of (version) numbers within text\n"
 		" -h        display this help and exit\n");
 }
 
-static int xstrverscmp(const unsigned char *s1, const unsigned char *s2)
+static int xstrverscasecmp(const char *s1, const char *s2)
 {
 	static unsigned char lowertb[256] = {0};
+	const unsigned char *p1 = (const unsigned char *)s1, *p2 = (const unsigned char *)s2;
 	int isdig1, isdig2, diff = 0, indig = 0;
 
 	if (s1 == s2)
@@ -1316,13 +1316,13 @@ static int xstrverscmp(const unsigned char *s1, const unsigned char *s2)
 			lowertb[i] = i + 32;
 	}
 
-	for (unsigned int c1, c2; diff == 0 || indig; ++s1, ++s2) {
-		c1 = *s1;
-		c2 = *s2;
+	for (unsigned int c1, c2; diff == 0 || indig; ++p1, ++p2) {
+		c1 = *p1;
+		c2 = *p2;
 
 		if (indig) {
-			isdig1 = c1 - '0' <= 9;
-			isdig2 = c2 - '0' <= 9;
+			isdig1 = c1 - '0' < 10;
+			isdig2 = c2 - '0' < 10;
 			if (isdig1 & isdig2) { // c1 and c2 are both digits
 				if (diff == 0)
 					diff = c1 - c2;
@@ -1337,12 +1337,16 @@ static int xstrverscmp(const unsigned char *s1, const unsigned char *s2)
 			indig = 0;
 		}
 
-		if (c1 == '\0' || c2 == '\0')
-			return c1 - c2;
-		indig = (c1 - '1' <= 8) & (c2 - '1' <= 8); // c1 and c2 are both 1-9
+		indig = (c1 - '1' < 9) & (c2 - '1' < 9); // c1 and c2 are both 1-9
 		diff = lowertb[c1] - lowertb[c2];
+		if (c1 == '\0' || c2 == '\0')
+			break;
 	}
-	return diff;
+
+	while ((const char *)p1 > s1 && ((*(--p1) | *(--p2)) & 0xC0) == 0x80);
+	if ((unsigned int)lowertb[*p1] - 'a' < 26 && (unsigned int)lowertb[*p2] - 'a' < 26 && diff)
+		return diff;
+	return diff ? strcoll((const char *)p1, (const char *)p2) : strcoll(s1, s2);
 }
 
 static int entrycmp(const void *va, const void *vb)
@@ -1391,7 +1395,7 @@ static int entrycmp(const void *va, const void *vb)
 	}
 
 	if (ptab->cfg.natural)
-		return xstrverscmp((const unsigned char *)pa->name, (const unsigned char *)pb->name);
+		return xstrverscasecmp(pa->name, pb->name);
 	return strcoll(pa->name, pb->name);
 }
 
@@ -2388,7 +2392,7 @@ static void cleanup(void)
 
 int main(int argc, char *argv[])
 {
-	for (int opt; (opt = getopt(argc, argv, "dHl:mopvh")) != -1;) {
+	for (int opt; (opt = getopt(argc, argv, "dHl:moph")) != -1;) {
 		switch (opt) {
 		case 'd': gcfg.abbrdate = 1;
 			break;
@@ -2401,8 +2405,6 @@ int main(int argc, char *argv[])
 		case 'o': gcfg.openfile = 1;
 			break;
 		case 'p': gcfg.symbperm = 1;
-			break;
-		case 'v': gcfg.natural = 1;
 			break;
 		case 'h': usage();
 			return EXIT_SUCCESS;
