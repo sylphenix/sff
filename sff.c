@@ -1297,7 +1297,6 @@ static void usage(void)
 		" -m        mix directories and files when sorting\n"
 		" -o        open files on right arrow or 'l' key\n"
 		" -p        show permissions as symbolic strings\n"
-		" -v        natural sort of (version) numbers within text\n"
 		" -h        display this help and exit\n");
 }
 
@@ -2393,7 +2392,7 @@ static void cleanup(void)
 
 int main(int argc, char *argv[])
 {
-	for (int opt; (opt = getopt(argc, argv, "dHl:mopvh")) != -1;) {
+	for (int opt; (opt = getopt(argc, argv, "dHl:moph")) != -1;) {
 		switch (opt) {
 		case 'd': gcfg.abbrdate = 1;
 			break;
@@ -2406,8 +2405,6 @@ int main(int argc, char *argv[])
 		case 'o': gcfg.openfile = 1;
 			break;
 		case 'p': gcfg.symbperm = 1;
-			break;
-		case 'v': gcfg.natural = 1;
 			break;
 		case 'h': usage();
 			return EXIT_SUCCESS;
