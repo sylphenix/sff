@@ -1344,9 +1344,10 @@ static int xstrverscasecmp(const char *s1, const char *s2)
 	}
 
 	while ((const char *)p1 > s1 && ((*(--p1) | *(--p2)) & 0xC0) == 0x80);
-	if ((unsigned int)lowertb[*p1] - 'a' < 26 && (unsigned int)lowertb[*p2] - 'a' < 26 && diff)
-		return diff;
-	return diff ? strcoll((const char *)p1, (const char *)p2) : strcoll(s1, s2);
+	// Let strcoll() handle non-ASCII and letters. Must pass ASCII 123-127 to strcoll for correct sorting
+	if ((*p1 > 122 || *p2 > 122) && lowertb[*p1] > 96 && lowertb[*p2] > 96)
+		return strcoll((const char *)p1, (const char *)p2);
+	return diff ? diff : strcoll(s1, s2);
 }
 
 static int entrycmp(const void *va, const void *vb)
