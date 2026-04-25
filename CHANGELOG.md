@@ -26,7 +26,7 @@
 * Remapped View Options keys: `z`->`y`, `h`->`c`
 * Default size sort is now ascending
 * Advanced search now uses smart case sensitivity
-* Natural sort now uses locale collation for non-numeric characters
+* Natural sort now uses locale collation for non-ASCII characters
 
 
 ### Removed
