@@ -1628,30 +1628,32 @@ static int callextfunc(int c)
 #define STVNSEC(X)  X##tim.tv_nsec
 #endif
 
-static void fillentry(int fd, Entry *ent, struct stat sb)
+static void fillentry(int fd, Entry *ent, struct stat *sb)
 {
 	switch (ptab->cfg.timetype) {
-	case 0: ent->sec = sb.st_atime;
-		ent->nsec = (unsigned int)STVNSEC(sb.st_a);
+	case 0: ent->sec = sb->st_atime;
+		ent->nsec = (unsigned int)STVNSEC(sb->st_a);
 		break;
-	case 1: ent->sec = sb.st_mtime;
-		ent->nsec = (unsigned int)STVNSEC(sb.st_m);
+	case 1: ent->sec = sb->st_mtime;
+		ent->nsec = (unsigned int)STVNSEC(sb->st_m);
 		break;
-	case 2: ent->sec = sb.st_ctime;
-		ent->nsec = (unsigned int)STVNSEC(sb.st_c);
+	case 2: ent->sec = sb->st_ctime;
+		ent->nsec = (unsigned int)STVNSEC(sb->st_c);
 	}
 
-	ent->size = sb.st_size;
-	ent->mode = sb.st_mode;
-	ent->uid = sb.st_uid;
-	ent->gid = sb.st_gid;
+	ent->size = sb->st_size;
+	ent->mode = sb->st_mode;
+	ent->uid = sb->st_uid;
+	ent->gid = sb->st_gid;
 	ent->flag = 0;
+	if (gcfg.marknew && (curtime - sb->st_ctime < 300))
+		ent->flag |= E_NEW;
 
 	switch (ent->mode & S_IFMT) {
 	case S_IFREG: ent->type = F_REG;
-		if (sb.st_nlink > 1)
+		if (sb->st_nlink > 1)
 			ent->type = F_HLNK;
-		if (sb.st_mode & S_IXUSR)
+		if (sb->st_mode & S_IXUSR)
 			ent->type = F_EXEC;
 		ent->flag |= E_REG_FILE;
 		break;
@@ -1660,8 +1662,8 @@ static void fillentry(int fd, Entry *ent, struct stat sb)
 		ent->flag |= E_DIR_DIRLNK;
 		break;
 	case S_IFLNK: ent->type = F_LNK;
-		fstatat(fd, ent->name, &sb, 0);
-		if (S_ISDIR(sb.st_mode))
+		fstatat(fd, ent->name, sb, 0);
+		if (S_ISDIR(sb->st_mode))
 			ent->flag |= E_DIR_DIRLNK;
 		break;
 
@@ -1675,9 +1677,6 @@ static void fillentry(int fd, Entry *ent, struct stat sb)
 		break;
 	default: ent->type = F_UNKN;
 	}
-
-	if (gcfg.marknew && (curtime - sb.st_ctime < 300))
-		ent->flag |= E_NEW;
 }
 
 static void loaddirentry(DIR *dirp, int fd)
@@ -1728,7 +1727,7 @@ static void loaddirentry(DIR *dirp, int fd)
 		ent->nlen = tmp - ent->name; // include terminational '\0'
 		off += ent->nlen;
 
-		fillentry(fd, ent, sb);
+		fillentry(fd, ent, &sb);
 		++ndents;
 	}
 }
@@ -1755,7 +1754,7 @@ static void loadsrchentry(int fd)
 		ent->name = name;
 		ent->nlen = end - name + 1;
 
-		fillentry(fd, ent, sb);
+		fillentry(fd, ent, &sb);
 		++ndents;
 	}
 }
