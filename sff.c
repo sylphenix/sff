@@ -639,8 +639,8 @@ static int enterdir(int n)
 	Entry *ent = &pdents[cursel];
 	makepath(hp->path, ent->name, newpath);
 	if (!(ent->flag & E_DIR_DIRLNK)) {
-		if (n == 1 || gcfg.openfile == 1)
-			spawn(opener, gpbuf, NULL, TRUE);
+		if (n == 1 || gcfg.openfile)
+			spawn(opener, newpath, NULL, TRUE);
 		return GO_STATBAR;
 	}
 
@@ -1042,7 +1042,7 @@ static int switchtab(int n)
 	if (n == gcfg.ct)
 		return GO_NONE;
 
-	if (gtab[n].cfg.enabled == 0 && !inittab(hp->path, n) && !inittab(home ? home : "/", n))
+	if (!gtab[n].cfg.enabled && !inittab(hp->path, n) && !inittab(home ? home : "/", n))
 		return GO_STATBAR;
 
 	hp->stat->cur = cursel;
@@ -1060,10 +1060,10 @@ static int closetab(int n __attribute__((unused)))
 	int ct = gcfg.ct, lt = -1;
 
 	for (int i = 0; i < TABS_MAX; ++i)
-		if (i != ct && gtab[i].cfg.enabled == 1)
+		if (i != ct && gtab[i].cfg.enabled)
 			lt = i;
 
-	if (gcfg.lt != ct && gtab[gcfg.lt].cfg.enabled == 1)
+	if (gcfg.lt != ct && gtab[gcfg.lt].cfg.enabled)
 		lt = gcfg.lt;
 
 	if (lt == -1) {
@@ -1988,7 +1988,7 @@ static void redraw(const char *path)
 	// Print tabs tag
 	attrset(A_NORMAL);
 	for (int i = 0; i <= TABS_MAX; ++i) {
-		if (gtab[i].cfg.enabled == 1)
+		if (gtab[i].cfg.enabled)
 			addch((i < TABS_MAX ? i + '1' : '#')
 			| (COLOR_PAIR(C_TABTAG) | (gcfg.ct == i ? A_REVERSE : 0) | A_BOLD));
 		else
