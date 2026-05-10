@@ -45,7 +45,6 @@ tsel="${tmpdir}/sff-tmpsel-$uid"
 tbuf1="${tmpdir}/sff-tmpbuf1-$uid"
 tbuf2="${tmpdir}/sff-tmpbuf2-$uid"
 
-
 # === sff extension functions ===
 
 sffpipe_clear_sel()
@@ -257,32 +256,32 @@ sff_rename()
 
 	sed 's|/[^/]*$||' "$tsel" >"$tbuf1"
 	_tlist="${tmpdir}/sff-rename-$uid"
-	if [ "$(sort -u "$tbuf1" | wc -l)" -eq 1 ]; then
-		sed 's|^.*/||' "$tsel" >"$_tlist"
-	else
+	if [ "$1" = 'p' ]; then
 		cat "$tsel" >"$_tlist"
+	else
+		sed 's|.*/||' "$tsel" >"$_tlist"
 	fi
 
 	while true; do
 		LC_ALL= $EDITOR "$_tlist"
-		sed -e 's|^.*/||' -e 's|^[ \t]*$||' "$_tlist" | paste -d '/' "$tsel" "$tbuf1" - \
-		| sed -e '/^\(.*\)\1$/d' -e '/^/d' -e '/\/$/d' >"$tbuf2"
+		sed -e 's|.*/||' -e 's|^[ \t]*$||' "$_tlist" | paste -d '/' "$tsel" "$tbuf1" - \
+		| sed -e '/^\(.*\)\1$/d' -e '/^/d' -e '/\/$/d' >"$tbuf2"
 		[ ! -s "$tbuf2" ] && sff_abort "$_tlist"
 
-		_dupnames=$(cut -d '' -f 2 "$tbuf2" | sort | uniq -d | head -n 80)
-		[ "$_dupnames" ] && printf "\n%s\n^^^ duplicate names\n" "$_dupnames"
+		_dupn=$(cut -d '' -f 2 "$tbuf2" | sort | uniq -d)
+		[ "$_dupn" ] && printf "\n%s\n^^^ duplicate names\n" "$_dupn"
 
-		_existf=$(cut -d '' -f 2 "$tbuf2" | tr '\n\035' '\0\n' | xargs -0 ls -1d -- 2>/dev/null | head -n 80)
-		[ "$_existf" ] && printf "\n%s\n^^^ file exists\n" "$_existf"
+		_exf=$(cut -d '' -f 2 "$tbuf2" | tr '\n\035' '\0\n' \
+		| xargs -0 sh -c 'for f; do [ -e "$f" ] && printf "%s\n" "$f"; done' _)
+		[ "$_exf" ] && printf "\n%s\n^^^ file exists\n" "$_exf"
 
-		[ -z "$_dupnames" ] && [ -z "$_existf" ] && break
+		[ -z "$_dupn" ] && [ -z "$_exf" ] && break
 		printf "(e)dit list / (c)ancel [e]: "; read -r _x
 		case "$_x" in [cC]) sff_abort "$_tlist";; esac
 	done
 
-	tr '\037\n\035' '\0\0\n' <"$tbuf2" >"$exbuf1"
-	sed 's/\(.*\)\(.*\)/\2\1/' "$tbuf2" | tr '\037\n\035' '\0\0\n' >"$exbuf2"
-
+	tr '\036\n\035' '\0\0\n' <"$tbuf2" >"$exbuf1"
+	sed 's/\(.*\)\(.*\)/\2\1/' "$tbuf2" | tr '\036\n\035' '\0\0\n' >"$exbuf2"
 	rm -f "$tsel" "$_tlist" "$tbuf1" "$tbuf2"
 	sff_do_rename
 }
@@ -290,7 +289,7 @@ sff_rename()
 sff_do_rename()
 {
 	printf "rename" >"$lastop"
-	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr -d '\n' | tr '\035' '\n')"
+	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr '\035' '\n')"
 
 	LC_ALL= xargs -0 -n 2 mv -nv <"$exbuf1" \
 	|| { printf "Press Enter to continue "; read -r _x; }
@@ -502,6 +501,7 @@ case "$2" in                  #?> Extension functions:
 'p') sff_paste 'd';;          #?>     p  Paste
 'P') sff_paste;;              #?>     P  Paste and keep buffer
 'r') sff_rename;;             #?>     r  Rename
+'R') sff_rename 'p';;         #?>     R  Rename (show path)
 'Y') sff_duplicate;;          #?>     Y  Duplicate
 'e') sff_edit_file;;          #?>     e  Edit file
 'm') sff_chmod_chown;;        #?>     m  Change permissions or owner
