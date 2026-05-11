@@ -81,7 +81,7 @@ sff_init_bufs()
 	[ -e "$exbuf1" ] && [ -e "$exbuf2" ] && [ -e "$lastop" ] && [ -e "$cmbuf" ] && return 0
 	touch -a "$exbuf1" "$exbuf2" "$lastop" "$cmbuf"
 	chmod 600 "$exbuf1" "$exbuf2" "$lastop" "$cmbuf"
-	[ "$uid" -eq 0 ] && ls -nd "$sffpipe" | { read -r _ _ _x _; chown "$_x" "$exbuf1" "$exbuf2" "$lastop" "$cmbuf"; }
+	[ "$uid" -eq 0 ] && chown $(ps -o uid= -p "$PPID") "$exbuf1" "$exbuf2" "$lastop" "$cmbuf"
 }
 
 sff_abort()
