@@ -214,7 +214,6 @@ sff_paste()
 	'copy') sed "s|^.*/|$_pwd/|" "$cmbuf" | tr '\n\035' '\0\n' >"$exbuf2";;
 	'move') sed "s|^.*/|$_pwd/|" "$cmbuf" | paste -d '\n' - "$cmbuf" | tr '\n\035' '\0\n' >"$exbuf2"
 		: >"$cmbuf";;
-	*) exit 0;;
 	esac
 	sff_do_paste "$_op" "${_x:-w}"
 }
@@ -340,8 +339,6 @@ sff_duplicate()
 		done
 	done <"$tsel"
 	rm -f "$tsel"
-
-	[ ! -s "$exbuf1" ] && sff_abort
 	sff_do_duplicate
 }
 
@@ -381,10 +378,8 @@ sff_edit_file()
 	[ ! -s "$tsel" ] && sff_abort
 
 	while IFS= read -r _path; do
-		_path=$(printf "%s" "$_path" | tr '\035' '\n')
-		set -- "$@" "$_path"
+		set -- "$@" "$(printf "%s" "$_path" | tr '\035' '\n')"
 	done <"$tsel"
-
 	rm -f "$tsel"
 	sffpipe_refresh
 	LC_ALL= exec $EDITOR "$@"
