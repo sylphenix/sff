@@ -40,7 +40,9 @@ tmpdir=${TMPDIR:-/tmp}
 exbuf1="${sffdir}/.exec-buf1"
 exbuf2="${sffdir}/.exec-buf2"
 lastop="${sffdir}/.last-operation"
-cpbuf="${sffdir}/.copy-buf"
+cpbuf="${sffdir}/.buf-copy"
+mvbuf="${sffdir}/.buf-move"
+[ -e "$mvbuf" ] && cmbuf=$mvbuf || cmbuf=$cpbuf
 tsel="${tmpdir}/sff-tmpsel-$uid"
 tbuf1="${tmpdir}/sff-tmpbuf1-$uid"
 tbuf2="${tmpdir}/sff-tmpbuf2-$uid"
@@ -76,10 +78,10 @@ sffpipe_get_sel()
 
 sff_init_bufs()
 {
-	[ -e "$exbuf1" ] && [ -e "$exbuf2" ] && [ -e "$lastop" ] && [ -e "$cpbuf" ] && return 0
-	touch -a "$exbuf1" "$exbuf2" "$lastop" "$cpbuf"
-	chmod 600 "$exbuf1" "$exbuf2" "$lastop" "$cpbuf"
-	[ "$uid" -eq 0 ] && ls -nd "$sffpipe" | { read -r _ _ _x _; chown "$_x" "$exbuf1" "$exbuf2" "$lastop" "$cpbuf"; }
+	[ -e "$exbuf1" ] && [ -e "$exbuf2" ] && [ -e "$lastop" ] && [ -e "$cmbuf" ] && return 0
+	touch -a "$exbuf1" "$exbuf2" "$lastop" "$cmbuf"
+	chmod 600 "$exbuf1" "$exbuf2" "$lastop" "$cmbuf"
+	[ "$uid" -eq 0 ] && ls -nd "$sffpipe" | { read -r _ _ _x _; chown "$_x" "$exbuf1" "$exbuf2" "$lastop" "$cmbuf"; }
 }
 
 sff_abort()
@@ -166,21 +168,20 @@ sff_write_cbuf()
 {
 	sff_init_bufs
 	sffpipe_get_sel
-	tr '\n\0' '\035\n' <"$sel" >"$cpbuf"
-	if [ "$1" = 'mv' ]; then
-		chmod u+s "$cpbuf"
-	else
-		chmod u-s "$cpbuf"
-	fi
+	tr '\n\0' '\035\n' <"$sel" >"$cmbuf"
+	case "$1" in
+	'cp') [ -e "$mvbuf" ] && mv -f "$mvbuf" "$cpbuf";;
+	'mv') [ -e "$cpbuf" ] && mv -f "$cpbuf" "$mvbuf";;
+	esac
 	sffpipe_clear_sel
 }
 
 sff_view_cbuf()
 {
 	echo ""
-	if [ -s "$cpbuf" ]; then
-		head -n 160 "$cpbuf"
-		echo $(wc -l <"$cpbuf") "file(s) in buffer"
+	if [ -s "$cmbuf" ]; then
+		cat "$cmbuf"
+		printf "%s: %s file(s)\n" "${cmbuf##*-}" $(wc -l <"$cmbuf")
 	else
 		echo "Buffer is empty"
 	fi
@@ -189,44 +190,42 @@ sff_view_cbuf()
 
 sff_clear_cbuf()
 {
-	[ -s "$cpbuf" ] && : >"$cpbuf"
+	: >"$cmbuf"
 }
 
 sff_paste()
 {
-	[ ! -s "$cpbuf" ] || [ "$(find "$cpbuf" -mmin +30)" ] && exit 0
+	[ ! -s "$cmbuf" ] || [ "$(find "$cmbuf" -mmin +30)" ] && exit 0
 	sff_pwd_perm
 
-	_x=''; _op='copy'
-	[ -u "$cpbuf" ] && _op='move'
-
-	_existf=$(sed 's|^.*/||' "$cpbuf" | tr '\n\035' '\0\n' | xargs -0 ls -1d -- 2>/dev/null | head -n 80)
-	if [ "$_existf" ]; then
-		printf "\n%s\n" "$_existf"
+	_x=''
+	_exf=$(sed 's|^.*/||' "$cmbuf" | tr '\n\035' '\0\n' \
+		| xargs -0 sh -c 'for f; do [ -e "$f" ] && printf "%s\n" "$f"; done' _)
+	if [ "$_exf" ]; then
+		printf "\n%s\n" "$_exf"
 		echo "^^^ files exist"
 		printf "(s)kip all / (i)nteractive / (o)verwrite all / (c)ancel [c]: "; read -r _x
-		case "$_x" in [sSiIoO]) :;; *) sff_abort;; esac
+		case "$_x" in [sSiIoO]) :;; *) exit 0;; esac
 	fi
 
 	_pwd=$(printf "%s" "$cwd" | tr '\n' '\035' | sed 's/[\|&]/\\&/g')
-	sed "s|$|$_pwd/|" "$cpbuf" | tr '\037\n\035' '\0\0\n' >"$exbuf1"
+	sed "G;s|$|$_pwd/|" "$cmbuf" | tr '\n\035' '\0\n' >"$exbuf1"
 
+	_op=${cmbuf##*-}
 	case "$_op" in
-	'copy') sed "s|^.*/|$_pwd/|" "$cpbuf" | tr '\n\035' '\0\n' >"$exbuf2"
-		[ "$1" ] && : >"$cpbuf";;
-	'move') sed "s|^.*/|$_pwd/|" "$cpbuf" | paste -d '' - "$cpbuf" | tr '\037\n\035' '\0\0\n' >"$exbuf2"
-		: >"$cpbuf";;
+	'copy') sed "s|^.*/|$_pwd/|" "$cmbuf" | tr '\n\035' '\0\n' >"$exbuf2";;
+	'move') sed "s|^.*/|$_pwd/|" "$cmbuf" | paste -d '\n' - "$cmbuf" | tr '\n\035' '\0\n' >"$exbuf2"
+		: >"$cmbuf";;
+	*) exit 0;;
 	esac
-
-	_x=${_x:-'w'}
-	sff_do_paste "$_op" "$_x"
+	sff_do_paste "$_op" "${_x:-w}"
 }
 
 sff_do_paste()
 {
 	printf "%s" "$1" >"$lastop"
 	[ "$2" != 'w' ] && touch -mt 202310011200.00 "$lastop"
-	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr -d '\n' | tr '\035' '\n')"
+	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr '\035' '\n')"
 
 	unset LC_ALL
 	case "$1" in
@@ -272,7 +271,7 @@ sff_rename()
 		[ "$_dupn" ] && printf "\n%s\n^^^ duplicate names\n" "$_dupn"
 
 		_exf=$(cut -d '' -f 2 "$tbuf2" | tr '\n\035' '\0\n' \
-		| xargs -0 sh -c 'for f; do [ -e "$f" ] && printf "%s\n" "$f"; done' _)
+			| xargs -0 sh -c 'for f; do [ -e "$f" ] && printf "%s\n" "$f"; done' _)
 		[ "$_exf" ] && printf "\n%s\n^^^ file exists\n" "$_exf"
 
 		[ -z "$_dupn" ] && [ -z "$_exf" ] && break
@@ -496,10 +495,9 @@ case "$2" in                  #?> Extension functions:
 'd') sff_delete;;             #?>     d  Delete
 'y') sff_write_cbuf 'cp';;    #?>     y  Copy
 'x') sff_write_cbuf 'mv';;    #?>     x  Cut
-'v') sff_view_cbuf;;          #?>     v  View copy/cut buffer
-'V') sff_clear_cbuf;;         #?>     V  Clear copy/cut buffer
-'p') sff_paste 'd';;          #?>     p  Paste
-'P') sff_paste;;              #?>     P  Paste and keep buffer
+'v') sff_view_cbuf;;          #?>     v  View buffer
+'V') sff_clear_cbuf;;         #?>     V  Clear buffer
+'p') sff_paste;;              #?>     p  Paste
 'r') sff_rename;;             #?>     r  Rename
 'R') sff_rename 'p';;         #?>     R  Rename (show path)
 'Y') sff_duplicate;;          #?>     Y  Duplicate
