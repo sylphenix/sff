@@ -299,13 +299,13 @@ sff_undo_move()
 	[ ! -s "$exbuf2" ] && exit 0
 	_op=$(cat "$lastop")
 	echo ""
-	xargs -0 -n 2 printf "%s -> %s\n" <"$exbuf2" | head -n 160
+	tr '\n\0' '\035\n' <"$exbuf2" | sed '$!N; s/\n/ -> /'
 	printf "Undo %s? (y/n) [n]: " "$_op"; read -r _x
 	case "$_x" in [yY]) :;; *) exit 0;; esac
 
 	printf "un%s" "$_op" >"$lastop"
-	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf1" | head -n 1 | tr -d '\n' | tr '\035' '\n')"
-
+	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf1" | head -n 1 | tr '\035' '\n')"
+	echo "Moving..."
 	LC_ALL= xargs -0 -n 2 mv -n <"$exbuf2" \
 	|| { printf "Press Enter to continue "; read -r _x; }
 }
@@ -348,7 +348,7 @@ sff_duplicate()
 sff_do_duplicate()
 {
 	printf "duplicate" >"$lastop"
-	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr -d '\n' | tr '\035' '\n')"
+	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr '\035' '\n')"
 
 	echo "Duplicating..."
 	LC_ALL= xargs -0 -n 2 cp -an <"$exbuf1" \
