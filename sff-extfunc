@@ -86,7 +86,8 @@ sff_init_bufs()
 
 sff_abort()
 {
-	rm -f "$tbuf1" "$tbuf2" "$@"
+	rm -f "$tsel" "$tbuf1" "$tbuf2"
+	[ "$1" ] && rm -f "$1"
 	exit 0
 }
 
@@ -280,7 +281,7 @@ sff_rename()
 
 	tr '\036\n\035' '\0\0\n' <"$tbuf2" >"$exbuf1"
 	sed 's/\(.*\)\(.*\)/\2\1/' "$tbuf2" | tr '\036\n\035' '\0\0\n' >"$exbuf2"
-	rm -f "$_tlist" "$tbuf1" "$tbuf2"
+	rm -f "$tsel" "$_tlist" "$tbuf1" "$tbuf2"
 	sff_do_rename
 }
 
@@ -340,8 +341,9 @@ sff_duplicate()
 			printf "%s\0" "$_npath" >>"$exbuf2"
 		done
 	done <"$tsel"
+	rm -f "$tsel"
 
-	[ ! -s "$exbuf1" ] && exit 0
+	[ ! -s "$exbuf1" ] && sff_abort
 	sff_do_duplicate
 }
 
@@ -359,7 +361,7 @@ sff_delete()
 {
 	sffpipe_get_sel
 	tr '\n\0' '\035\n' <"$sel" >"$tsel"
-	[ ! -s "$tsel" ] && exit 0
+	[ ! -s "$tsel" ] && sff_abort
 
 	_lines=$(wc -l <"$tsel")
 	echo ""
@@ -371,19 +373,21 @@ sff_delete()
 
 	tr '\n\035' '\0\n' <"$tsel" | LC_ALL= xargs -0 rm -rf \
 	|| { printf "Press Enter to continue "; read -r _x; }
+	rm -f "$tsel"
 }
 
 sff_edit_file()
 {
 	sffpipe_get_sel
 	tr '\n\0' '\035\n' <"$sel" >"$tsel"
-	[ ! -s "$tsel" ] && exit 0
+	[ ! -s "$tsel" ] && sff_abort
 
 	while IFS= read -r _path; do
 		_path=$(printf "%s" "$_path" | tr '\035' '\n')
 		set -- "$@" "$_path"
 	done <"$tsel"
 
+	rm -f "$tsel"
 	sffpipe_refresh
 	LC_ALL= exec $EDITOR "$@"
 }
@@ -421,7 +425,7 @@ sff_file_stat()
 {
 	sffpipe_get_sel
 	tr '\n\0' '\035\n' <"$sel" >"$tsel"
-	[ ! -s "$tsel" ] && exit 0
+	[ ! -s "$tsel" ] && sff_abort
 
 	while IFS= read -r _path; do
 		echo ""
@@ -430,6 +434,7 @@ sff_file_stat()
 		file -bi "$_path"
 		file -b "$_path"
 	done <"$tsel"
+	rm -f "$tsel"
 	printf "Press Enter to continue "; read -r _x
 }
 
