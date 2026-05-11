@@ -153,7 +153,7 @@ sff_undo_new()
 	echo ""
 	tr '\n\0' '\035\n' <"$exbuf2" | head -n 160
 	echo "^^^" $(tr '\n\0' '\035\n' <"$exbuf2" | wc -l) "files will be deleted"
-	printf "Undo '%s'? (y/n) [n]: " "$_op"; read -r _x
+	printf "Undo %s? (y/n) [n]: " "$_op"; read -r _x
 	case "$_x" in [yY]) :;; *) exit 0;; esac
 
 	printf "un%s" "$_op" >"$lastop"
@@ -289,6 +289,7 @@ sff_do_rename()
 	printf "rename" >"$lastop"
 	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr '\035' '\n')"
 
+	printf "\nRenaming...\n"
 	LC_ALL= xargs -0 -n 2 mv -nv <"$exbuf1" \
 	|| { printf "Press Enter to continue "; read -r _x; }
 }
@@ -299,7 +300,7 @@ sff_undo_move()
 	_op=$(cat "$lastop")
 	echo ""
 	xargs -0 -n 2 printf "%s -> %s\n" <"$exbuf2" | head -n 160
-	printf "Undo '%s'? (y/n) [n]: " "$_op"; read -r _x
+	printf "Undo %s? (y/n) [n]: " "$_op"; read -r _x
 	case "$_x" in [yY]) :;; *) exit 0;; esac
 
 	printf "un%s" "$_op" >"$lastop"
