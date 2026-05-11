@@ -150,8 +150,8 @@ sff_undo_new()
 
 	_lines=$(tr '\n\0' '\035\n' <"$exbuf2" | wc -l)
 	echo ""
-	tr '\n\0' '\035\n' <"$exbuf2" | head -n 24
-	[ "$_lines" -gt 24 ] && echo "..."
+	tr '\n\0' '\035\n' <"$exbuf2" | head -n 48
+	[ "$_lines" -gt 48 ] && echo "..."
 	printf "%d file(s) will be deleted\n" $_lines
 	printf "Undo %s? (y/n) [n]: " "$_op"; read -r _x
 	case "$_x" in [yY]) :;; *) exit 0;; esac
@@ -362,8 +362,8 @@ sff_delete()
 
 	_lines=$(wc -l <"$tsel")
 	echo ""
-	head -n 24 "$tsel"
-	[ "$_lines" -gt 24 ] && echo "..."
+	head -n 48 "$tsel"
+	[ "$_lines" -gt 48 ] && echo "..."
 	printf "Permanently delete %d file(s)? (y/n) [n]: " $_lines; read -r _x
 	case "$_x" in [yY]) :;; *) sff_abort;; esac
 	sffpipe_refresh -c
