@@ -115,8 +115,7 @@ sff_new()
 		_exf=$(tr '\n' '\0' <"$tbuf2" | xargs -0 sh -c 'for f; do [ -e "$f" ] && printf "%s\n" "$f"; done' _)
 		[ -z "$_exf" ] && break
 
-		printf "\n%s\n" "$_exf"
-		echo "^^^ file exists"
+		printf "\n%s\n^^^ file(s) exist\n" "$_exf"
 		printf "(e)dit list / (c)ancel [e]: "; read -r _x
 		case "$_x" in [cC]) sff_abort "$_tlist";; esac
 	done
@@ -201,8 +200,7 @@ sff_paste()
 	_exf=$(sed 's|^.*/||' "$cmbuf" | tr '\n\035' '\0\n' \
 		| xargs -0 sh -c 'for f; do [ -e "$f" ] && printf "%s\n" "$f"; done' _)
 	if [ "$_exf" ]; then
-		printf "\n%s\n" "$_exf"
-		echo "^^^ files exist"
+		printf "\n%s\n^^^ file(s) exist\n" "$_exf"
 		printf "(s)kip all / (i)nteractive / (o)verwrite all / (c)ancel [c]: "; read -r _x
 		case "$_x" in [sSiIoO]) :;; *) exit 0;; esac
 	fi
@@ -271,7 +269,7 @@ sff_rename()
 
 		_exf=$(cut -d '' -f 2 "$tbuf2" | tr '\n\035' '\0\n' \
 			| xargs -0 sh -c 'for f; do [ -e "$f" ] && printf "%s\n" "$f"; done' _)
-		[ "$_exf" ] && printf "\n%s\n^^^ file exists\n" "$_exf"
+		[ "$_exf" ] && printf "\n%s\n^^^ file(s) exist\n" "$_exf"
 
 		[ -z "$_dupn" ] && [ -z "$_exf" ] && break
 		printf "(e)dit list / (c)ancel [e]: "; read -r _x
