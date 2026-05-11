@@ -112,10 +112,10 @@ sff_new()
 		[ ! -s "$tbuf1" ] && sff_abort "$_tlist"
 
 		sed 's|/.*$||' "$tbuf1" | sort -u >"$tbuf2"
-		_existf=$(tr '\n' '\0' <"$tbuf2" | xargs -0 ls -1d -- 2>/dev/null | head -n 80)
-		[ -z "$_existf" ] && break
+		_exf=$(tr '\n' '\0' <"$tbuf2" | xargs -0 sh -c 'for f; do [ -e "$f" ] && printf "%s\n" "$f"; done' _)
+		[ -z "$_exf" ] && break
 
-		printf "\n%s\n" "$_existf"
+		printf "\n%s\n" "$_exf"
 		echo "^^^ file exists"
 		printf "(e)dit list / (c)ancel [e]: "; read -r _x
 		case "$_x" in [cC]) sff_abort "$_tlist";; esac
@@ -134,7 +134,7 @@ sff_new()
 sff_do_new()
 {
 	printf "new" >"$lastop"
-	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr -d '\n' | tr '\035' '\n')"
+	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr '\035' '\n')"
 
 	_err=''
 	[ "$(head -c 1 "$exbuf1" | tr -d '\n')" ] \
