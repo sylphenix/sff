@@ -30,7 +30,6 @@ EDITOR=${EDITOR:-vi}
 export LC_ALL=C
 unset LESS
 cwd=$(pwd)
-uid=$(id -u)
 
 sffpipe=$1
 sffdir=${sffpipe%/*}
@@ -43,9 +42,9 @@ lastop="${sffdir}/.last-operation"
 cpbuf="${sffdir}/.buf-copy"
 mvbuf="${sffdir}/.buf-move"
 [ -e "$mvbuf" ] && cmbuf=$mvbuf || cmbuf=$cpbuf
-tsel="${tmpdir}/sff-tmpsel-$uid"
-tbuf1="${tmpdir}/sff-tmpbuf1-$uid"
-tbuf2="${tmpdir}/sff-tmpbuf2-$uid"
+tsel=$(mktemp -u "${tmpdir}/sff-tsel-XXXXXX")
+tbuf1=$(mktemp -u "${tmpdir}/sff-tbuf1-XXXXXX")
+tbuf2=$(mktemp -u "${tmpdir}/sff-tbuf2-XXXXXX")
 
 # === sff extension functions ===
 
@@ -81,13 +80,12 @@ sff_init_bufs()
 	[ -e "$exbuf1" ] && [ -e "$exbuf2" ] && [ -e "$lastop" ] && [ -e "$cmbuf" ] && return 0
 	touch -a "$exbuf1" "$exbuf2" "$lastop" "$cmbuf"
 	chmod 600 "$exbuf1" "$exbuf2" "$lastop" "$cmbuf"
-	[ "$uid" -eq 0 ] && chown $(ps -o uid= -p "$PPID") "$exbuf1" "$exbuf2" "$lastop" "$cmbuf"
+	[ "$(id -u)" -eq 0 ] && chown $(ps -o uid= -p "$PPID") "$exbuf1" "$exbuf2" "$lastop" "$cmbuf"
 }
 
 sff_abort()
 {
-	rm -f "$tsel" "$tbuf1" "$tbuf2"
-	[ "$1" ] && rm -f "$1"
+	rm -f "$tsel" "$tbuf1" "$tbuf2" "$@"
 	exit 0
 }
 
@@ -104,7 +102,7 @@ sff_new()
 {
 	sff_pwd_perm
 	sff_init_bufs
-	_tlist="${tmpdir}/sff-create-files-$uid"
+	_tlist="${tmpdir}/sff-create-files-$(id -u)"
 	: >"$_tlist"
 
 	while true; do
@@ -251,10 +249,10 @@ sff_rename()
 	sff_init_bufs
 	sffpipe_get_sel
 	tr '\n\0' '\035\n' <"$sel" >"$tsel"
-	[ ! -s "$tsel" ] && exit 0
+	[ ! -s "$tsel" ] && sff_abort
 
 	sed 's|/[^/]*$||' "$tsel" >"$tbuf1"
-	_tlist="${tmpdir}/sff-rename-$uid"
+	_tlist="${tmpdir}/sff-rename-$(id -u)"
 	if [ "$1" = 'p' ]; then
 		cat "$tsel" >"$_tlist"
 	else
@@ -316,12 +314,12 @@ sff_duplicate()
 	sff_init_bufs
 	sffpipe_get_sel
 	tr '\n\0' '\035\n' <"$sel" >"$tsel"
-	[ ! -s "$tsel" ] && exit 0
+	[ ! -s "$tsel" ] && sff_abort
 
 	printf "\nNumber of copies / (c)ancel [1]: "; read -r _x
 	_x=$(printf "%s" "${_x:-'1'}" | tr -cd '0-9')
 	_x=${_x#"${_x%%[!0]*}"}
-	[ -z "$_x" ] && exit 0
+	[ -z "$_x" ] && sff_abort
 
 	: >"$exbuf1"; : >"$exbuf2"
 	while IFS= read -r _path; do
@@ -368,7 +366,7 @@ sff_delete()
 	head -n 24 "$tsel"
 	[ "$_lines" -gt 24 ] && echo "..."
 	printf "Permanently delete %d file(s)? (y/n) [n]: " $_lines; read -r _x
-	case "$_x" in [yY]) :;; *) exit 0;; esac
+	case "$_x" in [yY]) :;; *) sff_abort;; esac
 	sffpipe_refresh -c
 
 	tr '\n\035' '\0\n' <"$tsel" | LC_ALL= xargs -0 rm -rf \
