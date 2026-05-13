@@ -75,18 +75,18 @@ sffpipe_get_sel()
 	sel=$sffpipe
 }
 
+sff_cleanup()
+{
+	rm -f "$tsel" "$tbuf1" "$tbuf2" "$tlist"
+}
+trap sff_cleanup EXIT HUP INT QUIT TERM
+
 sff_init_bufs()
 {
 	[ -e "$exbuf1" ] && [ -e "$exbuf2" ] && [ -e "$lastop" ] && [ -e "$cmbuf" ] && return 0
 	touch -a "$exbuf1" "$exbuf2" "$lastop" "$cmbuf"
 	chmod 600 "$exbuf1" "$exbuf2" "$lastop" "$cmbuf"
 	[ "$(id -u)" -eq 0 ] && chown $(ps -o uid= -p "$PPID") "$exbuf1" "$exbuf2" "$lastop" "$cmbuf"
-}
-
-sff_abort()
-{
-	rm -f "$tsel" "$tbuf1" "$tbuf2" "$@"
-	exit 0
 }
 
 sff_pwd_perm()
@@ -102,13 +102,13 @@ sff_new()
 {
 	sff_pwd_perm
 	sff_init_bufs
-	_tlist="${tmpdir}/sff-create-files-$(id -u)"
-	: >"$_tlist"
+	tlist="${tmpdir}/sff-create-files-$(id -u)"
+	: >"$tlist"
 
 	while true; do
-		LC_ALL= $EDITOR "$_tlist"
-		[ -e "$_tlist" ] && sed -e 's|^/*||' -e 's|[ \t]*$||' -e '/^$/d' "$_tlist" >"$tbuf1"
-		[ ! -s "$tbuf1" ] && sff_abort "$_tlist"
+		LC_ALL= $EDITOR "$tlist"
+		[ -e "$tlist" ] && sed -e 's|^/*||' -e 's|[ \t]*$||' -e '/^$/d' "$tlist" >"$tbuf1"
+		[ ! -s "$tbuf1" ] && exit 0
 
 		sed 's|/.*$||' "$tbuf1" | sort -u >"$tbuf2"
 		_exf=$(tr '\n' '\0' <"$tbuf2" | xargs -0 sh -c 'for f; do [ -e "$f" ] && printf "%s\n" "$f"; done' _)
@@ -116,7 +116,7 @@ sff_new()
 
 		printf "\n%s\n^^^ file(s) exist\n" "$_exf"
 		printf "(e)dit list / (c)ancel [e]: "; read -r _x
-		case "$_x" in [cC]) sff_abort "$_tlist";; esac
+		case "$_x" in [cC]) exit 0;; esac
 	done
 
 	_pwd=$(printf '%s' "$cwd" | tr '\n' '\035' | sed 's/[\|&]/\\&/g')
@@ -124,8 +124,6 @@ sff_new()
 	sed -e '/\//!d' -e 's|/[^/]*$||' -e "s|^|$_pwd/|" "$tbuf1" | sort -u | tr '\n' '\0' >"$exbuf1"
 	printf "\n" >>"$exbuf1"
 	sed -e '/\/$/d' -e "s|^|$_pwd/|" "$tbuf1" | tr '\n' '\0' >>"$exbuf1"
-
-	rm -f "$_tlist" "$tbuf1" "$tbuf2"
 	sff_do_new
 }
 
@@ -250,21 +248,21 @@ sff_rename()
 	sff_init_bufs
 	sffpipe_get_sel
 	tr '\n\0' '\035\n' <"$sel" >"$tsel"
-	[ ! -s "$tsel" ] && sff_abort
+	[ ! -s "$tsel" ] && exit 0
 
 	sed 's|/[^/]*$||' "$tsel" >"$tbuf1"
-	_tlist="${tmpdir}/sff-rename-$(id -u)"
+	tlist="${tmpdir}/sff-rename-$(id -u)"
 	if [ "$1" = 'p' ]; then
-		cat "$tsel" >"$_tlist"
+		cat "$tsel" >"$tlist"
 	else
-		sed 's|.*/||' "$tsel" >"$_tlist"
+		sed 's|.*/||' "$tsel" >"$tlist"
 	fi
 
 	while true; do
-		LC_ALL= $EDITOR "$_tlist"
-		sed -e 's|.*/||' -e 's|^[ \t]*$||' "$_tlist" | paste -d '/' "$tsel" "$tbuf1" - \
+		LC_ALL= $EDITOR "$tlist"
+		sed -e 's|.*/||' -e 's|^[ \t]*$||' "$tlist" | paste -d '/' "$tsel" "$tbuf1" - \
 		| sed -e '/^\(.*\)\1$/d' -e '/^/d' -e '/\/$/d' >"$tbuf2"
-		[ ! -s "$tbuf2" ] && sff_abort "$_tlist"
+		[ ! -s "$tbuf2" ] && exit 0
 
 		_dupn=$(cut -d '' -f 2 "$tbuf2" | sort | uniq -d)
 		[ "$_dupn" ] && printf "\n%s\n^^^ duplicate names\n" "$_dupn"
@@ -275,12 +273,11 @@ sff_rename()
 
 		[ -z "$_dupn" ] && [ -z "$_exf" ] && break
 		printf "(e)dit list / (c)ancel [e]: "; read -r _x
-		case "$_x" in [cC]) sff_abort "$_tlist";; esac
+		case "$_x" in [cC]) exit 0;; esac
 	done
 
 	tr '\036\n\035' '\0\0\n' <"$tbuf2" >"$exbuf1"
 	sed 's/\(.*\)\(.*\)/\2\1/' "$tbuf2" | tr '\036\n\035' '\0\0\n' >"$exbuf2"
-	rm -f "$tsel" "$_tlist" "$tbuf1" "$tbuf2"
 	sff_do_rename
 }
 
@@ -315,12 +312,12 @@ sff_duplicate()
 	sff_init_bufs
 	sffpipe_get_sel
 	tr '\n\0' '\035\n' <"$sel" >"$tsel"
-	[ ! -s "$tsel" ] && sff_abort
+	[ ! -s "$tsel" ] && exit 0
 
 	printf "\nNumber of copies / (c)ancel [1]: "; read -r _x
 	_x=$(printf "%s" "${_x:-'1'}" | tr -cd '0-9')
 	_x=${_x#"${_x%%[!0]*}"}
-	[ -z "$_x" ] && sff_abort
+	[ -z "$_x" ] && exit 0
 
 	: >"$exbuf1"; : >"$exbuf2"
 	while IFS= read -r _path; do
@@ -340,7 +337,6 @@ sff_duplicate()
 			printf "%s\0" "$_npath" >>"$exbuf2"
 		done
 	done <"$tsel"
-	rm -f "$tsel"
 	sff_do_duplicate
 }
 
@@ -358,31 +354,29 @@ sff_delete()
 {
 	sffpipe_get_sel
 	tr '\n\0' '\035\n' <"$sel" >"$tsel"
-	[ ! -s "$tsel" ] && sff_abort
+	[ ! -s "$tsel" ] && exit 0
 
 	_lines=$(wc -l <"$tsel")
 	echo ""
 	head -n 48 "$tsel"
 	[ "$_lines" -gt 48 ] && echo "..."
 	printf "Permanently delete %d file(s)? (y/n) [n]: " $_lines; read -r _x
-	case "$_x" in [yY]) :;; *) sff_abort;; esac
+	case "$_x" in [yY]) :;; *) exit 0;; esac
 	sffpipe_refresh -c
 
 	tr '\n\035' '\0\n' <"$tsel" | LC_ALL= xargs -0 rm -rf \
 	|| { printf "Press Enter to continue "; read -r _x; }
-	rm -f "$tsel"
 }
 
 sff_edit_file()
 {
 	sffpipe_get_sel
 	tr '\n\0' '\035\n' <"$sel" >"$tsel"
-	[ ! -s "$tsel" ] && sff_abort
+	[ ! -s "$tsel" ] && exit 0
 
 	while IFS= read -r _path; do
 		set -- "$@" "$(printf "%s" "$_path" | tr '\035' '\n')"
 	done <"$tsel"
-	rm -f "$tsel"
 	sffpipe_refresh
 	LC_ALL= exec $EDITOR "$@"
 }
