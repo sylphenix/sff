@@ -419,18 +419,13 @@ sff_find()
 sff_file_stat()
 {
 	sffpipe_get_sel
-	tr '\n\0' '\035\n' <"$sel" >"$tsel"
-	[ ! -s "$tsel" ] && sff_abort
-
-	while IFS= read -r _path; do
+	tr '\n\0' '\035\n' <"$sel" | while IFS= read -r _path; do
 		echo ""
 		_path=$(printf "%s" "$_path" | tr '\035' '\n')
-		stat -x "$_path" 2>/dev/null || stat "$_path"
+		LC_ALL= stat -x "$_path" 2>/dev/null || LC_ALL= stat "$_path"
 		file -bi "$_path"
 		file -b "$_path"
-	done <"$tsel"
-	rm -f "$tsel"
-	printf "Press Enter to continue "; read -r _x
+	done | LC_ALL= less
 }
 
 sff_disk_usage()
