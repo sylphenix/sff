@@ -175,14 +175,13 @@ sff_write_cbuf()
 
 sff_view_cbuf()
 {
-	echo ""
+	unset LC_ALL
 	if [ -s "$cmbuf" ]; then
 		cat "$cmbuf"
 		printf "%s: %s file(s)\n" "${cmbuf##*-}" $(wc -l <"$cmbuf")
 	else
 		echo "Buffer is empty"
-	fi
-	printf "Press Enter to continue "; read -r _x
+	fi | less +G
 }
 
 sff_clear_cbuf()
