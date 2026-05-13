@@ -466,7 +466,7 @@ sff_redo()
 
 sff_help()
 {
-	sed -n '/[#][?][>]/p' "$0" | sed 's/^.*[#][?][>]//' | less
+	sed -n '/[#][?][>]/{s/^.*[#][?][>]//;p;}' "$0" | LC_ALL= less
 }
 
 run_pl()
