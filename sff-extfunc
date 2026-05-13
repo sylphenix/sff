@@ -194,17 +194,18 @@ sff_paste()
 {
 	[ ! -s "$cmbuf" ] || [ "$(find "$cmbuf" -mmin +30)" ] && exit 0
 	sff_pwd_perm
-	_cks=$(cksum "$cmbuf")
 
 	_x=''
 	_exf=$(sed 's|^.*/||' "$cmbuf" | tr '\n\035' '\0\n' \
 		| xargs -0 sh -c 'for f; do [ -e "$f" ] && printf "%s\n" "$f"; done' _)
 	if [ "$_exf" ]; then
+		tlist=$(mktemp -u "${tmpdir}/sff-buf-XXXXXX-${cmbuf##*-}")
+		cp -f "$cmbuf" "$tlist"
+		cmbuf=$tlist
 		printf "\n%s\n^^^ file(s) exist\n" "$_exf"
 		printf "(s)kip all / (i)nteractive / (o)verwrite all / (c)ancel [c]: "; read -r _x
 		case "$_x" in [sSiIoO]) :;; *) exit 0;; esac
 	fi
-	[ ! -e "$cmbuf" ] || [ "$_cks" != "$(cksum "$cmbuf")" ] && exit 0
 
 	_pwd=$(printf "%s" "$cwd" | tr '\n' '\035' | sed 's/[\|&]/\\&/g')
 	sed "G;s|$|$_pwd/|" "$cmbuf" | tr '\n\035' '\0\n' >"$exbuf1"
