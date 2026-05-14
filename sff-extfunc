@@ -73,12 +73,14 @@ sffpipe_enter_dir()
 sffpipe_get_sel()
 {
 	[ -p "$sffpipe" ] && printf "%s" "$$" >"$sffpipe" \
-	|| { printf "\n%s: Invalid FIFO file\n" "$sffpipe"; exit 0; }
+	|| { printf "\n%s: invalid FIFO file\n" "$sffpipe"; exit 1; }
 }
 
 sff_cleanup()
 {
+	_ecode=$?
 	rm -f "$tsel" "$tbuf1" "$tbuf2" "$tlist"
+	[ "$_ecode" -gt 0 ] && { printf "Press Enter to continue "; read -r _x; }
 }
 trap sff_cleanup EXIT HUP INT QUIT TERM
 
@@ -92,11 +94,7 @@ sff_init_bufs()
 
 sff_pwd_perm()
 {
-	if [ ! -w "$cwd" ]; then
-		printf "\n%s: Permission denied\n" "$cwd"
-		printf "Press Enter to continue "; read -r _x
-		exit 0
-	fi
+	[ ! -w "$cwd" ] && { printf "\n%s: Permission denied\n" "$cwd"; exit 1; }
 }
 
 sff_new()
@@ -136,13 +134,13 @@ sff_do_new()
 
 	printf "\nCreating...\n"
 	tr '\0' '\n' <"$exbuf1" | sed '/^$/d'
-	_err=''
+	_err=0
 	[ "$(head -c 1 "$exbuf1" | tr -d '\n')" ] \
 	&& { head -n 1 "$exbuf1" | tr -d '\n' | tr '\035' '\n' | LC_ALL= xargs -0 mkdir -p || _err=1; }
 
 	[ "$(tail -c 1 "$exbuf1" | tr -d '\n' | tr '\0' 'A')" ] \
 	&& { tail -n +2 "$exbuf1" | tr '\035' '\n' | LC_ALL= xargs -0 touch || _err=1; }
-	[ "$_err" ] && { printf "Press Enter to continue "; read -r _x; }
+	return $_err
 }
 
 sff_undo_new()
@@ -155,8 +153,7 @@ sff_undo_new()
 
 	echo "Deleting..."
 	LC_ALL= xargs -0 sh -c 'find "$@" -prune -cnewer "$0" -exec rm -f {} +' "$lastop" <"$exbuf2" \
-	&& printf "un%s" "$_op" >"$lastop" \
-	|| { printf "Press Enter to continue "; read -r _x; }
+	&& printf "un%s" "$_op" >"$lastop"
 }
 
 sff_write_cbuf()
@@ -238,7 +235,7 @@ sff_do_paste()
 		;;
 	'null') echo "Aborted: operation expired"
 		false;;
-	esac || { printf "Press Enter to continue "; read -r _x; }
+	esac
 }
 
 sff_rename()
@@ -287,8 +284,7 @@ sff_do_rename()
 	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr '\035' '\n')"
 
 	printf "\nRenaming...\n"
-	LC_ALL= xargs -0 -n 2 mv -nv <"$exbuf1" \
-	|| { printf "Press Enter to continue "; read -r _x; }
+	LC_ALL= xargs -0 -n 2 mv -nv <"$exbuf1"
 }
 
 sff_undo_move()
@@ -301,8 +297,7 @@ sff_undo_move()
 
 	echo "Moving..."
 	LC_ALL= xargs -0 -n 2 mv -n <"$exbuf2" \
-	&& printf "un%s" "$_op" >"$lastop" \
-	|| { printf "Press Enter to continue "; read -r _x; }
+	&& printf "un%s" "$_op" >"$lastop"
 }
 
 sff_duplicate()
@@ -344,8 +339,7 @@ sff_do_duplicate()
 	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr '\035' '\n')"
 
 	echo "Duplicating..."
-	LC_ALL= xargs -0 -n 2 cp -av <"$exbuf1" \
-	|| { printf "Press Enter to continue "; read -r _x; }
+	LC_ALL= xargs -0 -n 2 cp -av <"$exbuf1"
 }
 
 sff_delete()
@@ -363,8 +357,7 @@ sff_delete()
 	sffpipe_refresh -c
 
 	echo "Deleting..."
-	tr '\n\035' '\0\n' <"$tsel" | LC_ALL= xargs -0 rm -rf \
-	|| { printf "Press Enter to continue "; read -r _x; }
+	tr '\n\035' '\0\n' <"$tsel" | LC_ALL= xargs -0 rm -rf
 }
 
 sff_edit_file()
@@ -391,7 +384,7 @@ sff_chmod_chown()
 	case "$_x" in
 	*:*) LC_ALL= xargs -0 chown $_x2 $_x <"$sffpipe";;
 	*) LC_ALL= xargs -0 chmod $_x2 $_x <"$sffpipe";;
-	esac || { printf "Press Enter to continue "; read -r _x; }
+	esac || return 1
 	sffpipe_refresh
 }
 
@@ -428,7 +421,7 @@ sff_disk_usage()
 	LC_ALL= xargs -0 du -shc <"$sffpipe" | sort -h
 	echo ""
 	df -h "$cwd"
-	printf "Press Enter to continue "; read -r _x
+	return 1
 }
 
 sff_undo()
@@ -464,8 +457,8 @@ run_pl()
 	[ ! -e "$_plugin" ] && _plugin="/usr/local/lib/sff/plugins/$1"
 	[ ! -e "$_plugin" ] && _plugin="/usr/lib/sff/plugins/$1"
 	if [ ! -e "$_plugin" ]; then
-		printf "\nPlugin '%s' not found\n" "$1"
-		printf "Press Enter to continue "; read -r _x
+		printf "\n%s: plugin not found\n" "$1"
+		return 1
 	else
 		unset LC_ALL
 		exec "$_plugin" "$sffpipe" "$2"
