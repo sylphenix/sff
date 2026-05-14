@@ -72,8 +72,8 @@ sffpipe_enter_dir()
 
 sffpipe_get_sel()
 {
-	[ -p "$sffpipe" ] && printf "%s" "$$" >"$sffpipe"
-	sel=$sffpipe
+	[ -p "$sffpipe" ] && printf "%s" "$$" >"$sffpipe" \
+	|| { printf "\n%s: Invalid FIFO file\n" "$sffpipe"; exit 0; }
 }
 
 sff_cleanup()
@@ -163,7 +163,7 @@ sff_write_cbuf()
 {
 	sff_init_bufs
 	sffpipe_get_sel
-	tr '\n\0' '\035\n' <"$sel" >"$cmbuf"
+	tr '\n\0' '\035\n' <"$sffpipe" >"$cmbuf"
 	case "$1" in
 	'cp') [ -e "$mvbuf" ] && mv -f "$mvbuf" "$cpbuf";;
 	'mv') [ -e "$cpbuf" ] && mv -f "$cpbuf" "$mvbuf";;
@@ -245,7 +245,7 @@ sff_rename()
 {
 	sff_init_bufs
 	sffpipe_get_sel
-	tr '\n\0' '\035\n' <"$sel" >"$tsel"
+	tr '\n\0' '\035\n' <"$sffpipe" >"$tsel"
 	[ ! -s "$tsel" ] && exit 0
 
 	sed 's|/[^/]*$||' "$tsel" >"$tbuf1"
@@ -309,7 +309,7 @@ sff_duplicate()
 {
 	sff_init_bufs
 	sffpipe_get_sel
-	tr '\n\0' '\035\n' <"$sel" >"$tsel"
+	tr '\n\0' '\035\n' <"$sffpipe" >"$tsel"
 	[ ! -s "$tsel" ] && exit 0
 
 	printf "\nNumber of copies / (c)ancel [1]: "; read -r _x
@@ -351,7 +351,7 @@ sff_do_duplicate()
 sff_delete()
 {
 	sffpipe_get_sel
-	tr '\n\0' '\035\n' <"$sel" >"$tsel"
+	tr '\n\0' '\035\n' <"$sffpipe" >"$tsel"
 	[ ! -s "$tsel" ] && exit 0
 
 	_lines=$(wc -l <"$tsel")
@@ -370,7 +370,7 @@ sff_delete()
 sff_edit_file()
 {
 	sffpipe_get_sel
-	tr '\n\0' '\035\n' <"$sel" >"$tsel"
+	tr '\n\0' '\035\n' <"$sffpipe" >"$tsel"
 	[ ! -s "$tsel" ] && exit 0
 
 	while IFS= read -r _path; do
@@ -389,8 +389,8 @@ sff_chmod_chown()
 
 	sffpipe_get_sel
 	case "$_x" in
-	*:*) LC_ALL= xargs -0 chown $_x2 $_x <"$sel";;
-	*) LC_ALL= xargs -0 chmod $_x2 $_x <"$sel";;
+	*:*) LC_ALL= xargs -0 chown $_x2 $_x <"$sffpipe";;
+	*) LC_ALL= xargs -0 chmod $_x2 $_x <"$sffpipe";;
 	esac || { printf "Press Enter to continue "; read -r _x; }
 	sffpipe_refresh
 }
@@ -412,7 +412,7 @@ sff_find()
 sff_file_stat()
 {
 	sffpipe_get_sel
-	tr '\n\0' '\035\n' <"$sel" | while IFS= read -r _path; do
+	tr '\n\0' '\035\n' <"$sffpipe" | while IFS= read -r _path; do
 		echo ""
 		_path=$(printf "%s" "$_path" | tr '\035' '\n')
 		LC_ALL= stat -x "$_path" 2>/dev/null || LC_ALL= stat "$_path"
@@ -425,7 +425,7 @@ sff_disk_usage()
 {
 	sffpipe_get_sel
 	echo ""
-	LC_ALL= xargs -0 du -shc <"$sel" | sort -h
+	LC_ALL= xargs -0 du -shc <"$sffpipe" | sort -h
 	echo ""
 	df -h "$cwd"
 	printf "Press Enter to continue "; read -r _x
