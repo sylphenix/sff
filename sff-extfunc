@@ -149,11 +149,11 @@ sff_undo_new()
 	_op=$(cat "$lastop")
 	printf "\nUndo %s? (y/n) [n]: " "$_op"; read -r _x
 	case "$_x" in [yY]) :;; *) exit 0;; esac
+	printf "un%s" "$_op" >"$lastop"
 	sffpipe_refresh
 
 	echo "Deleting..."
-	LC_ALL= xargs -0 sh -c 'find "$@" -prune -cnewer "$0" -exec rm -f {} +' "$lastop" <"$exbuf2" \
-	&& printf "un%s" "$_op" >"$lastop"
+	LC_ALL= xargs -0 sh -c 'find "$@" -prune -cnewer "$0" -exec rm -rf {} +' "$exbuf2" <"$exbuf2"
 }
 
 sff_write_cbuf()
@@ -292,11 +292,11 @@ sff_undo_move()
 	_op=$(cat "$lastop")
 	printf "\nUndo %s? (y/n) [n]: " "$_op"; read -r _x
 	case "$_x" in [yY]) :;; *) exit 0;; esac
+	printf "un%s" "$_op" >"$lastop"
 	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf1" | head -n 1 | tr '\035' '\n')"
 
 	echo "Moving..."
-	LC_ALL= xargs -0 -n 2 mv -n <"$exbuf2" \
-	&& printf "un%s" "$_op" >"$lastop"
+	LC_ALL= xargs -0 -n 2 mv -n <"$exbuf2"
 }
 
 sff_duplicate()
