@@ -170,13 +170,12 @@ sff_write_cbuf()
 
 sff_view_cbuf()
 {
-	unset LC_ALL
 	if [ -s "$cmbuf" ]; then
 		cat "$cmbuf"
 		printf "%s: %s file(s)\n" "${cmbuf##*-}" $(wc -l <"$cmbuf")
 	else
 		echo "Buffer is empty"
-	fi | less +G
+	fi | LC_ALL= less +G
 }
 
 sff_clear_cbuf()
@@ -360,17 +359,26 @@ sff_delete()
 	tr '\n\035' '\0\n' <"$tsel" | LC_ALL= xargs -0 rm -rf
 }
 
-sff_edit_file()
+sff_exec()
 {
+	_cmd=$1
 	sffpipe_get_sel
 	tr '\n\0' '\035\n' <"$sffpipe" >"$tsel"
-	[ ! -s "$tsel" ] && exit 0
-
+	set --
 	while IFS= read -r _path; do
 		set -- "$@" "$(printf "%s" "$_path" | tr '\035' '\n')"
 	done <"$tsel"
+	rm -f "$tsel"
 	sffpipe_refresh
-	LC_ALL= exec $EDITOR "$@"
+
+	case "$_cmd" in
+	'ed') [ -z "$1" ] && return 0
+		LC_ALL= exec $EDITOR "$@";;
+	'sh') echo ""
+		export Q='exit'
+		command -v bash >/dev/null 2>&1 && _sh='bash' || _sh='sh'
+		LC_ALL= exec $_sh -s "$@";;
+	esac
 }
 
 sff_chmod_chown()
@@ -460,8 +468,7 @@ run_pl()
 		printf "\n%s: plugin not found\n" "$1"
 		return 1
 	else
-		unset LC_ALL
-		exec "$_plugin" "$sffpipe" "$2"
+		LC_ALL= exec "$_plugin" "$sffpipe" "$2"
 	fi
 }
 
@@ -480,11 +487,12 @@ case "$2" in                  #?> Extension functions:
 'r') sff_rename;;             #?>     r  Rename
 'R') sff_rename 'p';;         #?>     R  Rename (show path)
 'Y') sff_duplicate;;          #?>     Y  Duplicate
-'e') sff_edit_file;;          #?>     e  Edit file
+'e') sff_exec 'ed';;          #?>     e  Edit file
 'm') sff_chmod_chown;;        #?>     m  Change permissions or owner
 'f') sff_find;;               #?>     f  Advanced search via 'find'
 'i') sff_file_stat;;          #?>     i  File status
 'I') sff_disk_usage;;         #?>     I  Disk usage
+';') sff_exec 'sh';;          #?>     ;  Shell
 'u') sff_undo;;               #?>     u  Undo last operation
 'U') sff_redo;;               #?>     U  Redo last operation
 '/') sff_help;;               #?>     /  Show this help
