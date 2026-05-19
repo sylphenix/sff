@@ -426,6 +426,8 @@ static void spawn(char *arg0, char *arg1, char *arg2, int detach)
 	char *argv[4] = {arg0, arg1, arg2, NULL};
 	struct sigaction oldsigtstp, oldsigwinch;
 
+	if (!detach)
+		endwin();
 	pid = fork();
 	if (pid > 0) {
 		sigaction(SIGTSTP, &(struct sigaction){.sa_handler = SIG_IGN}, &oldsigtstp);
@@ -456,6 +458,8 @@ static void spawn(char *arg0, char *arg1, char *arg2, int detach)
 		_exit(EXIT_SUCCESS);
 	} else
 		seterrnum(__LINE__, errno);
+	if (!detach)
+		refresh();
 }
 
 /****** Key Functions ******/
@@ -640,7 +644,7 @@ static int enterdir(int n)
 	makepath(hp->path, ent->name, newpath);
 	if (!(ent->flag & E_DIR_DIRLNK)) {
 		if (n == 1 || gcfg.openfile)
-			spawn(opener, newpath, NULL, TRUE);
+			spawn(opener, newpath, NULL, *opener != '/');
 		return GO_STATBAR;
 	}
 

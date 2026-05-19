@@ -497,6 +497,7 @@ case "$2" in                  #?> Extension functions:
 'U') sff_redo;;               #?>     U  Redo last operation
 '/') sff_help;;               #?>     /  Show this help
                               #?> Plugins:
+'o') run_pl 'sfopen' 'o';;    #?>     o  Open with
 'F') run_pl 'fzf-find';;      #?>     F  Search via 'fzf'
 '=') run_pl 'preview' 'tui';; #?>     =  Toggle preview
 'z') run_pl 'archive' 'e';;   #?>     z  Extract archive

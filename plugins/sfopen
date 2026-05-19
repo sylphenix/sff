@@ -1,0 +1,181 @@
+#!/bin/sh
+
+# Description: A file opener and "Open With" utility for sff.
+#
+# Usage:
+#   1. As a file opener:
+#     Set this script as the default file opener for sff:
+#     $ export SFF_OPENER="/absolute/path/to/sfopen"
+#
+#     On first run, sfopen.conf is generated in the sff configuration directory.
+#     You can edit this file to customize association rules. Each line defines
+#     an association between file types and an opener program, using '=' as the
+#     separator. Multiple file types on the same line are separated by spaces.
+#
+#     File types can be MIME types or file extensions. Extension matching takes
+#     priority over MIME type matching. The matching and fallback order is:
+#
+#     1. Double extensions (e.g., .tar.gz)
+#     2. Single extensions (e.g., .jpg)
+#     3. Full MIME types (e.g., image/jpeg)
+#     4. MIME type categories (e.g., image/*)
+#     5. Catch-all wildcard (*)
+#
+#     Once a program is matched, the script checks for a corresponding .desktop
+#     file to determine if it is a GUI application. If it is a GUI program, the
+#     script launches it detached from the terminal. You can append '&' to the
+#     program name to force detaching.
+#
+#     For CLI programs, "EDITOR" resolves to the $EDITOR environment variable
+#     (falling back to "vi"). You can append '|' to pipe the program's output
+#     through $PAGER (falling back to "less") for viewing. You can also append
+#     '!' to hold the output and wait for confirmation before returning to sff.
+#
+#   2. "Open With" functionality:
+#     Enter a program name to open the selected file. If multiple files are
+#     selected, all of them will be opened together. The script determines
+#     whether to launch the program detached from the terminal as described
+#     above. You can append '&' to force detaching. For CLI programs, you can
+#     also append '|' or '!' in the same way as described above.
+#
+#     To set the entered program as the default opener, prefix it with '+'. This
+#     updates both the XDG MIME settings and the sfopen.conf file (if it exists). 
+#
+# Dependencies: xdg-utils
+#
+# Shell: POSIX compliant
+#
+# Author: Shi Yanling
+
+EDITOR=${EDITOR:-vi}
+PAGER=${PAGER:-less -fR}
+export LC_ALL=C
+unset LESS
+gopener='xdg-open'
+sffdir="${XDG_CONFIG_HOME:-$HOME/.config}/sff"
+opencfg="${sffdir}/sfopen.conf"
+setdef=''
+
+if [ "$2" = 'o' ]; then
+	sffpipe=$1
+	tmpdir=${TMPDIR:-/tmp}
+	[ ! -w "$tmpdir" ] && tmpdir=$sffdir
+	tsel=$(mktemp -u "${tmpdir}/sff-tsel-XXXXXX")
+
+	[ -p "$sffpipe" ] && printf "%s" "$$" >"$sffpipe"
+	tr '\n\0' '\035\n' <"$sffpipe" >"$tsel"
+	set --
+	while IFS= read -r _path; do
+		set -- "$@" "$(printf "%s" "$_path" | tr '\035' '\n')"
+	done <"$tsel"
+	rm -f "$tsel"
+
+	[ ! -e "$1" ] && exit 0
+	_fmime=$(file -bL --mime-type "$1")
+	_pmime=$(printf "%s" "$_fmime" | sed -e 's/[^^]/[&]/g' -e 's/\^/\\^/g')
+
+	printf "\nOpen with (prefix '+' to set default): "; read -r _cmd
+	case "$_cmd" in
+	+*) _cmd=${_cmd#+}
+		_cmd=${_cmd#"${_cmd%%[![:space:]]*}"}
+		setdef=1 ;;
+	esac
+	[ -z "$_cmd" ] && exit 0
+
+else
+	[ ! -e "$1" ] && exit 0
+	[ ! -e "$sffdir" ] && mkdir -p "$sffdir"
+	if [ ! -s "$opencfg" ]; then
+		printf "%s\n" "* = $gopener" "application/* = EDITOR" "audio/* = $gopener" "image/* = $gopener" \
+			"text/* inode/x-empty = EDITOR" "video/* = $gopener" "application/pdf = $gopener" \
+			".tar .tar.bz2 .tar.gz .tar.xz .tbz2 .tgz .txz .zip .7z .deb .dmg .iso .rar .rpm = plugin-archive|" \
+			>"$opencfg"
+	fi
+
+	_fmime=$(file -bL --mime-type "$1")
+	_fmime2="${_fmime%/*}/*"
+	_fname=$(printf "%s" "${1##*/}" | tr 'A-Z' 'a-z')
+	_fext1=".${_fname##*.}"
+	_fext2=''
+	case "$_fname" in
+	*?.?*.?*) _tmp=${_fname%.*}
+		_fext2=".${_tmp##*.}$_fext1";;
+	*?.?*) :;;
+	*) _fext1='';;
+	esac
+
+	_pmime=$(printf "%s" "$_fmime" | sed -e 's/[^^]/[&]/g' -e 's/\^/\\^/g')
+	_pmime2=$(printf "%s" "$_fmime2" | sed -e 's/[^^]/[&]/g' -e 's/\^/\\^/g')
+	_pext1=$(printf "%s" "$_fext1" | sed -e 's/[^^]/[&]/g' -e 's/\^/\\^/g')
+	_pext2=$(printf "%s" "$_fext2" | sed -e 's/[^^]/[&]/g' -e 's/\^/\\^/g')
+
+	_cmd=''
+	[ "$_fext2" ] && _cmd=$(sed -n "/$_pext2 /{s/.*=//;p;q;}" "$opencfg")
+	[ -z "$_cmd" ] && [ "$_fext1" ] && _cmd=$(sed -n "/$_pext1 /{s/.*=//;p;q;}" "$opencfg")
+	[ -z "$_cmd" ] && _cmd=$(sed -n "/$_pmime /{s/.*=//;p;q;}" "$opencfg")
+	[ -z "$_cmd" ] && _cmd=$(sed -n "/$_pmime2 /{s/.*=//;p;q;}" "$opencfg")
+	[ -z "$_cmd" ] && _cmd=$(sed -n "/^[[:space:]]*\* /{s/.*=//;p;q;}" "$opencfg")
+	_cmd=${_cmd#"${_cmd%%[![:space:]]*}"}
+	_cmd=${_cmd%"${_cmd##*[![:space:]]}"}
+	[ -z "$_cmd" ] && exit 0
+fi
+
+_runinbg=''
+_clipost=''
+_setcmd=$_cmd
+case "$_cmd" in
+*\&) _cmd=${_cmd%&}
+	_runinbg=1;;
+*\|) _cmd=${_cmd%|}
+	_clipost='page';;
+*!) _cmd=${_cmd%!}
+	_clipost='hold';;
+esac
+_cmd=${_cmd%"${_cmd##*[![:space:]]}"}
+
+[ "$_cmd" = 'EDITOR' ] && _cmd=$EDITOR
+[ "$_cmd" = 'plugin-archive' ] && _cmd="${0%/*}/archive"
+
+_cmdnm=${_cmd%% *}
+if ! command -v "$_cmdnm" >/dev/null 2>&1; then
+	echo "${_cmdnm}: not found"
+	printf "Press Enter to continue "; read -r _x
+	exit 0
+fi
+
+_cmdnm=${_cmdnm##*/}
+_deskfile=$(find "/usr/share/applications" "/usr/local/share/applications" "$HOME/.local/share/applications" \
+	-mindepth 1 -maxdepth 1 \( -iname "${_cmdnm}.desktop" -o -iname "*.${_cmdnm}.desktop" \) -print -quit 2>/dev/null)
+
+_cli=''
+if [ "$_deskfile" ]; then
+	grep -q "^Terminal=true" "$_deskfile" 2>/dev/null && _cli=1
+elif [ "$_cmd" != "$gopener" ]; then
+	_cli=1
+fi
+[ "$_runinbg" ] && _cli=''
+
+if [ "$setdef" ]; then
+	if [ -s "$opencfg" ]; then
+		if grep -q "$_pmime " "$opencfg" 2>/dev/null; then
+			sed -i.bak "\|$_pmime |{s|=.*|= $_setcmd|;}" "$opencfg"
+			rm -f "${opencfg}.bak"
+		else
+			printf "%s = %s\n" "$_fmime" "$_setcmd" >>"$opencfg"
+		fi
+	fi
+	[ "$_deskfile" ] && xdg-mime default "${_deskfile##*/}" "$_fmime"
+fi
+
+unset LC_ALL
+if [ "$_cli" ]; then
+	case "$_clipost" in
+	'page') $_cmd "$@" | $PAGER;;
+	'hold') printf "\033[2J\033[H"
+		$_cmd "$@"
+		printf "Press Enter to continue "; read -r _x;;
+	*) exec $_cmd "$@";;
+	esac
+else
+	($_cmd "$@" >/dev/null 2>&1 &)
+fi
