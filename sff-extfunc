@@ -175,7 +175,7 @@ sff_view_cbuf()
 		printf "%s: %s file(s)\n" "${cmbuf##*-}" $(wc -l <"$cmbuf")
 	else
 		echo "Buffer is empty"
-	fi | LC_ALL= less +G
+	fi | LC_ALL= less -~ +G
 }
 
 sff_clear_cbuf()
