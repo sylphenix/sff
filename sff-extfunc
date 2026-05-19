@@ -172,7 +172,8 @@ sff_view_cbuf()
 {
 	if [ -s "$cmbuf" ]; then
 		cat "$cmbuf"
-		printf "%s: %s file(s)\n" "${cmbuf##*-}" $(wc -l <"$cmbuf")
+		[ "$(find "$cmbuf" -mmin +30)" ] && _exp='[EXPIRED]' || _exp=''
+		printf "%s: %s file(s) %s\n" "${cmbuf##*-}" $(wc -l <"$cmbuf") "$_exp"
 	else
 		echo "Buffer is empty"
 	fi | LC_ALL= less -~ +G
@@ -195,7 +196,7 @@ sff_paste()
 	case "$_op" in
 	'copy') sed "s|^.*/|$_pwd/|" "$cmbuf" | tr '\n\035' '\0\n' >"$exbuf2";;
 	'move') sed "s|^.*/|$_pwd/|" "$cmbuf" | paste -d '\n' - "$cmbuf" | tr '\n\035' '\0\n' >"$exbuf2"
-		: >"$cmbuf";;
+		touch -mt 202310011200 "$cmbuf";;
 	esac
 	sff_do_paste "$_op"
 }
@@ -211,7 +212,7 @@ sff_do_paste()
 	if [ "$_exf" ]; then
 		printf "\n%s\n... file(s) exist\n" "$_exf"
 		printf "(s)kip all / (i)nteractive / (o)verwrite all / (c)ancel [c]: "; read -r _x
-		case "$_x" in [sSiIoO]) :;; *) exit 0;; esac
+		case "$_x" in [sSiIoO]) :;; *) touch "$cmbuf"; exit 0;; esac
 	fi
 	[ "$_cks" != "$(cksum "$exbuf1")" ] && set -- 'null'
 	printf "$1" >"$lastop"
