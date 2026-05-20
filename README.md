@@ -1,3 +1,7 @@
+<div align="center">
+
+![sff: logo](docs/branding_color.svg)
+
 # sff
 
 sff (simple file finder) is a simple, fast, and feature-rich terminal
@@ -7,7 +11,11 @@ experience with high extensibility.
 sff is fully compatible with POSIX-compliant systems.
 It has been extensively tested on GNU/Linux and FreeBSD.
 
-![sff-screenshot1.png](https://codeberg.org/repo-avatars/2075870cc849dfe08b2f837b45d5997831478fa84b279ed49cd31b5b9739387c)
+</div>
+
+## Screenshots
+
+![sff: screenshot](https://codeberg.org/repo-avatars/2075870cc849dfe08b2f837b45d5997831478fa84b279ed49cd31b5b9739387c)
 
 ## Features
 
@@ -33,15 +41,16 @@ It has been extensively tested on GNU/Linux and FreeBSD.
 - **sudo** (Optional): Utility for sudo mode
 - **xdg-utils** (Optional): File opening with default application
 
-*Required dependencies are included in most base systems and rarely need manual installation.*
+*Required dependencies are included in most base
+systems and rarely need manual installation.*
 
 Plugin Dependencies (Optional):
 
-| Plugin   | Dependencies                            | Notes                               |
-|----------|-----------------------------------------|-------------------------------------|
-| archive  | tar, gzip, bzip2, xz, 7zip              | Archive handling                    |
-| fzf-find | fzf                                     | Fuzzy file search                   |
-| preview  | chafa, poppler-utils, ffmpegthumbnailer | Image, PDF, video thumbnail preview |
+| Plugin   | Dependencies                            | Notes                        |
+|----------|-----------------------------------------|------------------------------|
+| archive  | tar, gzip, bzip2, xz, 7zip              | Archive handling             |
+| fzf-find | fzf                                     | Fuzzy file search            |
+| preview  | chafa, poppler-utils, ffmpegthumbnailer | Image, PDF, video thumbnails |
 
 > [!NOTE]
 > Almost all commands require `sudo`/`doas`.
