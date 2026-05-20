@@ -1,10 +1,10 @@
 # sff
 
-`sff` (simple file finder) is a simple, fast, and feature-rich terminal
-file manager inspired by `nnn` and guided by the `suckless` philosophy.
-It aims to provide a reliable, efficient, and user-friendly
-file management experience with high extensibility.
-`sff` is fully compatible with POSIX-compliant systems.
+sff (simple file finder) is a simple, fast, and feature-rich terminal
+file manager inspired by nnn and guided by the suckless philosophy.
+It aims to provide a reliable, efficient, and user-friendly file management
+experience with high extensibility.
+sff is fully compatible with POSIX-compliant systems.
 It has been extensively tested on GNU/Linux and FreeBSD.
 
 ![sff-screenshot1.png](https://codeberg.org/repo-avatars/2075870cc849dfe08b2f837b45d5997831478fa84b279ed49cd31b5b9739387c)
@@ -109,8 +109,10 @@ dnf install gcc make ncurses-devel
 ```
 
 1. [Download](https://codeberg.org/sylphenix/sff/releases) and extract the latest release, or clone the repository to get the development version.
+
 2. Change to the root directory of the project.
-3. Build and install `sff`:
+
+3. Build and install sff:
 
 ```sh
 make install
@@ -128,44 +130,43 @@ If you used `PREFIX` during installation, you must specify the same `PREFIX` whe
 make uninstall PREFIX=/usr
 ```
 
-**Gentoo GNU/Linux note:** To resolve dependencies,
+**Gentoo Linux note:** To resolve dependencies,
 explicitly link both `libncursesw` and `libtinfow` libraries:
 
 ```sh
 make install LDFLAGS="-lncursesw -ltinfow"
 ```
 
-**MacOS note:** See the [wiki](https://codeberg.org/sylphenix/sff/wiki#macos-specific-notes) for details.
+**macOS note:** See the [wiki](https://codeberg.org/sylphenix/sff/wiki#macos-specific-notes) for details.
 
 ## Usage
 
 Simply run `sff` to start the program from the current directory.
 
-While `sff` is running:
+While sff is running:
 
 - Press `?` or `F1` to see the list of key bindings for built-in functions.
 - Press `Alt`+`/` to see the list of key bindings for extension functions and plugins.
-- Press `Q` to quit `sff`.
+- Press `Q` to quit sff.
 
-For more details, run `man sff` to see the documentation,
-or visit the [wiki](https://codeberg.org/sylphenix/sff/wiki/Home) for
-useful tips and tricks.
+For more details, run `man sff` to see the documentation, or visit the
+[wiki](https://codeberg.org/sylphenix/sff/wiki/Home) for useful tips and tricks.
 
 ## Philosophy
 
-`sff` is built on the belief that simplicity ensures reliability.
+sff is built on the belief that simplicity ensures reliability.
 It follows a minimalist design, divided into two parts:
 the core program and the extension script.
 The core program is a lightweight file browser and selector,
 sticking to features that are simple, necessary, and straightforward to implement.
 The extension script, a POSIX-compliant shell script,
 handles file operations such as copying, moving, and deleting.
-This modular design allows users to easily customize or extend
-functionality while keeping the core simple and efficient.
+This modular design allows users to easily customize or extend functionality
+while keeping the core simple and efficient.
 
 ## License
 
-`sff` is released under the 2-Clause BSD License.
+sff is released under the 2-Clause BSD License.
 See the LICENSE file for more details.
 
 ## Acknowledgements
