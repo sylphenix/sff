@@ -9,7 +9,9 @@
 * `-l` option to specify columns in order; supersedes the previous `-d`
 * `-p` option to show permissions as symbolic strings ([#34][34])
 * Prefix key `u` for extension functions
-* ls-style date display format; use `-d` to enable ([#39][39])
+* `-d` option to use ls-style date display format ([#39][39])
+* New 'shell' extension function to open a shell within sff
+* New 'sfopen' plugin, providing both 'open with' functionality and a standalone opener
 
 [35]: https://codeberg.org/sylphenix/sff/issues/35
 [34]: https://codeberg.org/sylphenix/sff/issues/34
@@ -18,7 +20,7 @@
 
 ### Changed
 
-* Moved version info from `-v` to `-h`
+* Moved version info from `-v` to `-h` and removed `-v` option
 * Display current entry details in foreground color and removed cursor at line start
 * In manual selection mode, current entry details are no longer reversed
 * Preview plugin: Enabled colors in directory preview
@@ -26,12 +28,17 @@
 * Remapped View Options keys: `z`->`y`, `h`->`c`
 * Default size sort is now ascending
 * Advanced search now uses smart case sensitivity
-* Natural sort now uses locale collation for non-ASCII characters
+* Natural sort now uses locale collation for non-ASCII characters ([#44][44])
+* Rename path visibility changed from automatic to user-selectable
+* 'copy-paste' now always keeps buffer and removes `Alt`+`P` keybinding
+* 'copy-paste' and 'cut-paste' now fully support undo/redo
+
+[44]: https://codeberg.org/sylphenix/sff/issues/44
 
 
 ### Removed
 
-* `-v`, `-c` option and 'case-sensitive' setting in View Options
+* `-c` option and 'case-sensitive' setting in View Options
 
 
 ### Fixed

@@ -35,6 +35,7 @@ tmpdir=${TMPDIR:-/tmp}
 [ ! -w "$tmpdir" ] && tmpdir=$sffdir
 tmppvfile="${tmpdir}/sff-tmppv-$(id -u)"
 ls --color=always >/dev/null 2>&1 && _ls='ls -1Ap --color=always' || _ls='ls -1Ap'
+archivepl="${0%/*}/archive"
 
 preview_loop_tui()
 {
@@ -50,24 +51,28 @@ preview_loop_tui()
 		case "$_mime" in
 		image/*) _dest=$_path
 			;;
-		application/pdf) _dest=$tmppvfile
-			pdftoppm -jpeg -f 1 -singlefile -scale-to 800 "$_path" "$_dest" >/dev/null 2>&1 \
-			&& _dest="${_dest}.jpg" || _dest=''
-			;;
 		video/*) _dest="${tmppvfile}.jpg"
 			ffmpegthumbnailer -m -s 0 -i "$_path" -o "$_dest" >/dev/null 2>&1 \
 			|| _dest=''
 			;;
-		*) _rows=$(tput lines); _cols=$(tput cols)
-			case "$_mime" in
-			text/*) { printf "    --- %s ---\n" "$_mime"; head -n "$_rows" "$_path"; } \
-					| less -XS -x4 +gq
-				continue ;;
-			inode/directory) { printf "    --- %s --- (%s files)\n" "$_mime" \
-					$(find "$_path"/ -mindepth 1 -maxdepth 1 ! -name . ! -name .. 2>/dev/null | wc -l); \
-					$_ls "$_path"; } | less -XSR~ +gq
-				continue ;;
-			esac
+		application/pdf) _dest=$tmppvfile
+			pdftoppm -jpeg -f 1 -singlefile -scale-to 800 "$_path" "$_dest" >/dev/null 2>&1 \
+			&& _dest="${_dest}.jpg" || _dest=''
+			;;
+
+		application/*-tar|application/*-compressed*|application/*[!+]zip*|application/zip|\
+		application/x-xz|application/vnd.rar|application/x-iso9660-image)
+			"$archivepl" "$_path" | less -fXSR -x4 +gq
+			continue
+			;;
+		text/*)
+			less -fXS -x4 +gq "$_path"
+			continue
+			;;
+		inode/directory) { printf "    --- %s --- (%s files)\n" "$_mime" \
+				$(find "$_path"/ -mindepth 1 -maxdepth 1 ! -name . ! -name .. 2>/dev/null | wc -l); \
+				$_ls "$_path"; } | less -fXSR~ +gq
+			continue
 			;;
 		esac
 
