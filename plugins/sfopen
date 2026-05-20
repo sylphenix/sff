@@ -22,9 +22,9 @@
 #     5. Catch-all wildcard (*)
 #
 #     Once a program is matched, the script checks for a corresponding .desktop
-#     file to determine if it is a GUI application. If it is a GUI program, the
-#     script launches it detached from the terminal. You can append '&' to the
-#     program name to force detaching.
+#     file to determine if it is a GUI program. If it is, the script launches
+#     it detached from the terminal. You can append '&' to the program name to
+#     force detaching.
 #
 #     For CLI programs, "EDITOR" resolves to the $EDITOR environment variable
 #     (falling back to "vi"). You can append '|' to pipe the program's output
@@ -72,7 +72,6 @@ if [ "$2" = 'o' ]; then
 
 	[ ! -e "$1" ] && exit 0
 	_fmime=$(file -bL --mime-type "$1")
-	_pmime=$(printf "%s" "$_fmime" | sed -e 's/[^^]/[&]/g' -e 's/\^/\\^/g')
 
 	printf "\nOpen with (prefix '+' to set default): "; read -r _cmd
 	case "$_cmd" in
@@ -94,7 +93,7 @@ else
 
 	_fmime=$(file -bL --mime-type "$1")
 	_fmime2="${_fmime%/*}/*"
-	_fname=$(printf "%s" "${1##*/}" | tr 'A-Z' 'a-z')
+	_fname=${1##*/}
 	_fext1=".${_fname##*.}"
 	_fext2=''
 	case "$_fname" in
@@ -104,17 +103,12 @@ else
 	*) _fext1='';;
 	esac
 
-	_pmime=$(printf "%s" "$_fmime" | sed -e 's/[^^]/[&]/g' -e 's/\^/\\^/g')
-	_pmime2=$(printf "%s" "$_fmime2" | sed -e 's/[^^]/[&]/g' -e 's/\^/\\^/g')
-	_pext1=$(printf "%s" "$_fext1" | sed -e 's/[^^]/[&]/g' -e 's/\^/\\^/g')
-	_pext2=$(printf "%s" "$_fext2" | sed -e 's/[^^]/[&]/g' -e 's/\^/\\^/g')
-
 	_cmd=''
-	[ "$_fext2" ] && _cmd=$(sed -n "/$_pext2 /{s/.*=//;p;q;}" "$opencfg")
-	[ -z "$_cmd" ] && [ "$_fext1" ] && _cmd=$(sed -n "/$_pext1 /{s/.*=//;p;q;}" "$opencfg")
-	[ -z "$_cmd" ] && _cmd=$(sed -n "/$_pmime /{s/.*=//;p;q;}" "$opencfg")
-	[ -z "$_cmd" ] && _cmd=$(sed -n "/$_pmime2 /{s/.*=//;p;q;}" "$opencfg")
-	[ -z "$_cmd" ] && _cmd=$(sed -n "/^[[:space:]]*\* /{s/.*=//;p;q;}" "$opencfg")
+	[ "$_fext2" ] && _tmp=$(grep -Fi -m1 "$_fext2 " "$opencfg") && _cmd=${_tmp#*=}
+	[ -z "$_cmd" ] && [ "$_fext1" ] && _tmp=$(grep -Fi -m1 "$_fext1 " "$opencfg") && _cmd=${_tmp#*=}
+	[ -z "$_cmd" ] && _tmp=$(grep -Fi -m1 "$_fmime " "$opencfg") && _cmd=${_tmp#*=}
+	[ -z "$_cmd" ] && _tmp=$(grep -Fi -m1 "$_fmime2 " "$opencfg") && _cmd=${_tmp#*=}
+	[ -z "$_cmd" ] && _tmp=$(grep -m1 '^[[:space:]]*\* ' "$opencfg") && _cmd=${_tmp#*=}
 	_cmd=${_cmd#"${_cmd%%[![:space:]]*}"}
 	_cmd=${_cmd%"${_cmd##*[![:space:]]}"}
 	[ -z "$_cmd" ] && exit 0
@@ -149,7 +143,7 @@ _deskfile=$(find "/usr/share/applications" "/usr/local/share/applications" "$HOM
 
 _cli=''
 if [ "$_deskfile" ]; then
-	grep -q "^Terminal=true" "$_deskfile" 2>/dev/null && _cli=1
+	grep -q -m1 "^Terminal=true" "$_deskfile" 2>/dev/null && _cli=1
 elif [ "$_cmd" != "$gopener" ]; then
 	_cli=1
 fi
@@ -157,8 +151,9 @@ fi
 
 if [ "$setdef" ]; then
 	if [ -s "$opencfg" ]; then
-		if grep -q "$_pmime " "$opencfg" 2>/dev/null; then
-			sed -i.bak "\|$_pmime |{s|=.*|= $_setcmd|;}" "$opencfg"
+		if grep -Fq -m1 "$_fmime " "$opencfg" 2>/dev/null; then
+			_tmp=$(printf "%s" "$_fmime" | sed 's/[].*^$\[]/\\&/g')
+			sed -i.bak "\|$_tmp |{s|=.*|= $_setcmd|;}" "$opencfg"
 			rm -f "${opencfg}.bak"
 		else
 			printf "%s = %s\n" "$_fmime" "$_setcmd" >>"$opencfg"
