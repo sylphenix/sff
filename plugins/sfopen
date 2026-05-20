@@ -55,6 +55,8 @@ gopener='xdg-open'
 sffdir="${XDG_CONFIG_HOME:-$HOME/.config}/sff"
 opencfg="${sffdir}/sfopen.conf"
 setdef=''
+OS=$(uname -s)
+[ "$OS" = 'Darwin' ] && gopener='open'
 
 if [ "$2" = 'o' ]; then
 	sffpipe=$1
@@ -130,14 +132,8 @@ _cmd=${_cmd%"${_cmd##*[![:space:]]}"}
 [ "$_cmd" = 'EDITOR' ] && _cmd=$EDITOR
 [ "$_cmd" = 'plugin-archive' ] && _cmd="${0%/*}/archive"
 
-_cmdnm=${_cmd%% *}
-if ! command -v "$_cmdnm" >/dev/null 2>&1; then
-	echo "${_cmdnm}: not found"
-	printf "Press Enter to continue "; read -r _x
-	exit 0
-fi
-
-_cmdnm=${_cmdnm##*/}
+_cmdp=${_cmd%% *}
+_cmdnm=${_cmdp##*/}
 _deskfile=$(find "/usr/share/applications" "/usr/local/share/applications" "$HOME/.local/share/applications" \
 	-mindepth 1 -maxdepth 1 \( -iname "${_cmdnm}.desktop" -o -iname "*.${_cmdnm}.desktop" \) -print -quit 2>/dev/null)
 
@@ -163,8 +159,15 @@ if [ "$setdef" ]; then
 fi
 
 unset LC_ALL
+if [ "$OS" = 'Darwin' ]; then
+	_opt='-a'
+	[ "$_cmd" = 'open' ] && { _opt=''; _cmd=''; }
+	open $_opt "$_cmd" "$@" >/dev/null 2>&1 && exit 0
+fi
+
 if [ "$_cli" ]; then
-	case "$_clipost" in
+	type "$_cmdp" >/dev/null \
+	&& case "$_clipost" in
 	'page') $_cmd "$@" | $PAGER;;
 	'hold') printf "\033[2J\033[H"
 		$_cmd "$@"
@@ -173,4 +176,4 @@ if [ "$_cli" ]; then
 	esac
 else
 	($_cmd "$@" >/dev/null 2>&1 &)
-fi
+fi || { printf "Press Enter to continue "; read -r _x; }
