@@ -338,7 +338,7 @@ sff_do_duplicate()
 	printf "duplicate" >"$lastop"
 	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr '\035' '\n')"
 
-	echo "Duplicating..."
+	printf "\nDuplicating...\n"
 	LC_ALL= xargs -0 -n 2 cp -av <"$exbuf1"
 }
 
