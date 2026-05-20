@@ -1,6 +1,6 @@
 /* Default settings */
 #ifdef __APPLE__
-#define OPENER    "/usr/bin/open"  // File opener on macOS
+#define OPENER    "open"      // File opener on macOS
 #else
 #define OPENER    "xdg-open"  // File opener on Linux/BSD
 #endif
