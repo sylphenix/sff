@@ -1821,21 +1821,20 @@ static void setcurrentstat(Histpath *hp, struct selstat *ss)
 static int xmbstowcs(wchar_t *dst, const char *str, int maxcols)
 {
 	wchar_t *wcp = dst;
-	int nb, wcw = 1, dstwidth = 0;
+	int dstwidth = 0;
 
-	for (wchar_t wc; *str; ++str, wcw = 1) {
-		if ((signed char)*str < 0) {
-			if ((nb = mbtowc(&wc, str, MB_CUR_MAX)) > 0) {
-				*wcp = wc;
+	for (int nb = 0, wcw = 1; *str; ++str, wcw = 1) {
+		if ((signed char)*str < 0) { // non-ASCII
+			if ((nb = mbtowc(wcp, str, MB_CUR_MAX)) > 0)
 				str += nb - 1;
-			} else
+			else
 				*wcp = L'\uFFFD'; // invalid char
 			if ((wcw = wcwidth(*wcp)) == -1) // Skip non-printable chars
 				continue;
-		} else if (*str < 0x20) {
-			*wcp = L'?'; // Replace escape chars with '?'
-		} else
+		} else if ((unsigned int)*str - 32 < 95) // ASCII 32-126
 			*wcp = (wchar_t)*str;
+		else // ASCII 1-31 and 127
+			*wcp = L'?';
 
 		if ((dstwidth += wcw) > maxcols) {
 			if (wcp != dst)
@@ -1850,23 +1849,15 @@ static int xmbstowcs(wchar_t *dst, const char *str, int maxcols)
 
 static wchar_t *fitnamecols(const char *name, int maxcols)
 {
-	wchar_t *wbuf = (wchar_t *)gpbuf;
-
-	if (maxcols <= 0)
-		*wbuf = L'\0';
-	else
-		xmbstowcs(wbuf, name, maxcols);
-	return wbuf;
+	xmbstowcs((wchar_t *)gpbuf, name, maxcols);
+	return (wchar_t *)gpbuf;
 }
 
 static wchar_t *fitpathcols(const char *path, int maxcols)
 {
 	wchar_t *wbuf = (wchar_t *)gpbuf, *wbp = wbuf;
 
-	if (maxcols <= 0) {
-		*wbuf = L'\0';
-
-	} else if (xmbstowcs(wbp, path, PATH_MAX) + (wbp - wbuf) > maxcols) {
+	if (xmbstowcs(wbp, path, PATH_MAX) > maxcols) {
 		++wbp; // When fold path, keep the first level
 		for (wchar_t *tbp = wbp, *slash = NULL; *tbp; ++tbp, ++wbp) {
 			if (*tbp == L'/') {
@@ -1877,13 +1868,15 @@ static wchar_t *fitpathcols(const char *path, int maxcols)
 			}
 			*wbp = *tbp;
 		}
+		*wbp = L'\0';
 
-		int i, len;
-		for (i = len = wbp - wbuf; wcswidth(wbuf, i) > maxcols; --i) // Reduce wide chars to fit room
-			;
-		if (i < len)
-			wbuf[i - 1] = L'~';
-		wbuf[i] = L'\0';
+		for (int i = 0, w = 0; wbuf[i]; ++i) {
+			if ((w += wcwidth(wbuf[i])) > maxcols) {
+				wbuf[MAX(i, 1) - 1] = L'~';
+				wbuf[i] = L'\0';
+				break;
+			}
+		}
 	}
 	return wbuf;
 }
