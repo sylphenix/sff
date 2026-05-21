@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="1024"
+   height="256"
+   viewBox="0 0 1024 256"
+   version="1.1"
+   id="svg1"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1">
+    <linearGradient
+       id="linearGradient4">
+      <stop
+         style="stop-color:#526d82;stop-opacity:1;"
+         offset="0"
+         id="stop4" />
+      <stop
+         style="stop-color:#9db2bf;stop-opacity:1;"
+         offset="1"
+         id="stop5" />
+    </linearGradient>
+    <linearGradient
+       xlink:href="#linearGradient4"
+       id="linearGradient15"
+       gradientUnits="userSpaceOnUse"
+       x1="128"
+       y1="0"
+       x2="128"
+       y2="256" />
+  </defs>
+  <g
+     id="g15">
+    <rect
+       style="display:inline;fill:url(#linearGradient15);stroke-width:0;stroke-linecap:round;stroke-linejoin:round;paint-order:stroke fill markers"
+       id="rect8"
+       width="1024"
+       height="256"
+       x="0"
+       y="0"
+       rx="64" />
+    <a
+       id="a11"
+       transform="matrix(2.5562211,0,0,2.5562211,175.45557,-177.52873)"
+       style="stroke-width:0.391202">
+      <text
+         xml:space="preserve"
+         style="font-style:italic;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:85.3333px;font-family:'Inter Display';-inkscape-font-specification:'Inter Display, Bold Italic';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;writing-mode:lr-tb;direction:ltr;fill:#dde6ed;fill-opacity:1;stroke-width:0;stroke-linecap:round;stroke-linejoin:round;paint-order:stroke fill markers"
+         x="129.83826"
+         y="141.85692"
+         id="text8"><tspan
+           id="tspan8"
+           x="129.83826"
+           y="141.85692"
+           style="stroke-width:0">ff</tspan></text>
+      <text
+         xml:space="preserve"
+         style="font-style:italic;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:85.3333px;font-family:'Inter Display';-inkscape-font-specification:'Inter Display, Bold Italic';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;writing-mode:lr-tb;direction:ltr;display:inline;fill:#dde6ed;fill-opacity:1;stroke-width:0;stroke-linecap:round;stroke-linejoin:round;paint-order:stroke fill markers"
+         x="94.578789"
+         y="137.52588"
+         id="text9"><tspan
+           id="tspan9"
+           x="94.578789"
+           y="137.52588"
+           style="stroke-width:0">s</tspan></text>
+      <path
+         id="text10"
+         style="font-weight:bold;font-size:42.6667px;font-family:'Inter Display';-inkscape-font-specification:'Inter Display, Bold';fill:#dde6ed;stroke-width:0;stroke-linecap:round;stroke-linejoin:round;paint-order:stroke fill markers"
+         d="m 70.392566,104.29955 v 5.93757 l 14.458445,5.91694 v 0.29111 l -14.458445,5.91693 v 5.89555 l 21.145563,-9.437 v -5.06271 z M 189.38,152.19053 c -0.97222,0 -1.80558,0.34698 -2.50002,1.04142 -0.68056,0.69445 -1.0208,1.5278 -1.0208,2.50003 0,0.98611 0.34024,1.82621 1.0208,2.52066 0.69444,0.68056 1.5278,1.02079 2.50002,1.02079 0.98612,0 1.81948,-0.34023 2.50003,-1.02079 0.69445,-0.69445 1.04143,-1.53455 1.04143,-2.52066 0,-0.97223 -0.34698,-1.80558 -1.04143,-2.50003 -0.68055,-0.69444 -1.51391,-1.04142 -2.50003,-1.04142 z" />
+    </a>
+  </g>
+</svg>
