@@ -24,7 +24,8 @@
 #     Once a program is matched, the script checks for a corresponding .desktop
 #     file to determine if it is a GUI program. If it is, the script launches
 #     it detached from the terminal. You can append '&' to the program name to
-#     force detaching.
+#     force detaching, or append '@' to make it compatible with the terminal
+#     swallowing feature of certain window managers/compositors.
 #
 #     For CLI programs, "EDITOR" resolves to the $EDITOR environment variable
 #     (falling back to "vi"). You can append '|' to pipe the program's output
@@ -35,11 +36,11 @@
 #     Enter a program name to open the selected file. If multiple files are
 #     selected, all of them will be opened together. The script determines
 #     whether to launch the program detached from the terminal as described
-#     above. You can append '&' to force detaching. For CLI programs, you can
-#     also append '|' or '!' in the same way as described above.
+#     above. You can append '&' or '@' for GUI programs and append '|' or '!'
+#     for CLI programs in the same way as described above.
 #
 #     To set the entered program as the default opener, prefix it with '+'. This
-#     updates both the XDG MIME settings and the sfopen.conf file (if it exists). 
+#     updates both the XDG MIME settings and the sfopen.conf file (if it exists).
 #
 # Dependencies: xdg-utils
 #
@@ -118,6 +119,7 @@ fi
 
 _runinbg=''
 _clipost=''
+_swallow=''
 _setcmd=$_cmd
 case "$_cmd" in
 *\&) _cmd=${_cmd%&}
@@ -126,6 +128,8 @@ case "$_cmd" in
 	_clipost='page';;
 *!) _cmd=${_cmd%!}
 	_clipost='hold';;
+*@) _cmd=${_cmd%@}
+	_swallow=1;;
 esac
 _cmd=${_cmd%"${_cmd##*[![:space:]]}"}
 
@@ -143,7 +147,7 @@ if [ "$_deskfile" ]; then
 elif [ "$_cmd" != "$gopener" ]; then
 	_cli=1
 fi
-[ "$_runinbg" ] && _cli=''
+[ "$_runinbg" -o "$_swallow" ] && _cli=''
 
 if [ "$setdef" ]; then
 	if [ -s "$opencfg" ]; then
@@ -174,6 +178,8 @@ if [ "$_cli" ]; then
 		printf "Press Enter to continue "; read -r _x;;
 	*) exec $_cmd "$@";;
 	esac
+elif [ "$_swallow" ]; then
+	exec $_cmd "$@" >/dev/null 2>&1
 else
 	($_cmd "$@" >/dev/null 2>&1 &)
 fi || { printf "Press Enter to continue "; read -r _x; }
