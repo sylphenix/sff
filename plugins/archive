@@ -80,16 +80,17 @@ list_archive()
 {
 	for _path in "$@"; do
 		_name=${_path##*/}
-		echo "======== $_name ========"
+		echo "  -- $_name --"
 		case "$(printf "%s" "$_name" | tr 'A-Z' 'a-z')" in
-		*?.tar.?*|*?.t?*) LC_ALL= tar -tvf "$_path";;
+		*?.tar.?*|*?.t?*) LC_ALL= tar -tf "$_path" ;;
 		*?.gz) LC_ALL= zcat "$_path";;
 		*?.bz2) LC_ALL= bzcat "$_path";;
 		*?.xz) LC_ALL= xzcat "$_path";;
-		*?.?*) LC_ALL= $_7z l "$_path" | sed -n '/Date[[:space:]]*Time.*Name/,$p';;
+		*?.?*) LC_ALL= $_7z l "$_path" | sed -n '/Date[[:space:]]*Time.*Name/,$p' | cut -c 54- ;;
 		esac
 		echo ""
 	done
+	true
 }
 
 extract_archive()
