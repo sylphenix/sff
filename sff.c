@@ -2125,7 +2125,7 @@ static void statusbar(void)
 		n = xcols - x;
 		if (ent->type == F_LNK && n > 1) {
 			char *p = &gpbuf[PATH_MAX * (sizeof(wchar_t) - 1) - 1]; // fitnamecols use gpbuf, so use last portion here
-			if ((x = readlink(ent->name, p, PATH_MAX - 1)) > 1) {
+			if ((x = readlink(ent->name, p, PATH_MAX - 1)) > 0) {
 				p[x] = '\0';
 				addstr("->");
 				addwstr(fitnamecols(p, n - 2)); // Show symlink target
