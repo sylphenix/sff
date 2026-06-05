@@ -1709,7 +1709,7 @@ static void fillentry(int fd, Entry *ent, struct stat *sb)
 	ent->uid = sb->st_uid;
 	ent->gid = sb->st_gid;
 	ent->flag = 0;
-	if (gcfg.marknew && (curtime - sb->st_ctime < 300))
+	if (gcfg.marknew && (curtime - sb->st_ctime < 180))
 		ent->flag |= E_NEW;
 
 	switch (ent->mode & S_IFMT) {
