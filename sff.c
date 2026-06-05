@@ -1573,23 +1573,24 @@ static int readfindresult(int fd)
 	return TRUE;
 }
 
-static int handlepipedata(int fd, int op)
+static int handlepipedata(int fd, int n)
 {
-	if (op == 0 && read(fd, &op, 1) == -1 && seterrnum(__LINE__, errno))
+	if (n == 0 && read(fd, &n, 1) == -1 && seterrnum(__LINE__, errno))
 		return GO_STATBAR;
 
-	switch (op) {
+	switch (n) {
 	case '.': // clear selection
 		return clearselection(0);
 
 	case '*': // refresh
-		if (read(fd, &op, 1) == 1)
+		if (read(fd, &n, 1) == 1)
 			clearselection(0);
 		return refreshview(0);
 
 	case '@': // select specified file
-		if (read(fd, gpbuf, PATH_MAX) == -1 && seterrnum(__LINE__, errno))
+		if ((n = read(fd, gpbuf, PATH_MAX)) == -1 && seterrnum(__LINE__, errno))
 			return GO_STATBAR;
+		gpbuf[n] = '\0';
 		memccpy(ptab->hp->stat->name, xbasename(gpbuf), '\0', NAME_MAX);
 		findname = ptab->hp->stat->name;
 		ptab->hp->stat->cur = cursel;
@@ -1598,8 +1599,9 @@ static int handlepipedata(int fd, int op)
 		return GO_RELOAD;
 
 	case '>': // enter specified path
-		if (read(fd, gpbuf, PATH_MAX) == -1 && seterrnum(__LINE__, errno))
+		if ((n = read(fd, gpbuf, PATH_MAX)) == -1 && seterrnum(__LINE__, errno))
 			return GO_STATBAR;
+		gpbuf[n] = '\0';
 		if (gpbuf[0] == '/')
 			return newhistpath(gpbuf, FALSE);
 		break;
@@ -1613,8 +1615,9 @@ static int handlepipedata(int fd, int op)
 		return GO_RELOAD;
 
 	case '#': // set preview
-		if (read(fd, gpbuf, PATH_MAX) == -1 && seterrnum(__LINE__, errno))
+		if ((n = read(fd, gpbuf, PATH_MAX)) == -1 && seterrnum(__LINE__, errno))
 			return GO_STATBAR;
+		gpbuf[n] = '\0';
 		return setpreview(gcfg.showpvp ^ 1, gpbuf);
 	}
 	return GO_REDRAW;

@@ -16,7 +16,7 @@
 
 if [ "$2" = 'tui' ]; then
 	sffpipe=$1
-	[ -p "$sffpipe" ] && printf "#%s\0" "$0" >"$sffpipe"
+	[ -p "$sffpipe" ] && printf "#%s" "$0" >"$sffpipe"
 	exit 0
 fi
 

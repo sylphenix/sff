@@ -59,7 +59,7 @@ sffpipe_refresh()
 
 sffpipe_sel_file()
 {
-	[ -p "$sffpipe" ] && printf "@%s\0" "$1" >"$sffpipe"
+	[ -p "$sffpipe" ] && printf "@%s" "$1" >"$sffpipe"
 }
 
 sffpipe_get_sel()
