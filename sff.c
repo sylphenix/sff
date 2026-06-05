@@ -145,11 +145,11 @@ typedef struct {
 	unsigned int lt         : 3;  // Last tab
 	unsigned int runmode    : 2;  // (0: normal mode, 1: sudo mode, 2: permanent sudo mode)
 	unsigned int marknew    : 1;  // Show marks for new file
-	unsigned int refresh    : 1;  // Force screen refresh during redraw
-	unsigned int redrawn    : 1;  // Screen has been redrawn
+	unsigned int redrawn    : 3;  // Screen has been redrawn
 	unsigned int openfile   : 1;  // Open files on right arrow or 'l' key
 	unsigned int symbperm   : 1;  // Show permissions as symbolic strings
 	unsigned int abbrdate   : 1;  // Use ls-style date format
+	unsigned int showpvp    : 1;  // Show preview pane
 } Settings;
 
 typedef struct {
@@ -176,11 +176,11 @@ typedef struct {
 
 static int ndents = 0, tdents = 0, cursel = 0, lastsel = -1, curscroll = 0;
 static int markent = -1, errline = 0, errnum = 0;
-static int xlines, xcols, onscr, ncols;
+static int xlines, xcols, onscr, ncols, pvcols;
 static size_t namebuflen = 0;
 static time_t curtime;
 static char *home, *opener, *sudoer;
-static char *cfgpath = NULL, *extfunc = NULL, *pipepath = NULL, *pvfifo = NULL;
+static char *cfgpath = NULL, *extfunc = NULL, *pipepath = NULL;
 static char *pnamebuf = NULL, *pfindbuf = NULL, *pfindend = NULL, *findname = NULL;
 static Entry *pdents = NULL;
 static Tabs *ptab = NULL;
@@ -728,10 +728,9 @@ static int refreshview(int n)
 		findname = ptab->hp->stat->name;
 	}
 
-	if (n == 1) {
+	if (n == 1)
 		gcfg.marknew ^= 1;
-		gcfg.refresh = 1;
-	} else if (n == 2)
+	else if (n == 2)
 		return GO_SORT;
 	return GO_RELOAD;
 }
@@ -1118,14 +1117,14 @@ static int getinput(WINDOW *w)
 		else if (i > 0) // when i=0, keep c=ESC
 			c = 0;
 	}
-	return (c == ERR) ? 0 : c;
+	return (c == ERR) ? -1 : c;
 }
 
 static void setcolumns(char *cols, int c)
 {
-	for (char *p = cols; *p; ++p)
-		if (*p == c || *p == c - 32)
-			*p = *p > 96 ? *p - 32 : *p + 32;
+	for (signed char *p = (signed char *)cols; *p; ++p)
+		if (*p == c || *p == c - 32 || *p == -c)
+			*p = *p > 96 ? *p - 32 : (*p > 0 ? *p + 32 : -*p);
 }
 
 static int viewoptions(int n __attribute__((unused)))
@@ -1417,40 +1416,104 @@ static int reventrycmp(const void *va, const void *vb)
 	return -entrycmp(va, vb);
 }
 
-static void setpreview(int op)
+static int xmbstowcs(wchar_t *dst, const char *str, int maxcols)
 {
-	static int fd = -1;
+	wchar_t *wcp = dst;
+	int dstwidth = 0;
+
+	for (int nb = 0, wcw = 1; *str; ++str, wcw = 1) {
+		if ((signed char)*str < 0) { // non-ASCII
+			if ((nb = mbtowc(wcp, str, MB_CUR_MAX)) > 0)
+				str += nb - 1;
+			else
+				*wcp = L'\uFFFD'; // invalid char
+			if ((wcw = wcwidth(*wcp)) == -1) // skip non-printable chars
+				continue;
+		} else if ((unsigned int)*str - 32 < 95) { // ASCII 32-126
+			*wcp = (wchar_t)*str;
+		} else // ASCII 1-31 and 127
+			*wcp = L'?';
+
+		if ((dstwidth += wcw) > maxcols) {
+			if (wcp != dst)
+				*(wcp - 1) = L'~';
+			break;
+		}
+		++wcp;
+	}
+	*wcp = L'\0';
+	return dstwidth;
+}
+
+static void drawpreview(WINDOW *pvwin, char *script)
+{
+	char *pn, rbuf[1024] = {0}, cmd[PATH_MAX * 2 + 64] = {0};
+	wchar_t wbuf[1024] = {0};
+	FILE *fp;
+
+	makepath(ptab->hp->path, pdents[cursel].name, rbuf);
+	setenv("SFF_PV_PATH", rbuf, 1);
+	snprintf(cmd, sizeof(cmd), "\"%s\" %d %d 2>/dev/null", script, xlines - 2, pvcols - 1);
+	if (!(fp = popen(cmd, "r")) && seterrnum(__LINE__, errno))
+		return;
+
+	werase(pvwin);
+	for (int line = 0; fgets(rbuf, sizeof(rbuf), fp) != NULL && line < xlines - 2; ) {
+		if ((pn = strchr(rbuf, '\n')))
+			*pn = '\0';
+		xmbstowcs(wbuf, rbuf, MIN(pvcols - 1, 1000));
+		mvwaddwstr(pvwin, line++, 1, wbuf);
+		if (!pn)
+			while (fgets(rbuf, sizeof(rbuf), fp) != NULL && !strchr(rbuf, '\n'));
+	}
+	pclose(fp);
+	wrefresh(pvwin);
+}
+
+static int setpreview(int op, char *path)
+{
+	static char script[PATH_MAX] = {0};
+	static WINDOW *pvwin = NULL;
 
 	switch (op) {
-	case 0: // open preview
-		if (fd == -1) {
-			if (!pvfifo && seterrnum(__LINE__, ENOENT))
-				return;
-			fd = open(pvfifo, O_WRONLY|O_NONBLOCK|O_CLOEXEC);
-			if (fd == -1 && seterrnum(__LINE__, errno))
-				return;
+	case 1: // open preview
+		if (!path || (access(path, X_OK) != 0 && seterrnum(__LINE__, errno)))
+			return GO_STATBAR;
+		memccpy(script, path, '\0', PATH_MAX - 1);
+		gcfg.showpvp = 1;
+		wtimeout(stdscr, 1);
+
+		break;
+	case 0: // close preview
+		gcfg.showpvp = 0;
+		delwin(pvwin);
+		pvwin = NULL;
+		for (int i = 0; i <= TABS_MAX; ++i)
+			for (signed char *p = (signed char *)gtab[i].cfg.cols; *p; ++p)
+				*p = *p < 0 ? -*p : *p;
+
+		break;
+	case 2: // draw preview
+		if (!gcfg.showpvp || gcfg.redrawn == 0 || ndents == 0)
+			return GO_NONE;
+		if (ncols + pvcols + 2 < xcols && ncols < PV_MIN_NAME_COLS) {
+			for (signed char *p = (signed char *)ptab->cfg.cols; *p; ++p)
+				*p = (*p < 96 || *p == 'n' || (*p == 's' && xcols - pvcols - 9 > PV_MIN_NAME_COLS)) ? *p : -*p;
+			wtimeout(stdscr, 1);
+			break;
 		}
-
-		// fallthrough
-	case 1: // send file path
-		if (fd == -1 || ndents == 0)
-			return;
-
-		int len = makepath(ptab->hp->path, pdents[cursel].name, gpbuf);
-		gpbuf[len - 1] = '\n';
-		if (write(fd, gpbuf, len) == len)
-			return;
-		seterrnum(__LINE__, errno);
-
-		// fallthrough
-	case 2: // close preview
-		if (fd != -1) {
-			close(fd);
-			fd = -1;
+		if (gcfg.redrawn & 4) { // Window resized
+			if (pvwin)
+				delwin(pvwin);
+			pvwin = NULL;
 		}
-		if (pvfifo)
-			unlink(pvfifo);
+		if (!pvwin)
+			pvwin = newwin(xlines - 3, pvcols, 1, xcols - pvcols);
+		gcfg.redrawn = 0;
+		drawpreview(pvwin, script);
+		return GO_NONE;
 	}
+	return GO_REDRAW;
 }
 
 static int writeselection(int fd)
@@ -1550,13 +1613,9 @@ static int handlepipedata(int fd, int op)
 		return GO_RELOAD;
 
 	case '#': // set preview
-		if (read(fd, &op, 1) == -1 && seterrnum(__LINE__, errno))
+		if (read(fd, gpbuf, PATH_MAX) == -1 && seterrnum(__LINE__, errno))
 			return GO_STATBAR;
-		if (op == 'p')
-			setpreview(0);
-		else if (op == 'q')
-			setpreview(2);
-		return GO_FASTDRAW;
+		return setpreview(gcfg.showpvp ^ 1, gpbuf);
 	}
 	return GO_REDRAW;
 }
@@ -1818,35 +1877,6 @@ static void setcurrentstat(Histpath *hp, struct selstat *ss)
 	} while ((ss = ss->prev));
 }
 
-static int xmbstowcs(wchar_t *dst, const char *str, int maxcols)
-{
-	wchar_t *wcp = dst;
-	int dstwidth = 0;
-
-	for (int nb = 0, wcw = 1; *str; ++str, wcw = 1) {
-		if ((signed char)*str < 0) { // non-ASCII
-			if ((nb = mbtowc(wcp, str, MB_CUR_MAX)) > 0)
-				str += nb - 1;
-			else
-				*wcp = L'\uFFFD'; // invalid char
-			if ((wcw = wcwidth(*wcp)) == -1) // Skip non-printable chars
-				continue;
-		} else if ((unsigned int)*str - 32 < 95) // ASCII 32-126
-			*wcp = (wchar_t)*str;
-		else // ASCII 1-31 and 127
-			*wcp = L'?';
-
-		if ((dstwidth += wcw) > maxcols) {
-			if (wcp != dst)
-				*(wcp - 1) = L'~';
-			break;
-		}
-		++wcp;
-	}
-	*wcp = L'\0';
-	return dstwidth;
-}
-
 static wchar_t *fitnamecols(const char *name, int maxcols)
 {
 	xmbstowcs((wchar_t *)gpbuf, name, maxcols);
@@ -1927,14 +1957,15 @@ static void printent(const Entry *ent, int sel, int mark)
 	for (char *p = ptab->cfg.cols; *p; ++p) {
 		switch (*p) {
 		case 'n': addch((sel ? '>' : ' ') | attr2);
+			hline(' ', ncols);
 			getyx(stdscr, y, x);
 			attrset(attr3);
 			if (ptab->hp->stat->flag != S_ROOT)
 				addwstr(fitnamecols(ent->name, ncols));
 			else
 				addwstr(fitpathcols(ent->name, ncols));
-			move(y, x + ncols);
 			attrset(attr1);
+			move(y, x + ncols);
 			break;
 		case 's': printw("%7s ", (ent->flag & E_REG_FILE) ? tohumansize(ent->size) : filetypechar(ent->type));
 			break;
@@ -1952,8 +1983,7 @@ static void printent(const Entry *ent, int sel, int mark)
 
 static void redraw(const char *path)
 {
-	static int homelen = 0;
-	int dcols = 0, sp = 0, n = 0;
+	int homelen, dcols = 0, sp = 0, n = 0;
 
 	for (char *p = ptab->cfg.cols; *p; ++p) {
 		switch (*p) {
@@ -1973,21 +2003,16 @@ static void redraw(const char *path)
 	}
 	getmaxyx(stdscr, xlines, xcols);
 	onscr = xlines - 4;
-	ncols = xcols - dcols - 2;
-
+	pvcols = gcfg.showpvp ? xcols * PREVIEW_WIDTH_PCT / 100 : 0;
+	ncols = MAX(xcols - dcols - pvcols - 2, 0);
 	shiftcursor(0, 0);
-	erase();
-	if (gcfg.refresh) {
-		refresh();
-		gcfg.refresh = 0;
-	}
+	move(0, 0);
 
 	// Print tabs tag
 	attrset(A_NORMAL);
 	for (int i = 0; i <= TABS_MAX; ++i) {
 		if (gtab[i].cfg.enabled)
-			addch((i < TABS_MAX ? i + '1' : '#')
-			| (COLOR_PAIR(C_TABTAG) | (gcfg.ct == i ? A_REVERSE : 0) | A_BOLD));
+			addch((i < TABS_MAX ? i + '1' : '#') | COLOR_PAIR(C_TABTAG) | (gcfg.ct == i ? A_REVERSE : 0) | A_BOLD);
 		else
 			addch(i < TABS_MAX ? '*' : '#');
 		addch(' ');
@@ -1995,22 +2020,18 @@ static void redraw(const char *path)
 
 	// Print path
 	n = xcols - (TABS_MAX + 1) * 2 - 1;
-	if (homelen == 0 && home)
-		homelen = strlen(home);
 	attrset(COLOR_PAIR(C_PATHBAR) | A_BOLD);
 	addch(' ');
-	if (home && strncmp(home, path, homelen) == 0 && (path[homelen] == '/' || path[homelen] == '\0')) {
+	if (home && (homelen = strlen(home)) && strncmp(home, path, homelen) == 0
+	&& (path[homelen] == '/' || path[homelen] == '\0')) {
 		path += homelen;
 		--n;
-		addch('~'); // Replace home path with '~'
+		addch('~'); // replace home path with '~'
 	}
 	addwstr(fitpathcols(path, n));
+	clrtoeol();
 
 	// Print entries
-	if (curscroll > 0 && ncols > 0) {
-		attrset(COLOR_PAIR(C_DETAIL));
-		mvaddstr(1, sp, "<<");
-	}
 	n = MIN(onscr + curscroll, ndents);
 	for (int i = curscroll, j = 2; i < n; ++i, ++j) {
 		if (ptab->cfg.havesel && !(pdents[i].flag & E_SEL_SCANED)) {
@@ -2021,10 +2042,27 @@ static void redraw(const char *path)
 		move(j, 0);
 		printent(&pdents[i], i == cursel, i == markent);
 	}
-	if (n < ndents && ncols > 0) {
-		attrset(COLOR_PAIR(C_DETAIL));
+	attrset(COLOR_PAIR(C_DETAIL));
+	mvhline(1, 0, ' ', xcols - pvcols - 1);
+	for (int i = ndents + 2; i < xlines - 2; ++i)
+		mvhline(i, 0, ' ', xcols - pvcols - 1);
+	mvhline(xlines - 2, 0, ' ', xcols);
+	if (curscroll > 0 && ncols > 0)
+		mvaddstr(1, sp, "<<");
+	if (n < ndents && ncols > 0)
 		mvaddstr(xlines - 2, sp, ">>");
-	}
+
+	// Draw scroll indicator
+	sp = MAX(1, ndents);
+	n = (sp <= onscr) ? onscr
+		: ((onscr * onscr << 1) / sp + 1) >> 1; // indicator height, round a/b by (a*2/b+1)/2
+	n = MAX(1, n);
+	sp = (curscroll == 0 || sp <= onscr) ? 2
+		: 2 + (((curscroll * (onscr - n) << 1) / (sp - onscr) + 1) >> 1); // starting row to drawing
+	mvaddch(1, xcols - pvcols - 1, '=');
+	mvvline(2, xcols - pvcols - 1, gcfg.showpvp ? ACS_VLINE : ' ', xlines - 4);
+	mvvline(sp, xcols - pvcols - 1, ' ' | A_REVERSE, n);
+	mvaddch(xlines - 2, xcols - pvcols - 1, '=');
 
 	// Print filter
 	if (ptab->ftlen != 0) {
@@ -2041,47 +2079,32 @@ static void redraw(const char *path)
 		addnstr(ptab->find, xcols - 12);
 		addch(' ' | A_REVERSE);
 	}
-
-	// Draw scroll indicator
-	sp = MAX(1, ndents);
-	n = (sp <= onscr) ? onscr
-		: ((onscr * onscr << 1) / sp + 1) >> 1; // indicator height, round a/b by (a*2/b+1)/2
-	n = MAX(1, n);
-	sp = (curscroll == 0 || sp <= onscr) ? 1
-		: 1 + (((curscroll * (onscr - n) << 1) / (sp - onscr) + 1) >> 1); // starting row to drawing
-	attrset(COLOR_PAIR(C_DETAIL));
-	mvaddch(1, xcols - 1, '=');
-	while (--n >= 0)
-		mvaddch(++sp, xcols - 1, ' ' | A_REVERSE);
-	mvaddch(xlines - 2, xcols - 1, '=');
-	gcfg.redrawn = 1; // set to skip fastredraw
+	gcfg.redrawn |= 1; // set to skip fastredraw
 }
 
 static void fastredraw(void)
 {
-	if (gcfg.redrawn || ndents == 0) { // bypass fastredraw after a full redraw
-		gcfg.redrawn = 0;
-		return;
+	if (!(gcfg.redrawn & 1) && ndents != 0) { // bypass fastredraw after a full redraw
+		if (lastsel >= curscroll && lastsel < onscr + curscroll && lastsel < ndents && lastsel != cursel) {
+			move(2 + lastsel - curscroll, 0);
+			printent(&pdents[lastsel], FALSE, lastsel == markent);
+		}
+		if (cursel >= curscroll && cursel < onscr + curscroll) {
+			move(2 + cursel - curscroll, 0);
+			printent(&pdents[cursel], TRUE, cursel == markent);
+		}
 	}
-	if (lastsel >= curscroll && lastsel < onscr + curscroll && lastsel < ndents && lastsel != cursel) {
-		move(2 + lastsel - curscroll, 0);
-		printent(&pdents[lastsel], FALSE, lastsel == markent);
-	}
-	if (cursel >= curscroll && cursel < onscr + curscroll) {
-		move(2 + cursel - curscroll, 0);
-		printent(&pdents[cursel], TRUE, cursel == markent);
-	}
+	gcfg.redrawn = (gcfg.redrawn | 2) & ~1;
 }
 
 static void statusbar(void)
 {
 	move(xlines - 1, 0);
-	clrtoeol();
-
 	if (errline != 0) {
 		attrset(COLOR_PAIR(C_WARN));
 		printw("Failed (%s): %s", xitoa(errline), strerror(errnum));
 		errline = 0;
+		clrtoeol();
 		return;
 	}
 
@@ -2115,6 +2138,7 @@ static void statusbar(void)
 		} else
 			addch(' ');
 	}
+	clrtoeol();
 
 	getyx(stdscr, n, x);
 	if (xcols - x > 7)
@@ -2236,7 +2260,6 @@ static void browse(void)
 			// fallthrough
 		case GO_FASTDRAW:
 			fastredraw();
-			setpreview(1);
 
 			// fallthrough
 		case GO_STATBAR:
@@ -2245,8 +2268,10 @@ static void browse(void)
 			// fallthrough
 		case GO_NONE:
 			c = getinput(stdscr);
+			wtimeout(stdscr, (gcfg.showpvp && c != -1) ? PREVIEW_DELAY_MS : -1);
 			if (c == KEY_RESIZE) {
 				ctl = GO_REDRAW;
+				gcfg.redrawn |= 4;
 				break;
 			}
 
@@ -2259,7 +2284,9 @@ static void browse(void)
 				for (size_t i = 0; i < LENGTH(keys); ++i)
 					if ((c == keys[i].keysym1 || c == keys[i].keysym2) && keys[i].func)
 						ctl = keys[i].func(keys[i].arg);
-			} else if (c < 0)
+			} else if (c == -1) {
+				ctl = setpreview(2, NULL);
+			} else if (c < -31)
 				ctl = callextfunc(-c);
 
 			break;
@@ -2322,12 +2349,10 @@ static int initsff(char *arg0, char *argx)
 	|| (makepath(EXTFNPREFIX2, EXTFNNAME, gpbuf) && access(gpbuf, R_OK | X_OK) == 0))
 		extfunc = strdup(gpbuf);
 
-	// Set pipepath and pvfifo paths
+	// Set pipepath
 	if (cfgpath && makepath(cfgpath, ".sff-pipe.", gpbuf))
 		pipepath = strdup(strcat(gpbuf, xitoa(getpid())));
-	if (pipepath)
-		pvfifo = strdup(strcat(gpbuf, ".pv"));
-	if (!cfgpath || !extfunc || !pipepath || !pvfifo)
+	if (!cfgpath || !extfunc || !pipepath)
 		seterrnum(__LINE__, errno);
 
 	// Initialize first tab
@@ -2369,7 +2394,6 @@ static void setupcurses(void)
 
 static void cleanup(void)
 {
-	setpreview(2);
 	if (pipepath)
 		unlink(pipepath);
 	for (int i = 0; i <= TABS_MAX; ++i) {
@@ -2384,7 +2408,6 @@ static void cleanup(void)
 	free(cfgpath);
 	free(extfunc);
 	free(pipepath);
-	free(pvfifo);
 }
 
 int main(int argc, char *argv[])
