@@ -1628,7 +1628,7 @@ static int callextfunc(int c)
 	pid_t pid, gpid = 0;
 	int fd, len, ctl = GO_STATBAR;
 	struct sigaction oldsigtstp, oldsigwinch;
-	char *args[5] = {sudoer, extfunc, pipepath, (char [2]){c, '\0'}, NULL};
+	char *args[4] = {sudoer, extfunc, (char [2]){c, '\0'}, NULL};
 	char **argv = (gcfg.runmode == 1) ? &args[0] : &args[1];
 
 	if ((!cfgpath || !extfunc || !pipepath) && seterrnum(__LINE__, ENOENT))
@@ -2352,10 +2352,10 @@ static int initsff(char *arg0, char *argx)
 	|| (makepath(EXTFNPREFIX2, EXTFNNAME, gpbuf) && access(gpbuf, R_OK | X_OK) == 0))
 		extfunc = strdup(gpbuf);
 
-	// Set pipepath
+	// Set pipepath and SFF_PIPE environment variable
 	if (cfgpath && makepath(cfgpath, ".sff-pipe.", gpbuf))
 		pipepath = strdup(strcat(gpbuf, xitoa(getpid())));
-	if (!cfgpath || !extfunc || !pipepath)
+	if (!cfgpath || !extfunc || !pipepath || setenv("SFF_PIPE", pipepath, 1) == -1)
 		seterrnum(__LINE__, errno);
 
 	// Initialize first tab

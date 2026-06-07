@@ -8,7 +8,7 @@
 #
 # Author: Shi Yanling
 
-sffpipe=$1
+sffpipe=$SFF_PIPE
 
 sffpipe_enter_dir()
 {

@@ -42,14 +42,12 @@ export LC_ALL=C
 unset LESS
 command -v 7zz >/dev/null 2>&1 && _7z='7zz' || _7z='7z'
 
-if [ "$2" ]; then
-	sffpipe=$1
-	sffdir=${sffpipe%/*}
-	tmpdir=${TMPDIR:-/tmp}
-	[ ! -w "$tmpdir" ] && tmpdir=$sffdir
-	tsel=$(mktemp -u "${tmpdir}/sff-tsel-XXXXXX")
-	tbuf1=$(mktemp -u "${tmpdir}/sff-tbuf1-XXXXXX")
-fi
+sffpipe=$SFF_PIPE
+sffdir=${sffpipe%/*}
+tmpdir=${TMPDIR:-/tmp}
+[ ! -w "$tmpdir" ] && tmpdir=$sffdir
+tsel=$(mktemp -u "${tmpdir}/sff-tsel-XXXXXX")
+tbuf1=$(mktemp -u "${tmpdir}/sff-tbuf1-XXXXXX")
 
 sffpipe_refresh()
 {
@@ -193,8 +191,8 @@ create_archive()
 	esac
 }
 
-case "$2" in
-'') list_archive "$1";;
+case "$1" in
 'e') extract_archive;;
 'c') create_archive;;
+*) list_archive "$1";;
 esac

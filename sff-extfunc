@@ -32,7 +32,8 @@ unset LESS
 cwd=$(pwd)
 lmax=24
 
-sffpipe=$1
+[ ! -e "$SFF_PIPE" ] && { echo "SFF_PIPE: no such file"; exit 0; }
+sffpipe=$SFF_PIPE
 sffdir=${sffpipe%/*}
 tmpdir=${TMPDIR:-/tmp}
 [ ! -w "$tmpdir" ] && tmpdir=$sffdir
@@ -471,7 +472,7 @@ run_pl()
 		printf "\n%s: plugin not found\n" "$1"
 		return 1
 	else
-		LC_ALL= exec "$_plugin" "$sffpipe" "$2"
+		LC_ALL= exec "$_plugin" "$2"
 	fi
 }
 
@@ -479,7 +480,7 @@ run_pl()
 
 
 # === key bindings ===
-case "$2" in                  #?> Extension functions:
+case "$1" in                  #?> Extension functions:
 'n') sff_new;;                #?>     n  Create new file (append '/' for dir)
 'd') sff_delete;;             #?>     d  Delete
 'y') sff_write_cbuf 'cp';;    #?>     y  Copy
@@ -502,7 +503,7 @@ case "$2" in                  #?> Extension functions:
                               #?> Plugins:
 'o') run_pl 'sfopen' 'o';;    #?>     o  Open with
 'F') run_pl 'fzf-find';;      #?>     F  Search via 'fzf'
-'=') run_pl 'preview' 'tui';; #?>     =  Toggle preview
+'=') run_pl 'preview' 'sw';;  #?>     =  Toggle preview
 'z') run_pl 'archive' 'e';;   #?>     z  Extract archive
 'Z') run_pl 'archive' 'c';;   #?>     Z  Create archive
 esac                          #?>

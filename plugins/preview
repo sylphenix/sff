@@ -13,9 +13,8 @@
 #
 # Author: Shi Yanling
 
-
-if [ "$2" = 'tui' ]; then
-	sffpipe=$1
+if [ "$1" = 'sw' ]; then
+	sffpipe=$SFF_PIPE
 	[ -p "$sffpipe" ] && printf "#%s" "$0" >"$sffpipe"
 	exit 0
 fi
