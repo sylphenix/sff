@@ -4,8 +4,6 @@
 #else
 #define OPENER    "xdg-open"  // File opener on Linux/BSD
 #endif
-#define SUDOER    "doas"      // Utility for sudo mode
-
 #define PREVIEW_WIDTH_PCT 50  // Preview pane width as a percentage of screen
 #define PREVIEW_DELAY_MS  55  // Should be longer than the keyboard repeat interval (typical 25/sec = 40ms)
 #define PV_MIN_NAME_COLS  32  // When preview opens, hide details if name column is narrower than this value

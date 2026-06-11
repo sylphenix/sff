@@ -179,7 +179,7 @@ static int markent = -1, errline = 0, errnum = 0;
 static int xlines, xcols, onscr, ncols, pvcols;
 static size_t namebuflen = 0;
 static time_t curtime;
-static char *home, *opener, *sudoer;
+static char *home, *opener;
 static char *cfgpath = NULL, *extfunc = NULL, *pipepath = NULL;
 static char *pnamebuf = NULL, *pfindbuf = NULL, *pfindend = NULL, *findname = NULL;
 static Entry *pdents = NULL;
@@ -1628,8 +1628,8 @@ static int callextfunc(int c)
 	pid_t pid, gpid = 0;
 	int fd, len, ctl = GO_STATBAR;
 	struct sigaction oldsigtstp, oldsigwinch;
-	char *args[4] = {sudoer, extfunc, (char [2]){c, '\0'}, NULL};
-	char **argv = (gcfg.runmode == 1) ? &args[0] : &args[1];
+	char *args[4] = {extfunc, (char [2]){c, '\0'}, gcfg.runmode == 1 ? "su" : NULL, NULL};
+	char **argv = &args[0];
 
 	if ((!cfgpath || !extfunc || !pipepath) && seterrnum(__LINE__, ENOENT))
 		return GO_STATBAR;
@@ -2334,10 +2334,6 @@ static int initsff(char *arg0, char *argx)
 	opener = getenv("SFF_OPENER");
 	if (!opener || !opener[0])
 		opener = OPENER;
-
-	sudoer = getenv("SFF_SUDOER");
-	if (!sudoer || !sudoer[0])
-		sudoer = SUDOER;
 
 	// Set config path: XDG_CONFIG_HOME/sff or ~/.config/sff
 	char *xdgcfg = getenv("XDG_CONFIG_HOME");
