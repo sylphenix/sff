@@ -66,8 +66,7 @@ sffpipe_clear_sel()
 
 sffpipe_refresh()
 {
-	[ "$1" = '-c' ] && _x='.' || _x=''
-	[ -p "$sffpipe" ] && printf "*%s" "$_x" >"$sffpipe"
+	[ -p "$sffpipe" ] && printf "*%s" "$1" >"$sffpipe"
 }
 
 sffpipe_sel_file()
@@ -350,7 +349,7 @@ sff_delete()
 	[ "$_lines" -gt $lmax ] && echo "..."
 	printf "Permanently delete %d file(s)? (y/n) [n]: " $_lines; read -r _x
 	case "$_x" in [yY]) :;; *) exit 0;; esac
-	sffpipe_refresh -c
+	sffpipe_refresh 'c'
 
 	echo "Deleting..."
 	tr '\n\035' '\0\n' <"$tsel" | LC_ALL= xargs -0 rm -rf

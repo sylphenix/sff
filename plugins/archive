@@ -53,8 +53,7 @@ fi
 
 sffpipe_refresh()
 {
-	[ "$1" = '-c' ] && _x='.' || _x=''
-	[ -p "$sffpipe" ] && printf "*%s" "$_x" >"$sffpipe"
+	[ -p "$sffpipe" ] && printf "*%s" "$1" >"$sffpipe"
 }
 
 sffpipe_sel_file()
