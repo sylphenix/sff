@@ -26,18 +26,11 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 # SUCH DAMAGE.
 
-EDITOR=${EDITOR:-vi}
-export LC_ALL=C
-unset LESS
-cwd=$(pwd)
-lmax=24
-
-[ ! -e "$SFF_PIPE" ] && { echo "SFF_PIPE: no such file"; exit 0; }
-sffpipe=$SFF_PIPE
+[ ! -e "$SFF_PIPE" ] && [ ! -e "$2" ] && { echo "SFF_PIPE: no such file"; exit 0; }
+[ "$SFF_PIPE" ] && sffpipe=$SFF_PIPE || sffpipe=$2
 sffdir=${sffpipe%/*}
 tmpdir=${TMPDIR:-/tmp}
 [ ! -w "$tmpdir" ] && tmpdir=$sffdir
-
 exbuf1="${sffdir}/.exec-buf1"
 exbuf2="${sffdir}/.exec-buf2"
 lastop="${sffdir}/.last-operation"
@@ -48,12 +41,20 @@ tsel=$(mktemp -u "${tmpdir}/sff-tsel-XXXXXX")
 tbuf1=$(mktemp -u "${tmpdir}/sff-tbuf1-XXXXXX")
 tbuf2=$(mktemp -u "${tmpdir}/sff-tbuf2-XXXXXX")
 
-supr=''
 if [ "$2" = 'su' ]; then
-	supr=$SFF_SUDOER
-	[ -z "$supr" ] && command -v doas >/dev/null 2>&1 && supr='doas'
-	[ -z "$supr" ] && supr='sudo'
+	_supr=$SFF_SUDOER
+	[ -z "$_supr" ] && command -v doas >/dev/null 2>&1 && _supr='doas'
+	[ -z "$_supr" ] && _supr='sudo'
+	touch -a "$exbuf1" "$exbuf2" "$lastop" "$cmbuf"
+	exec $_supr "$0" "$1" "$sffpipe"
+	exit 0
 fi
+
+EDITOR=${EDITOR:-vi}
+export LC_ALL=C
+unset LESS
+cwd=$(pwd)
+lmax=24
 : | xargs -r >/dev/null 2>&1 && _r='-r' || _r=''
 
 # === sff extension functions ===
@@ -95,7 +96,7 @@ trap sff_cleanup EXIT HUP INT QUIT TERM
 
 sff_pwd_perm()
 {
-	[ -z "$supr" ] && [ ! -w "$cwd" ] && { printf "\n%s: Permission denied\n" "$cwd"; exit 1; }
+	[ ! -w "$cwd" ] && { printf "\n%s: Permission denied\n" "$cwd"; exit 1; }
 }
 
 sff_new()
@@ -135,8 +136,8 @@ sff_do_new()
 	printf "\nCreating...\n"
 	tr '\0' '\n' <"$exbuf1" | sed '/^$/d'
 
-	head -n 1 "$exbuf1" | tr -d '\n' | tr '\035' '\n' | LC_ALL= xargs $_r -0 $supr mkdir -p \
-	&& tail -n +2 "$exbuf1" | tr '\035' '\n' | LC_ALL= xargs $_r -0 $supr touch
+	head -n 1 "$exbuf1" | tr -d '\n' | tr '\035' '\n' | LC_ALL= xargs $_r -0 mkdir -p \
+	&& tail -n +2 "$exbuf1" | tr '\035' '\n' | LC_ALL= xargs $_r -0 touch
 }
 
 sff_undo_new()
@@ -149,7 +150,7 @@ sff_undo_new()
 	sffpipe_refresh
 
 	echo "Deleting..."
-	LC_ALL= $supr xargs -0 sh -c 'find "$@" -prune -cnewer "$0" -exec rm -rf {} +' "$exbuf2" <"$exbuf2"
+	LC_ALL= xargs $_r -0 sh -c 'find "$@" -prune -cnewer "$0" -exec rm -rf {} +' "$exbuf2" <"$exbuf2"
 }
 
 sff_write_cbuf()
@@ -218,16 +219,16 @@ sff_do_paste()
 	case "$1" in
 	'copy') printf "\nCopying...\n"
 		case "$_x" in
-		[oO]) LC_ALL= $supr xargs -0 -n 2 cp -afv <"$exbuf1";;
-		[sS]) LC_ALL= $supr xargs -0 -n 2 cp -anv <"$exbuf1";;
-		[iI]) LC_ALL= $supr xargs -0 -n 2 -o cp -aiv <"$exbuf1";;
+		[oO]) LC_ALL= xargs -0 -n 2 cp -afv <"$exbuf1";;
+		[sS]) LC_ALL= xargs -0 -n 2 cp -anv <"$exbuf1";;
+		[iI]) LC_ALL= xargs -0 -n 2 -o cp -aiv <"$exbuf1";;
 		esac
 		;;
 	'move') printf "\nMoving...\n"
 		case "$_x" in
-		[oO]) LC_ALL= $supr xargs -0 -n 2 mv -fv <"$exbuf1";;
-		[sS]) LC_ALL= $supr xargs -0 -n 2 mv -nv <"$exbuf1";;
-		[iI]) LC_ALL= $supr xargs -0 -n 2 -o mv -iv <"$exbuf1";;
+		[oO]) LC_ALL= xargs -0 -n 2 mv -fv <"$exbuf1";;
+		[sS]) LC_ALL= xargs -0 -n 2 mv -nv <"$exbuf1";;
+		[iI]) LC_ALL= xargs -0 -n 2 -o mv -iv <"$exbuf1";;
 		esac
 		;;
 	'null') echo "Aborted: operation expired"
@@ -280,7 +281,7 @@ sff_do_rename()
 	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr '\035' '\n')"
 
 	printf "\nRenaming...\n"
-	LC_ALL= $supr xargs -0 -n 2 mv -nv <"$exbuf1"
+	LC_ALL= xargs -0 -n 2 mv -nv <"$exbuf1"
 }
 
 sff_undo_move()
@@ -293,7 +294,7 @@ sff_undo_move()
 	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf1" | head -n 1 | tr '\035' '\n')"
 
 	echo "Moving..."
-	LC_ALL= $supr xargs -0 -n 2 mv -n <"$exbuf2"
+	LC_ALL= xargs -0 -n 2 mv -n <"$exbuf2"
 }
 
 sff_duplicate()
@@ -334,7 +335,7 @@ sff_do_duplicate()
 	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf2" | head -n 1 | tr '\035' '\n')"
 
 	printf "\nDuplicating...\n"
-	LC_ALL= $supr xargs -0 -n 2 cp -av <"$exbuf1"
+	LC_ALL= xargs -0 -n 2 cp -av <"$exbuf1"
 }
 
 sff_delete()
@@ -352,7 +353,7 @@ sff_delete()
 	sffpipe_refresh -c
 
 	echo "Deleting..."
-	tr '\n\035' '\0\n' <"$tsel" | LC_ALL= $supr xargs -0 rm -rf
+	tr '\n\035' '\0\n' <"$tsel" | LC_ALL= xargs -0 rm -rf
 }
 
 sff_exec()
@@ -369,11 +370,11 @@ sff_exec()
 
 	case "$_cmd" in
 	'ed') [ -z "$1" ] && return 0
-		LC_ALL= exec $supr $EDITOR "$@";;
+		LC_ALL= exec $EDITOR "$@";;
 	'sh') echo ""
 		export Q='exit'
 		command -v bash >/dev/null 2>&1 && _sh='bash' || _sh='sh'
-		LC_ALL= exec $supr $_sh -s "$@";;
+		LC_ALL= exec $_sh -s "$@";;
 	esac
 }
 
@@ -386,8 +387,8 @@ sff_chmod_chown()
 
 	sffpipe_get_sel
 	case "$_x" in
-	*:*) LC_ALL= $supr xargs -0 chown $_x2 $_x <"$sffpipe";;
-	*) LC_ALL= $supr xargs -0 chmod $_x2 $_x <"$sffpipe";;
+	*:*) LC_ALL= xargs $_r -0 chown $_x2 $_x <"$sffpipe";;
+	*) LC_ALL= xargs $_r -0 chmod $_x2 $_x <"$sffpipe";;
 	esac || return 1
 	sffpipe_refresh
 }
@@ -464,7 +465,7 @@ run_pl()
 		printf "\n%s: plugin not found\n" "$1"
 		return 1
 	else
-		LC_ALL= exec "$_plugin" "$2" "$supr"
+		LC_ALL= exec "$_plugin" "$sffpipe" "$2"
 	fi
 }
 

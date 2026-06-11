@@ -59,8 +59,8 @@ setdef=''
 OS=$(uname -s)
 [ "$OS" = 'Darwin' ] && gopener='open'
 
-if [ "$1" = 'o' ]; then
-	sffpipe=$SFF_PIPE
+if [ "$2" = 'o' ]; then
+	sffpipe=$1
 	tmpdir=${TMPDIR:-/tmp}
 	[ ! -w "$tmpdir" ] && tmpdir=$sffdir
 	tsel=$(mktemp -u "${tmpdir}/sff-tsel-XXXXXX")
