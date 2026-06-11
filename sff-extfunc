@@ -54,6 +54,7 @@ if [ "$2" = 'su' ]; then
 	[ -z "$supr" ] && command -v doas >/dev/null 2>&1 && supr='doas'
 	[ -z "$supr" ] && supr='sudo'
 fi
+: | xargs -r >/dev/null 2>&1 && _r='-r' || _r=''
 
 # === sff extension functions ===
 
@@ -133,13 +134,9 @@ sff_do_new()
 
 	printf "\nCreating...\n"
 	tr '\0' '\n' <"$exbuf1" | sed '/^$/d'
-	_err=0
-	[ "$(head -c 1 "$exbuf1" | tr -d '\n')" ] \
-	&& { head -n 1 "$exbuf1" | tr -d '\n' | tr '\035' '\n' | LC_ALL= $supr xargs -0 mkdir -p || _err=1; }
 
-	[ "$(tail -c 1 "$exbuf1" | tr -d '\n' | tr '\0' 'A')" ] \
-	&& { tail -n +2 "$exbuf1" | tr '\035' '\n' | LC_ALL= $supr xargs -0 touch || _err=1; }
-	return $_err
+	head -n 1 "$exbuf1" | tr -d '\n' | tr '\035' '\n' | LC_ALL= xargs $_r -0 $supr mkdir -p \
+	&& tail -n +2 "$exbuf1" | tr '\035' '\n' | LC_ALL= xargs $_r -0 $supr touch
 }
 
 sff_undo_new()
