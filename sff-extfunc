@@ -199,12 +199,8 @@ sff_paste()
 sff_do_paste()
 {
 	_cks=$(cksum "$exbuf1")
-	case "$1" in
-	'copy') _exf=$(xargs -0 sh -c 'for f; do [ -e "$f" ] && printf "%s\n" "$f"; done' _ <"$exbuf2" | head -n $lmax);;
-	'move') _exf=$(tr '\n\0' '\035\n' <"$exbuf2" | sed 'n;d' | tr '\n\035' '\0\n' \
-			| xargs -0 sh -c 'for f; do [ -e "$f" ] && printf "%s\n" "$f"; done' _ | head -n $lmax);;
-	*) _exf='';;
-	esac
+	_exf=$({ [ "$1" = 'move' ] && tr '\n\0' '\035\n' <"$exbuf2" | sed 'n;d' | tr '\n\035' '\0\n' || cat "$exbuf2"; } \
+		| xargs -0 sh -c 'for f; do [ -e "$f" ] && printf "%s\n" "$f"; done' _ | head -n $lmax)
 	_x='o'
 	if [ "$_exf" ]; then
 		printf "\n%s\n... file(s) exist\n" "$_exf"
