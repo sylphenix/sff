@@ -420,9 +420,10 @@ static int seterrnum(int line, int err)
 	return TRUE;
 }
 
-static void spawn(char *arg0, char *arg1, char *arg2, int detach)
+static int spawn(char *arg0, char *arg1, char *arg2, int detach, int (*callbackfn)(void))
 {
 	pid_t pid;
+	int ctl = GO_STATBAR;
 	char *argv[4] = {arg0, arg1, arg2, NULL};
 	struct sigaction oldsigtstp, oldsigwinch;
 
@@ -432,6 +433,8 @@ static void spawn(char *arg0, char *arg1, char *arg2, int detach)
 	if (pid > 0) {
 		sigaction(SIGTSTP, &(struct sigaction){.sa_handler = SIG_IGN}, &oldsigtstp);
 		sigaction(SIGWINCH, &(struct sigaction){.sa_handler = SIG_IGN}, &oldsigwinch);
+		if (callbackfn)
+			ctl = callbackfn();
 		waitpid(pid, NULL, 0);
 		sigaction(SIGTSTP, &oldsigtstp, NULL);
 		sigaction(SIGWINCH, &oldsigwinch, NULL);
@@ -460,6 +463,7 @@ static void spawn(char *arg0, char *arg1, char *arg2, int detach)
 		seterrnum(__LINE__, errno);
 	if (!detach)
 		refresh();
+	return ctl;
 }
 
 /****** Key Functions ******/
@@ -644,7 +648,7 @@ static int enterdir(int n)
 	makepath(hp->path, ent->name, newpath);
 	if (!(ent->flag & E_DIR_DIRLNK)) {
 		if (n == 1 || gcfg.openfile)
-			spawn(opener, newpath, NULL, *opener != '/');
+			spawn(opener, newpath, NULL, *opener != '/', NULL);
 		return GO_STATBAR;
 	}
 
@@ -1623,14 +1627,37 @@ static int handlepipedata(int fd, int n)
 	return GO_REDRAW;
 }
 
+static int readpipe(void)
+{
+	pid_t gpid = 0;
+	int fd, len, ctl = GO_STATBAR;
+
+	if ((fd = open(pipepath, O_RDONLY)) != -1) { // Blocking can be interrupted by SIGCHLD (set in initsff)
+		if (read(fd, gpbuf, 1) == 1) {
+			if (isdigit(gpbuf[0]) && (len = read(fd, &gpbuf[1], 9)) != -1) {
+				gpbuf[len + 1] = '\0';
+				gpid = (pid_t)strtol(gpbuf, NULL, 10);
+			} else
+				ctl = handlepipedata(fd, gpbuf[0]);
+		}
+		close(fd);
+
+		if (gpid > 9 && (fd = open(pipepath, O_WRONLY)) != -1) {
+			if (!writeselection(fd))
+				kill(gpid, SIGTERM);
+			close(fd);
+		}
+		if (gpid > 9 && (fd = open(pipepath, O_RDONLY)) != -1) {
+			ctl = handlepipedata(fd, 0);
+			close(fd);
+		}
+	} else if (errno != EINTR)
+		seterrnum(__LINE__, errno);
+	return ctl;
+}
+
 static int callextfunc(int c)
 {
-	pid_t pid, gpid = 0;
-	int fd, len, ctl = GO_STATBAR;
-	struct sigaction oldsigtstp, oldsigwinch;
-	char *args[4] = {extfunc, (char [2]){c, '\0'}, gcfg.runmode == 1 ? "su" : NULL, NULL};
-	char **argv = &args[0];
-
 	if ((!cfgpath || !extfunc || !pipepath) && seterrnum(__LINE__, ENOENT))
 		return GO_STATBAR;
 
@@ -1645,47 +1672,7 @@ static int callextfunc(int c)
 	if (mkfifo(pipepath, 0600) == -1 && errno != EEXIST && seterrnum(__LINE__, errno))
 		return GO_STATBAR;
 
-	endwin();
-	pid = fork();
-	if (pid > 0) {
-		sigaction(SIGTSTP, &(struct sigaction){.sa_handler = SIG_IGN}, &oldsigtstp);
-		sigaction(SIGWINCH, &(struct sigaction){.sa_handler = SIG_IGN}, &oldsigwinch);
-		if ((fd = open(pipepath, O_RDONLY)) != -1) { // Blocking can be interrupted by SIGCHLD (set in initsff)
-			if (read(fd, gpbuf, 1) == 1) {
-				if (isdigit(gpbuf[0]) && (len = read(fd, &gpbuf[1], 9)) != -1) {
-					gpbuf[len + 1] = '\0';
-					gpid = (pid_t)strtol(gpbuf, NULL, 10);
-				} else
-					ctl = handlepipedata(fd, gpbuf[0]);
-			}
-			close(fd);
-
-			if (gpid > 9 && (fd = open(pipepath, O_WRONLY)) != -1) {
-				if (!writeselection(fd))
-					kill(gpid, SIGTERM);
-				close(fd);
-			}
-			if (gpid > 9 && (fd = open(pipepath, O_RDONLY)) != -1) {
-				ctl = handlepipedata(fd, 0);
-				close(fd);
-			}
-		} else if (errno != EINTR)
-			seterrnum(__LINE__, errno);
-		waitpid(pid, NULL, 0);
-		sigaction(SIGTSTP, &oldsigtstp, NULL);
-		sigaction(SIGWINCH, &oldsigwinch, NULL);
-
-	} else if (pid == 0) {
-		sigaction(SIGTSTP, &(struct sigaction){.sa_handler = SIG_IGN}, NULL);
-		sigaction(SIGINT, &(struct sigaction){.sa_handler = SIG_DFL}, NULL);
-		sigaction(SIGPIPE, &(struct sigaction){.sa_handler = SIG_DFL}, NULL);
-		execvp(*argv, argv);
-		_exit(EXIT_SUCCESS);
-
-	} else
-		seterrnum(__LINE__, errno);
-	refresh();
-	return ctl;
+	return spawn(extfunc, (char [2]){c, '\0'}, gcfg.runmode == 1 ? "su" : NULL, FALSE, &readpipe);
 }
 
 #ifdef __APPLE__
