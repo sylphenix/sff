@@ -169,9 +169,14 @@ if [ "$OS" = 'Darwin' ]; then
 	open $_opt "$_cmd" "$@" >/dev/null 2>&1 && exit 0
 fi
 
+if ! command -v "$_cmdp" >/dev/null 2>&1; then
+	echo "$_cmdp: not found"
+	printf "Press Enter to continue "; read -r _x
+	exit 0
+fi
+
 if [ "$_cli" ]; then
-	type "$_cmdp" >/dev/null \
-	&& case "$_clipost" in
+	case "$_clipost" in
 	'page') $_cmd "$@" | $PAGER;;
 	'hold') printf "\033[2J\033[H"
 		$_cmd "$@"
@@ -182,4 +187,4 @@ elif [ "$_swallow" ]; then
 	exec $_cmd "$@" >/dev/null 2>&1
 else
 	($_cmd "$@" >/dev/null 2>&1 &)
-fi || { printf "Press Enter to continue "; read -r _x; }
+fi
