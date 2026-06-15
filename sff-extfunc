@@ -190,8 +190,7 @@ sff_paste()
 	_op=${cmbuf##*-}
 	case "$_op" in
 	'copy') sed "s|^.*/|$_pwd/|" "$cmbuf" | tr '\n\035' '\0\n' >"$exbuf2";;
-	'move') sed "s|^.*/|$_pwd/|" "$cmbuf" | paste -d '\n' - "$cmbuf" | tr '\n\035' '\0\n' >"$exbuf2"
-		touch -mt 202310011200 "$cmbuf";;
+	'move') sed "s|^.*/|$_pwd/|" "$cmbuf" | paste -d '\n' - "$cmbuf" | tr '\n\035' '\0\n' >"$exbuf2";;
 	esac
 	sff_do_paste "$_op"
 }
@@ -205,7 +204,7 @@ sff_do_paste()
 	if [ "$_exf" ]; then
 		printf "\n%s\n... file(s) exist\n" "$_exf"
 		printf "(s)kip all / (i)nteractive / (o)verwrite all / (c)ancel [c]: "; read -r _x
-		case "$_x" in [sSiIoO]) :;; *) touch "$cmbuf"; exit 0;; esac
+		case "$_x" in [sSiIoO]) :;; *) exit 0;; esac
 	fi
 	[ "$_cks" != "$(cksum "$exbuf1")" ] && set -- 'null'
 	printf "$1" >"$lastop"
@@ -220,6 +219,7 @@ sff_do_paste()
 		esac
 		;;
 	'move') printf "\nMoving...\n"
+		touch -mt 202310011200 "$cmbuf"
 		case "$_x" in
 		[oO]) LC_ALL= xargs -0 -n 2 mv -fv <"$exbuf1";;
 		[sS]) LC_ALL= xargs -0 -n 2 mv -nv <"$exbuf1";;
