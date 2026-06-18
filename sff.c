@@ -145,7 +145,7 @@ typedef struct {
 	unsigned int lt         : 3;  // Last tab
 	unsigned int runmode    : 2;  // (0: normal mode, 1: sudo mode, 2: permanent sudo mode)
 	unsigned int marknew    : 1;  // Show marks for new file
-	unsigned int redrawn    : 3;  // Screen has been redrawn
+	unsigned int redrawn    : 2;  // Screen has been redrawn
 	unsigned int openfile   : 1;  // Open files on right arrow or 'l' key
 	unsigned int symbperm   : 1;  // Show permissions as symbolic strings
 	unsigned int abbrdate   : 1;  // Use ls-style date format
@@ -1449,8 +1449,9 @@ static int xmbstowcs(wchar_t *dst, const char *str, int maxcols)
 	return dstwidth;
 }
 
-static void drawpreview(WINDOW *pvwin, char *script)
+static void drawpreview(char *script)
 {
+	int line = 1, col = xcols - pvcols;
 	char *pn, rbuf[1024] = {0}, cmd[PATH_MAX * 2 + 64] = {0};
 	wchar_t wbuf[1024] = {0};
 	FILE *fp;
@@ -1461,23 +1462,24 @@ static void drawpreview(WINDOW *pvwin, char *script)
 	if (!(fp = popen(cmd, "r")) && seterrnum(__LINE__, errno))
 		return;
 
-	werase(pvwin);
-	for (int line = 0; fgets(rbuf, sizeof(rbuf), fp) != NULL && line < xlines - 2; ) {
+	attrset(A_NORMAL);
+	while (fgets(rbuf, sizeof(rbuf), fp) != NULL && line < xlines - 2) {
 		if ((pn = strchr(rbuf, '\n')))
 			*pn = '\0';
 		xmbstowcs(wbuf, rbuf, MIN(pvcols - 1, 1000));
-		mvwaddwstr(pvwin, line++, 1, wbuf);
+		mvhline(line, col, ' ', pvcols);
+		mvaddwstr(line++, col + 1, wbuf);
 		if (!pn)
 			while (fgets(rbuf, sizeof(rbuf), fp) != NULL && !strchr(rbuf, '\n'));
 	}
+	while (line < xlines - 2)
+		mvhline(line++, col, ' ', pvcols);
 	pclose(fp);
-	wrefresh(pvwin);
 }
 
 static int setpreview(int op, char *path)
 {
 	static char script[PATH_MAX] = {0};
-	static WINDOW *pvwin = NULL;
 
 	switch (op) {
 	case 1: // open preview
@@ -1490,8 +1492,6 @@ static int setpreview(int op, char *path)
 		break;
 	case 0: // close preview
 		gcfg.showpvp = 0;
-		delwin(pvwin);
-		pvwin = NULL;
 		for (int i = 0; i <= TABS_MAX; ++i)
 			for (signed char *p = (signed char *)gtab[i].cfg.cols; *p; ++p)
 				*p = *p < 0 ? -*p : *p;
@@ -1506,15 +1506,8 @@ static int setpreview(int op, char *path)
 			wtimeout(stdscr, 1);
 			break;
 		}
-		if (gcfg.redrawn & 4) { // Window resized
-			if (pvwin)
-				delwin(pvwin);
-			pvwin = NULL;
-		}
-		if (!pvwin)
-			pvwin = newwin(xlines - 3, pvcols, 1, xcols - pvcols);
 		gcfg.redrawn = 0;
-		drawpreview(pvwin, script);
+		drawpreview(script);
 		return GO_NONE;
 	}
 	return GO_REDRAW;
@@ -1947,7 +1940,6 @@ static void printent(const Entry *ent, int sel, int mark)
 	for (char *p = ptab->cfg.cols; *p; ++p) {
 		switch (*p) {
 		case 'n': addch((sel ? '>' : ' ') | attr2);
-			hline(' ', ncols);
 			getyx(stdscr, y, x);
 			attrset(attr3);
 			if (ptab->hp->stat->flag != S_ROOT)
@@ -2022,6 +2014,8 @@ static void redraw(const char *path)
 	clrtoeol();
 
 	// Print entries
+	for (int i = 1; i < xlines - 2; ++i)
+		mvhline(i, 0, ' ', xcols - pvcols - 1);
 	n = MIN(onscr + curscroll, ndents);
 	for (int i = curscroll, j = 2; i < n; ++i, ++j) {
 		if (ptab->cfg.havesel && !(pdents[i].flag & E_SEL_SCANED)) {
@@ -2033,9 +2027,6 @@ static void redraw(const char *path)
 		printent(&pdents[i], i == cursel, i == markent);
 	}
 	attrset(COLOR_PAIR(C_DETAIL));
-	mvhline(1, 0, ' ', xcols - pvcols - 1);
-	for (int i = ndents + 2; i < xlines - 2; ++i)
-		mvhline(i, 0, ' ', xcols - pvcols - 1);
 	mvhline(xlines - 2, 0, ' ', xcols);
 	if (curscroll > 0 && ncols > 0)
 		mvaddstr(1, sp, "<<");
@@ -2069,12 +2060,12 @@ static void redraw(const char *path)
 		addnstr(ptab->find, xcols - 12);
 		addch(' ' | A_REVERSE);
 	}
-	gcfg.redrawn |= 1; // set to skip fastredraw
+	gcfg.redrawn = 1; // set to skip fastredraw
 }
 
 static void fastredraw(void)
 {
-	if (!(gcfg.redrawn & 1) && ndents != 0) { // bypass fastredraw after a full redraw
+	if (gcfg.redrawn != 1 && ndents != 0) { // bypass fastredraw after a full redraw
 		if (lastsel >= curscroll && lastsel < onscr + curscroll && lastsel < ndents && lastsel != cursel) {
 			move(2 + lastsel - curscroll, 0);
 			printent(&pdents[lastsel], FALSE, lastsel == markent);
@@ -2084,7 +2075,7 @@ static void fastredraw(void)
 			printent(&pdents[cursel], TRUE, cursel == markent);
 		}
 	}
-	gcfg.redrawn = (gcfg.redrawn | 2) & ~1;
+	gcfg.redrawn = 2;
 }
 
 static void statusbar(void)
@@ -2261,7 +2252,6 @@ static void browse(void)
 			wtimeout(stdscr, (gcfg.showpvp && c != -1) ? PREVIEW_DELAY_MS : -1);
 			if (c == KEY_RESIZE) {
 				ctl = GO_REDRAW;
-				gcfg.redrawn |= 4;
 				break;
 			}
 
