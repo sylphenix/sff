@@ -13,8 +13,8 @@ LIBS = -lncursesw
 STATIC_LIBS = -lncursesw -ltinfo
 
 # flags
-CPPFLAGS = -DDEBUG
-CFLAGS   = -std=c11 -O2 -Wall -Wextra -Wpedantic -Wshadow -fstack-protector-strong ${INCS} ${CPPFLAGS}
+CPPFLAGS = -D_DEFAULT_SOURCE -D_XOPEN_SOURCE
+CFLAGS   = -std=c11 -O2 -Wall -Wextra -fstack-protector-strong ${INCS} ${CPPFLAGS}
 LDFLAGS  = ${LIBS}
 STATIC_LDFLAGS = -static ${STATIC_LIBS}
 
@@ -29,6 +29,9 @@ OBJ = ${SRC:.c=.o}
 all: options sff
 
 static: options sff-static
+
+debug: CFLAGS += -Wpedantic -Wshadow -DDEBUG
+debug: clean options sff
 
 options:
 	@echo sff build options:
@@ -74,4 +77,4 @@ uninstall:
 		"${DESTDIR}${EXTFNPREFIX}" \
 		"${DESTDIR}${MANPREFIX}/man1/sff.1.gz"
 
-.PHONY: all static options clean dist install uninstall
+.PHONY: all static debug options clean dist install uninstall
