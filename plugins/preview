@@ -32,9 +32,15 @@ text/*|application/json) echo ""
 application/*-tar|application/*-compressed*|application/*[!+]zip*|application/zip|\
 application/x-xz|application/vnd.rar|application/x-iso9660-image) "$archivepl" "$_path"
 	;;
-inode/directory) printf "  -- directory -- (%s files)\n" \
-		$(find -L "$_path" -mindepth 1 -maxdepth 1 -printf '.' 2>/dev/null | wc -c)
-	ls -1Ap "$_path"
+inode/directory) _cou=$(find -L "$_path" -mindepth 1 -maxdepth 1 -printf '.' 2>/dev/null | wc -c)
+	printf "  -- directory -- (%s files)\n" $_cou
+	if [ "$_cou" -gt 75000 ]; then
+		LC_COLLATE=C ls -1fAp "$_path" | head -n $_lines
+	elif [ "$_cou" -gt 15000 ]; then
+		LC_COLLATE=C ls -1Ap "$_path" | head -n $_lines
+	else
+		ls -1Ap "$_path" | head -n $_lines
+	fi
 	;;
 *) printf "  -- %s --\n" "$_mime"
 	;;
