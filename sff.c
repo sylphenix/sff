@@ -1348,7 +1348,6 @@ static int xstrverscasecmp(const char *s1, const char *s2)
 				return -1;
 			if (diff) // both are not digits
 				return diff;
-			indig = 0;
 		}
 
 		indig = (c1 - '1' < 9) & (c2 - '1' < 9); // c1 and c2 are both 1-9
