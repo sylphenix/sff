@@ -1126,8 +1126,12 @@ static int getinput(WINDOW *w)
 static void setcolumns(char *cols, int c)
 {
 	for (signed char *p = (signed char *)cols; *p; ++p)
-		if (*p == c || *p == c - 32 || *p == -c)
-			*p = *p > 96 ? *p - 32 : (*p > 0 ? *p + 32 : -*p);
+		if (*p == c || *p == c - 32 || *p == -c) {
+			if (*p > 96)
+				*p = *p - 32;
+			else
+				*p = (*p > 0) ? *p + 32 : -*p - 32;
+		}
 }
 
 static int viewoptions(int n __attribute__((unused)))
@@ -1160,13 +1164,13 @@ static int viewoptions(int n __attribute__((unused)))
 
 	wattrset(dpo, A_NORMAL); mvwaddstr(dpo, i += 2, 2, "Detail info:");
 	mvwaddstr(dpo, ++i, 2, "  [i]");
-	wattron(dpo, strchr(cfg->cols, 't') ? A_REVERSE : 0); waddstr(dpo, "time");
+	wattron(dpo, strchr(cfg->cols, 't') || strchr(cfg->cols, -'t') ? A_REVERSE : 0); waddstr(dpo, "time");
 	wattrset(dpo, A_NORMAL); waddstr(dpo, "  [u]");
-	wattron(dpo, strchr(cfg->cols, 'o') ? A_REVERSE : 0); waddstr(dpo, "owner");
+	wattron(dpo, strchr(cfg->cols, 'o') || strchr(cfg->cols, -'o') ? A_REVERSE : 0); waddstr(dpo, "owner");
 	wattrset(dpo, A_NORMAL); waddstr(dpo, "  [p]");
-	wattron(dpo, strchr(cfg->cols, 'p') ? A_REVERSE : 0); waddstr(dpo, "permissions");
+	wattron(dpo, strchr(cfg->cols, 'p') || strchr(cfg->cols, -'p') ? A_REVERSE : 0); waddstr(dpo, "permissions");
 	wattrset(dpo, A_NORMAL); waddstr(dpo, "  [y]");
-	wattron(dpo, strchr(cfg->cols, 's') ? A_REVERSE : 0); waddstr(dpo, "size");
+	wattron(dpo, strchr(cfg->cols, 's') || strchr(cfg->cols, -'s') ? A_REVERSE : 0); waddstr(dpo, "size");
 	wattrset(dpo, A_NORMAL); mvwaddstr(dpo, i += 2, 2, "  (d)default  (x)none");
 
 	wattrset(dpo, A_NORMAL); mvwaddstr(dpo, i += 2, 2, "Time type:");
@@ -1210,8 +1214,12 @@ static int viewoptions(int n __attribute__((unused)))
 			break;
 		case 'd': memccpy(cfg->cols, gcfg.cols, '\0', 5);
 			break;
-		case 'x': for (char *p = cfg->cols; *p; ++p)
-				*p = (*p > 96 && *p != 'n') ? *p - 32 : *p;
+		case 'x': for (signed char *p = (signed char *)cfg->cols; *p; ++p) {
+				if (*p > 96 && *p != 'n')
+					*p = *p - 32;
+				else if (*p < 0)
+					*p = -*p - 32;
+			}
 			break;
 
 		case 'a': cfg->timetype = 0;
@@ -1491,20 +1499,11 @@ static int setpreview(int op, char *path)
 		break;
 	case 0: // close preview
 		gcfg.showpvp = 0;
-		for (int i = 0; i <= TABS_MAX; ++i)
-			for (signed char *p = (signed char *)gtab[i].cfg.cols; *p; ++p)
-				*p = *p < 0 ? -*p : *p;
 
 		break;
 	case 2: // draw preview
 		if (!gcfg.showpvp || gcfg.redrawn == 0 || ndents == 0)
 			return GO_NONE;
-		if (ncols + pvcols + 2 < xcols && ncols < PV_MIN_NAME_COLS) {
-			for (signed char *p = (signed char *)ptab->cfg.cols; *p; ++p)
-				*p = (*p < 96 || *p == 'n' || (*p == 's' && xcols - pvcols - 9 > PV_MIN_NAME_COLS)) ? *p : -*p;
-			wtimeout(stdscr, 1);
-			break;
-		}
 		gcfg.redrawn = 0;
 		drawpreview(script);
 		return GO_NONE;
@@ -1965,27 +1964,24 @@ static void printent(const Entry *ent, int sel, int mark)
 static void redraw(const char *path)
 {
 	int homelen, dcols = 0, sp = 0, n = 0;
+	int colmap[128] = {['o'] = 15, ['p'] = gcfg.symbperm ? 12 : 5, ['s'] = 8, ['t'] = gcfg.abbrdate ? 14 : 18};
 
-	for (char *p = ptab->cfg.cols; *p; ++p) {
-		switch (*p) {
-		case 'n': if (++n == 1)
-				sp = dcols + 1;
-			else
-				*p = '@';
-			break;
-		case 's': dcols += 8;
-			break;
-		case 't': dcols += gcfg.abbrdate ? 14 : 18;
-			break;
-		case 'p': dcols += gcfg.symbperm ? 12 : 5;
-			break;
-		case 'o': dcols += 15;
-		}
-	}
 	getmaxyx(stdscr, xlines, xcols);
 	onscr = xlines - 4;
 	pvcols = gcfg.showpvp ? xcols * PREVIEW_WIDTH_PCT / 100 : 0;
-	ncols = MAX(xcols - dcols - pvcols - 2, 0);
+	ncols = xcols - pvcols - 2;
+	for (signed char *p = (signed char *)ptab->cfg.cols; *p; ++p) {
+		if (*p < 0)
+			*p = -*p;
+		dcols += colmap[(int)*p];
+	}
+	for (char *c, *p = COLS_HIDE_PRIO; *p; ++p) {
+		if (ncols - dcols < MIN_NAME_COLS && (c = strchr(ptab->cfg.cols, *p))) {
+			*(signed char *)c = -*(signed char *)c;
+			dcols -= colmap[(int)*p];
+		}
+	}
+	ncols -= dcols;
 	shiftcursor(0, 0);
 	move(0, 0);
 
@@ -2028,9 +2024,9 @@ static void redraw(const char *path)
 	attrset(COLOR_PAIR(C_DETAIL));
 	mvhline(xlines - 2, 0, ' ', xcols);
 	if (curscroll > 0 && ncols > 0)
-		mvaddstr(1, sp, "<<");
+		mvaddstr(1, *ptab->cfg.cols == 'n' ? 1 : dcols + 1, "<<");
 	if (n < ndents && ncols > 0)
-		mvaddstr(xlines - 2, sp, ">>");
+		mvaddstr(xlines - 2, *ptab->cfg.cols == 'n' ? 1 : dcols + 1, ">>");
 
 	// Draw scroll indicator
 	sp = MAX(1, ndents);
@@ -2331,7 +2327,12 @@ static int initsff(char *arg0, char *argx)
 		seterrnum(__LINE__, errno);
 
 	// Initialize first tab
-	if (!strchr(gcfg.cols, 'n'))
+	for (char *p = gcfg.cols; *p; ++p)
+		if (*p == 'n')
+			*p = '@';
+	if (gcfg.cols[0] == '@')
+		gcfg.cols[0] = 'n';
+	else
 		memccpy(gcfg.cols + MIN(strlen(gcfg.cols), 4), "n", '\0', 2);
 	if (!abspath(argx, gpbuf) || !inittab(gpbuf, 0) || chdir(ghpath[0].path) == -1) {
 		perror(xitoa(__LINE__));
