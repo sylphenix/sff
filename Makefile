@@ -13,7 +13,7 @@ LIBS = -lncursesw
 STATIC_LIBS = -lncursesw -ltinfo
 
 # flags
-CPPFLAGS = -D_DEFAULT_SOURCE -D_XOPEN_SOURCE
+CPPFLAGS = -D_GNU_SOURCE
 CFLAGS   = -std=c11 -O2 -Wall -Wextra -fstack-protector-strong ${INCS} ${CPPFLAGS}
 LDFLAGS  = ${LIBS}
 STATIC_LDFLAGS = -static ${STATIC_LIBS}
@@ -30,8 +30,8 @@ all: options sff
 
 static: options sff-static
 
-debug: CFLAGS += -Wpedantic -Wshadow -DDEBUG
-debug: clean options sff
+debug: clean
+	${MAKE} sff CFLAGS="${CFLAGS} -Wpedantic -Wshadow -DDEBUG"
 
 options:
 	@echo sff build options:
