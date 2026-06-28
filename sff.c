@@ -584,10 +584,10 @@ static Histpath *inithistpath(Histpath *hp, const char *path)
 				}
 				hp->hs = tmphs;
 			}
-			memset((hp->hs + hp->nhs++), 0, sizeof(Histstat));
+			++hp->nhs;
 		}
 	}
-
+	memset(hp->hs, 0, sizeof(Histstat) * hp->ths);
 	hp->stat = hp->hs + hp->nhs - 1;
 	hp->stat->flag = S_VIS;
 	if (name) {
