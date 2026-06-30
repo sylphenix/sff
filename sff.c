@@ -562,8 +562,9 @@ static Histpath *inithistpath(Histpath *hp, const char *path)
 		return NULL;
 	if (hp->path == path)
 		return hp;
-	if (!S_ISDIR(sb.st_mode))
-		name = xbasename(path);
+	if (!S_ISDIR(sb.st_mode)
+	&& !((sb.st_mode & S_IFMT) == S_IFLNK && stat(path, &sb) == 0 && S_ISDIR(sb.st_mode)))
+		name = (char *)xbasename(path);
 
 	char *end = memccpy(hp->path, path, '\0', PATH_MAX - 1);
 	if (name) {
