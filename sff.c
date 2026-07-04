@@ -48,25 +48,25 @@
 #define NCURSES_WIDECHAR 1
 #include <curses.h>
 
-#define VERSION        "1.3"
-#define EXTFNNAME      "sff-extfunc"
-#define EXTFNPREFIX    "/usr/local/lib/sff"
-#define EXTFNPREFIX2   "/usr/lib/sff"
+#define VERSION       "1.3"
+#define EXTFNNAME     "sff-extfunc"
+#define EXTFNPREFIX   "/usr/local/lib/sff"
+#define EXTFNPREFIX2  "/usr/lib/sff"
 #ifndef PATH_MAX
-#define PATH_MAX       4096
+#define PATH_MAX      4096
 #endif
 #ifndef NAME_MAX
-#define NAME_MAX       255
+#define NAME_MAX      255
 #endif
-#define TABS_MAX       4 // Number of tabs, the range of acceptable values is 1-7
-#define ENTRY_INCR     128 // Number of Entry structures to allocate per shot
-#define NAME_INCR      4096 // 128 entries * avg. 32 chars per name = 4KB
-#define FILT_MAX       128 // Maximum length of filter string
-#define HSTAT_INCR     16 // Number of Histstat structures to allocate each time
+#define TABS_MAX      4 // Number of tabs, the range of acceptable values is 1-7
+#define ENTRY_INCR    128 // Number of Entry structures to allocate per shot
+#define NAME_INCR     4096 // 128 entries * avg. 32 chars per name = 4KB
+#define FILT_MAX      128 // Maximum length of filter string
+#define HSTAT_MAX     64  // Maximum number of Histstat per Histpath
 
-#define LENGTH(X)      (sizeof X / sizeof X[0])
-#define MIN(x, y)      ((x) < (y) ? (x) : (y))
-#define MAX(x, y)      ((x) > (y) ? (x) : (y))
+#define LENGTH(X)     (sizeof X / sizeof X[0])
+#define MIN(x, y)     ((x) < (y) ? (x) : (y))
+#define MAX(x, y)     ((x) > (y) ? (x) : (y))
 
 enum entryflag {
 	E_REG_FILE = 0x01, E_DIR_DIRLNK = 0x02,
@@ -107,16 +107,17 @@ typedef struct {
 typedef struct {
 	int cur;
 	int scrl;
-	char name[NAME_MAX + 1];
 	int flag;
+	int pend;
 } Histstat;
 
 typedef struct {
-	Histstat *hs;
+	char *path;
+	char *stub;
+	char *end;
 	Histstat *stat;
-	char path[PATH_MAX];
-	unsigned int nhs;
-	unsigned int ths;
+	char pa[PATH_MAX];
+	Histstat hs[HSTAT_MAX];
 } Histpath;
 
 struct selstat {
@@ -178,12 +179,13 @@ static int markent = -1, errline = 0, errnum = 0;
 static int xlines, xcols, onscr, ncols, pvcols;
 static size_t namebuflen = 0;
 static time_t curtime;
-static char *home, *opener;
+static char *home, *opener, *root = "/";
 static char *cfgpath = NULL, *extfunc = NULL, *pipepath = NULL;
 static char *pnamebuf = NULL, *pfindbuf = NULL, *pfindend = NULL, *findname = NULL;
 static Entry *pdents = NULL;
 static Tabs *ptab = NULL;
 
+alignas(max_align_t) static char gnbuf[NAME_MAX + 1] = {0};
 alignas(max_align_t) static char gpbuf[PATH_MAX * sizeof(wchar_t)] = {0};
 alignas(max_align_t) static Tabs gtab[TABS_MAX + 1] = {{0}};
 alignas(max_align_t) static Histpath ghpath[(TABS_MAX + 1) * 2] = {{0}};
@@ -546,8 +548,7 @@ static int movetoedge(int n)
 
 static void savehiststat(Histstat *hs)
 {
-	if (ndents > 0) {
-		memccpy(hs->name, pdents[cursel].name, '\0', NAME_MAX);
+	if (ndents > 0 && hs->pend == 0) {
 		hs->cur = cursel;
 		hs->scrl = curscroll;
 	}
@@ -560,42 +561,26 @@ static Histpath *inithistpath(Histpath *hp, const char *path)
 
 	if (lstat(path, &sb) == -1 && seterrnum(__LINE__, errno))
 		return NULL;
-	if (hp->path == path)
-		return hp;
 	if (!S_ISDIR(sb.st_mode)
 	&& !((sb.st_mode & S_IFMT) == S_IFLNK && stat(path, &sb) == 0 && S_ISDIR(sb.st_mode)))
-		name = (char *)xbasename(path);
+		name = xbasename(path);
 
-	char *end = memccpy(hp->path, path, '\0', PATH_MAX - 1);
+	if (path[0] == '/' && path[1] == '\0')
+		path = "";
+	hp->end = (path == hp->pa) ? hp->pa + strlen(hp->pa) + 1 : memccpy(hp->pa, path, '\0', PATH_MAX - 1);
 	if (name) {
-		xdirname(hp->path);
-		end -= 2;
+		hp->end = strrchr(hp->pa, '/');
+		*hp->end = '\0';
+		findname = ++hp->end;
 	}
+	hp->path = (hp->pa[0] == '\0') ? root : hp->pa;
+	hp->stub = hp->end;
 
-	// Each level of path corresponds to a histstat. Add one more for current level
-	hp->nhs = 0;
-	for (char *p = hp->path; p < end; ++p) {
-		if (*p == '/' || (*p == '\0' && path[1] != '\0')) {
-			if (hp->nhs == hp->ths) {
-				Histstat *tmphs = realloc(hp->hs, (hp->ths += HSTAT_INCR) * sizeof(Histstat));
-				if (!tmphs && seterrnum(__LINE__, errno)) {
-					free(hp->hs);
-					memset(hp, 0, sizeof(Histpath));
-					return NULL;
-				}
-				hp->hs = tmphs;
-			}
-			++hp->nhs;
-		}
-	}
-	memset(hp->hs, 0, sizeof(Histstat) * hp->ths);
-	hp->stat = hp->hs + hp->nhs - 1;
-	hp->stat->flag = S_VIS;
-	if (name) {
-		memccpy(hp->stat->name, name, '\0', NAME_MAX);
-		findname = hp->stat->name;
-		if (*name == '.')
-			gcfg.showhidden = 1;
+	memset(hp->hs, 0, sizeof(Histstat) * HSTAT_MAX);
+	hp->stat = hp->hs;
+	for (char *p = hp->pa + 2; p < hp->end; ++p) { // Each level of path corresponds to a histstat
+		if ((*p == '/' || *p == '\0') && hp->stat - hp->hs < HSTAT_MAX - 1)
+			++hp->stat;
 	}
 	return hp;
 }
@@ -610,7 +595,6 @@ static int newhistpath(const char *path, int force)
 
 	if (!inithistpath(hp2, path) || (chdir(hp2->path) == -1 && seterrnum(__LINE__, errno)))
 		return GO_STATBAR;
-
 	if (hp->stat->flag == S_ROOT)
 		hp2->stat->flag = S_SUBROOT;
 
@@ -624,11 +608,11 @@ static int switchhistpath(int n)
 	Histpath *hp = ptab->hp;
 	Histpath *hp2 = ((hp - ghpath) & 1) ? hp - 1 : hp + 1;
 
-	if ((gcfg.ct == TABS_MAX && n == 0) || !hp2->path[0] || chdir(hp2->path) == -1)
+	if ((gcfg.ct == TABS_MAX && n == 0) || chdir(hp2->path) == -1)
 		return GO_NONE;
 
 	savehiststat(hp->stat);
-	findname = hp2->stat->name;
+	findname = hp2->stub;
 	ptab->hp = hp2;
 	return GO_RELOAD;
 }
@@ -637,101 +621,83 @@ static int enterdir(int n)
 {
 	Histpath *hp = ptab->hp;
 	Histpath *hp2 = ((hp - ghpath) & 1) ? hp - 1 : hp + 1;
-	Histstat *hs = hp->stat;
-	unsigned int nhs = hs - hp->hs + 1;
+	Entry *ent;
 	char *newpath = gpbuf;
 
 	if (ndents == 0)
 		return GO_NONE;
-
-	Entry *ent = &pdents[cursel];
+	ent = &pdents[cursel];
 	makepath(hp->path, ent->name, newpath);
+
 	if (!(ent->flag & E_DIR_DIRLNK)) {
 		if (n == 1 || gcfg.openfile)
 			spawn(opener, newpath, NULL, *opener != '/', NULL);
 		return GO_STATBAR;
 	}
-
-	if (hs->flag == S_ROOT) {
+	if (hp->stat->flag == S_ROOT) {
 		if (strcmp(newpath, hp2->path) == 0)
 			return switchhistpath(1);
 		else
 			return newhistpath(newpath, TRUE);
 	}
-
-	if (nhs == hp->ths) {
-		Histstat *tmphs = realloc(hp->hs, (hp->ths += HSTAT_INCR) * sizeof(Histstat));
-		if (!tmphs && seterrnum(__LINE__, errno)) {
-			hp->ths -= HSTAT_INCR;
-			return GO_STATBAR;
-		}
-		hp->hs = tmphs;
-	}
-
 	if (chdir(newpath) == -1 && seterrnum(__LINE__, errno))
 		return GO_STATBAR;
 
-	if (nhs < hp->nhs) {
-		if (strcmp(ent->name, hs->name) != 0) {
-			if ((strcmp(hp->path, hp2->path) == 0 && strcmp(ent->name, hp2->stat->name) == 0)
-			|| (gcfg.ct < TABS_MAX && inithistpath(hp2, hp->path)))
-				hp = hp2;
-			else
-				hp->nhs = nhs;
-		}
-		findname = (hp->stat + 1)->name;
+	savehiststat(hp->stat);
+	if (hp->stub < hp->end && strcmp(ent->name, hp->stub) != 0) {
+		if ((strcmp(hp->path, hp2->path) == 0 && strcmp(ent->name, hp2->stub) == 0)
+		|| (gcfg.ct < TABS_MAX && inithistpath(hp2, hp->path)))
+			hp = hp2;
 	}
+	hp->path = hp->pa;
+	*(hp->stub - 1) = '/';
+	hp->stub = memccpy(hp->stub, ent->name, '\0', NAME_MAX + 1);
+	if (hp->end < hp->stub)
+		hp->end = hp->stub;
 
-	hp->stat = hp->hs + nhs;
-	if (nhs == hp->nhs) {
-		memset(hp->stat, 0, sizeof(Histstat));
-		hp->stat->flag = S_VIS;
-		++hp->nhs;
-	}
-
-	savehiststat(hp->stat - 1);
-	memccpy(hp->path, newpath, '\0', PATH_MAX - 1);
+	if (hp->stat - hp->hs < HSTAT_MAX - 1)
+		++hp->stat;
+	else
+		++hp->stat->pend;
 	ptab->hp = hp;
 	return GO_RELOAD;
 }
 
 static int gotoparent(int n __attribute__((unused)))
 {
-	char *path = ptab->hp->path;
-	Histstat *hs = ptab->hp->stat;
+	Histpath *hp = ptab->hp;
 
-	if ((path[0] == '/' && path[1] == '\0') || hs->flag == S_ROOT)
+	if (hp->path == root || hp->stat->flag == S_ROOT)
 		return GO_NONE;
-
-	if (hs->flag == S_SUBROOT)
+	if (hp->stat->flag == S_SUBROOT)
 		return switchhistpath(1);
 
-	savehiststat(hs);
+	savehiststat(hp->stat);
 	do {
-		--hs;
-		if (hs->flag == S_UNVIS) {
-			memccpy(hs->name, xbasename(path), '\0', NAME_MAX);
-			hs->flag = S_VIS;
-		}
-	} while (chdir(xdirname(path)) == -1 && path[1] != '\0' && hs->flag != S_SUBROOT);
+		hp->stat -= (hp->stat == hp->hs || hp->stat->pend > 0) ? 0 : 1;
+		hp->stat->pend -= (hp->stat->pend > 0) ? 1 : 0;
+		hp->stub = strrchr(hp->pa, '/');
+		*hp->stub = '\0';
+		hp->path = (hp->stub == hp->pa) ? root : hp->pa;
+		++hp->stub;
+	} while (chdir(hp->path) == -1 && hp->path != root && hp->stat->flag != S_SUBROOT);
 
-	findname = hs->name;
-	ptab->hp->stat = hs;
+	findname = hp->stub;
 	return GO_RELOAD;
 }
 
 static int gotohome(int n __attribute__((unused)))
 {
-	return newhistpath(home ? home : "/", FALSE);
+	return newhistpath(home ? home : root, FALSE);
 }
 
 static int refreshview(int n)
 {
 	if (ndents > 0) {
 		savehiststat(ptab->hp->stat);
-		findname = ptab->hp->stat->name;
+		memccpy(gnbuf, pdents[cursel].name, '\0', NAME_MAX);
+		findname = gnbuf;
 	}
-
 	if (n == 1)
 		gcfg.marknew ^= 1;
 	else if (n == 2)
@@ -1029,7 +995,7 @@ static int inittab(const char *path, int n)
 	gtab[n].ss = NULL;
 
 	gtab[n].hp = inithistpath(&ghpath[n * 2], path);
-	if (!gtab[n].hp)
+	if (!gtab[n].hp || !inithistpath(&ghpath[n * 2 + 1], path))
 		return FALSE;
 
 	if (n == TABS_MAX)
@@ -1048,12 +1014,10 @@ static int switchtab(int n)
 
 	if (n == gcfg.ct)
 		return GO_NONE;
-
-	if (!gtab[n].cfg.enabled && !inittab(hp->path, n) && !inittab(home ? home : "/", n))
+	if (!gtab[n].cfg.enabled && !inittab(hp->path, n) && !inittab(home ? home : root, n))
 		return GO_STATBAR;
 
-	hp->stat->cur = cursel;
-	hp->stat->scrl = curscroll;
+	savehiststat(hp->stat);
 	if (gcfg.ct < TABS_MAX)
 		gcfg.lt = gcfg.ct;
 	gcfg.ct = n;
@@ -1076,7 +1040,7 @@ static int closetab(int n __attribute__((unused)))
 	if (lt == -1) {
 		if (ct == 0)
 			return GO_NONE;
-		if (!inittab(home ? home : "/", 0) || (chdir(home ? home : "/") == -1 && seterrnum(__LINE__, errno)))
+		if (!inittab(home ? home : root, 0) || (chdir(home ? home : root) == -1 && seterrnum(__LINE__, errno)))
 			return GO_STATBAR;
 		gcfg.ct = 0;
 	} else {
@@ -1586,10 +1550,9 @@ static int handlepipedata(int fd, int n)
 		if ((n = read(fd, gpbuf, PATH_MAX)) == -1 && seterrnum(__LINE__, errno))
 			return GO_STATBAR;
 		gpbuf[n] = '\0';
-		memccpy(ptab->hp->stat->name, xbasename(gpbuf), '\0', NAME_MAX);
-		findname = ptab->hp->stat->name;
-		ptab->hp->stat->cur = cursel;
-		ptab->hp->stat->scrl = curscroll;
+		memccpy(gnbuf, xbasename(gpbuf), '\0', NAME_MAX);
+		findname = gnbuf;
+		savehiststat(ptab->hp->stat);
 		clearselection(0);
 		return GO_RELOAD;
 
@@ -2289,7 +2252,6 @@ static int initsff(char *arg0, char *argx)
 		perror(xitoa(__LINE__));
 		return FALSE;
 	}
-
 	// Handle certain signals
 	sigaction(SIGHUP, &(struct sigaction){.sa_handler = exitsighandler}, NULL);
 	sigaction(SIGTERM, &(struct sigaction){.sa_handler = exitsighandler}, NULL);
@@ -2339,6 +2301,8 @@ static int initsff(char *arg0, char *argx)
 		return FALSE;
 	}
 
+	if (*xbasename(gpbuf) == '.')
+		gtab[0].cfg.showhidden = 1;
 	if (getuid() == 0)
 		gcfg.runmode = 2;
 	return TRUE;
@@ -2372,12 +2336,8 @@ static void cleanup(void)
 {
 	if (pipepath)
 		unlink(pipepath);
-	for (int i = 0; i <= TABS_MAX; ++i) {
-		free(ghpath[i * 2].hs);
-		free(ghpath[i * 2 + 1].hs);
+	for (int i = 0; i <= TABS_MAX; ++i)
 		deleteallselstat(gtab[i].ss);
-	}
-
 	free(pdents);
 	free(pnamebuf);
 	free(pfindbuf);
