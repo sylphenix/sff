@@ -204,17 +204,17 @@ alignas(max_align_t) static char gpbuf[PATH_MAX * sizeof(wchar_t)] = {0};
 alignas(max_align_t) static Tabs gtab[TABS_MAX + 1] = {{0}};
 alignas(max_align_t) static Histpath ghpath[(TABS_MAX + 1) * 2] = {{0}};
 
-/****** Generic Functions ******/
+/*** Generic Functions ***/
 
 #ifdef DEBUG
 static void dbgprint(char *vn, char *str, int n)
 {
 	FILE *fp = fopen("/tmp/sffdbg", "a");
+
 	if (!fp) {
 		perror("dbg");
 		return;
 	}
-
 	fprintf(fp, "--- %s: %s %d\n", vn, str, n);
 	fclose(fp);
 }
@@ -242,17 +242,18 @@ static const char *xbasename(const char *path)
 /* Make path/name in buf. Returns the number of bytes copied including terminating '\0'. */
 static int makepath(const char *path, const char *name, char *buf)
 {
-	if (!path || !path[0] || !name || !buf)
+	char *p = NULL;
+
+	if (!path || !name || !buf)
 		return 0;
 
-	char *p = NULL;
 	if (path == buf)
 		p = memchr(buf, '\0', PATH_MAX - 2);
 	else if ((p = memccpy(buf, path, '\0', PATH_MAX - 2)))
 		--p;
 
 	if (p) {
-		if (p[-1] != '/')
+		if (p > buf && *(p - 1) != '/')
 			*p++ = '/';
 		p = memccpy(p, name, '\0', PATH_MAX - (p - buf) - 1);
 	}
@@ -262,11 +263,12 @@ static int makepath(const char *path, const char *name, char *buf)
 /* Get file extension. Ignore extensions > 8 chars. len includes terminating '\0'. */
 static const char *getextension(const char *name, size_t len)
 {
+	const char *p;
+
 	if (len < 4)
 		return NULL;
-
-	const char *p = name + len - 2; // skip last char (before '\0')
-	len = (len > 11) ? 9 : len - 2; // If name length exceeds 2+8, check max 8 times
+	p = name + len - 2; // skip last char (before '\0')
+	len = (len > 11) ? 9 : len - 2; // If name length exceeds 8+2+1, check max 8+1 times
 
 	 while (--len > 0)
 		if (*(--p) == '.')
@@ -277,10 +279,11 @@ static const char *getextension(const char *name, size_t len)
 /* Get the absolute pathname without resolving symlinks. buf can not be NULL. */
 static char *abspath(const char *src, char *buf)
 {
+	size_t len = 0;
+	char *dst;
+
 	if (!src || !buf)
 		return NULL;
-
-	size_t len = 0;
 	if (src[0] != '/') {
 		if (!getcwd(buf, PATH_MAX))
 			return NULL;
@@ -289,8 +292,7 @@ static char *abspath(const char *src, char *buf)
 		len = strlen(buf);
 	} else
 		++src;
-
-	char *dst = buf + len;
+	dst = buf + len;
 	*dst++ = '/';
 
 	while (*src) {
@@ -358,6 +360,7 @@ static char *tohumansize(off_t size)
 	static char sbuf[12] = {0};
 	static const char unit[12] = "BKMGTPEZY";
 	int i, numint, frac = 0;
+	char *sp;
 
 	for (i = 0; size >= 1024000; ++i)
 		size >>= 10;
@@ -370,12 +373,11 @@ static char *tohumansize(off_t size)
 	} else
 		numint = size;
 
-	char *sp = (char *)memccpy(sbuf, xitoa(numint), '\0', 6) - 1;
+	sp = (char *)memccpy(sbuf, xitoa(numint), '\0', 6) - 1;
 	if (i > 0) {
 		*sp++ = '.';
 		*sp++ = '0' + frac;
 	}
-
 	*sp = unit[i];
 	*(++sp) = '\0';
 	return sbuf;
@@ -498,7 +500,7 @@ static int spawn(char *arg0, char *arg1, char *arg2, int detach, int (*callbackf
 	return ctl;
 }
 
-/****** Key Functions ******/
+/*** Key Functions ***/
 
 static int movecursor(int n);
 static int movequarterpage(int n);
@@ -1292,7 +1294,7 @@ static int quitsff(int n __attribute__((unused)))
 	return GO_QUIT;
 }
 
-/****** Core Functions ******/
+/*** Core Functions ***/
 
 static void usage(void)
 {
@@ -1361,7 +1363,7 @@ static int xstrverscasecmp(const char *s1, const char *s2)
 static int entrycmp(const void *va, const void *vb)
 {
 	const Entry *pa = (Entry *)va, *pb = (Entry *)vb;
-	int fa = pa->flag & E_DIR_DIRLNK, fb = pb->flag & E_DIR_DIRLNK;
+	int res, fa = pa->flag & E_DIR_DIRLNK, fb = pb->flag & E_DIR_DIRLNK;
 	const char *exta, *extb;
 
 	if (ptab->cfg.dirontop && fa != fb) { // Dirs on top
@@ -1397,8 +1399,7 @@ static int entrycmp(const void *va, const void *vb)
 				return 1;
 			if (!exta)
 				return -1;
-			int res = strcasecmp(exta, extb);
-			if (res)
+			if ((res = strcasecmp(exta, extb)))
 				return res;
 		}
 	}
