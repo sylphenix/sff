@@ -7,7 +7,6 @@
 #define MIN_NAME_COLS  32     // Hide detail columns if name column is narrower than this value
 #define COLS_HIDE_PRIO "opts" // Hide priority of detail columns, leftmost first. 'o'wner, 'p'erm, 't'ime, 's'ize
 #define PV_WIDTH_PCT   50     // Preview pane width as a percentage of screen
-#define PREVIEW_DELAY_MS  55  // Should be longer than the keyboard repeat interval (typical 25/sec = 40ms)
 
 static Settings gcfg = {
 	.cols = "tOPsn",  // Columns: 't'ime, 'o'wner, 'p'erm, 's'ize, 'n'ame, Uppercase for placeholders

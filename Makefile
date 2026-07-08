@@ -9,11 +9,11 @@ EXTFNPREFIX = ${PREFIX}/lib/sff
 
 # includes and libs
 INCS =
-LIBS =
+LIBS = -pthread
 
 # flags
 CPPFLAGS = -D_GNU_SOURCE
-CFLAGS   = -std=c11 -O2 -Wall -Wextra -fstack-protector-strong ${INCS} ${CPPFLAGS}
+CFLAGS   = -std=c11 -O2 -Wall -Wextra -fstack-protector-strong -pthread ${INCS} ${CPPFLAGS}
 LDFLAGS  = ${LIBS}
 STATIC_LDFLAGS = -static ${LIBS}
 

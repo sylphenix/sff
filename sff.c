@@ -45,6 +45,7 @@
 #include <grp.h>
 #include <pwd.h>
 #include <signal.h>
+#include <pthread.h>
 #define TB_IMPL
 #include "termbox2.h"
 
@@ -62,7 +63,7 @@
 #define ENTRY_INCR    128 // Number of Entry structures to allocate per shot
 #define NAME_INCR     4096 // 128 entries * avg. 32 chars per name = 4KB
 #define FILT_MAX      128 // Maximum length of filter string
-#define HSTAT_MAX     64  // Maximum number of Histstat per Histpath
+#define HSTAT_MAX     64 // Maximum number of Histstat per Histpath
 
 #define TRUE          1
 #define FALSE         0
@@ -174,18 +175,29 @@ typedef struct {
 	char cmnt[40];
 } Key;
 
+typedef struct {
+	char *script;
+	char *path;
+	int sig;
+	int lines;
+	int cols;
+} Pvargs;
+
 /*** Global Variables ***/
 
 static int ndents = 0, tdents = 0, cursel = 0, lastsel = -1, curscroll = 0;
-static int markent = -1, timeout = -1, errline = 0, errnum = 0;
+static int markent = -1, errline = 0, errnum = 0;
 static int xlines, xcols, onscr, ncols, pvcols;
 static size_t namebuflen = 0;
 static time_t curtime;
 static char *home, *opener, *root = "/";
 static char *cfgpath = NULL, *extfunc = NULL, *pipepath = NULL;
-static char *pnamebuf = NULL, *pfindbuf = NULL, *pfindend = NULL, *findname = NULL;
+static char *pnamebuf = NULL, *pfindbuf = NULL, *pfindend = NULL, *findname = NULL, *pvbuf = NULL;
 static Entry *pdents = NULL;
 static Tabs *ptab = NULL;
+static _Atomic int pvdraw = 0;
+static pthread_mutex_t pvmutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t pvcond = PTHREAD_COND_INITIALIZER;
 
 alignas(max_align_t) static char gnbuf[NAME_MAX + 1] = {0};
 alignas(max_align_t) static char gpbuf[PATH_MAX * sizeof(wchar_t)] = {0};
@@ -1444,54 +1456,106 @@ static int printstr(int x, int y, int fg, const char *str, int maxcols)
 	return w;
 }
 
-static void drawpreview(char *script)
+#define PV_CACHE_X  256  // maximum columns for text preview
+#define PV_CACHE_Y  128  // maximum lines for text preview
+static void *runpvscript(void *args)
 {
-	int line = 1, cols = xcols - pvcols;
-	char *pn, rbuf[1024] = {0}, cmd[PATH_MAX * 2 + 64] = {0};
+	char *pbuf, *pn, cmd[PATH_MAX + 64];
+	int lines, cols, lastsig = -1;
+	struct timespec ts = {0, 10 * 1000000L};
+	Pvargs *pva = (Pvargs *)args;
 	FILE *fp;
+	int len = snprintf(cmd, PATH_MAX + 4, "\"%s\" ", pva->script);
 
-	makepath(ptab->hp->path, pdents[cursel].name, rbuf);
-	setenv("SFF_PV_PATH", rbuf, 1);
-	snprintf(cmd, sizeof(cmd), "\"%s\" %d %d 2>/dev/null", script, xlines - 2, pvcols - 1);
-	if (!(fp = popen(cmd, "r")) && seterrnum(__LINE__, errno))
-		return;
+	for (;;) {
+		pthread_mutex_lock(&pvmutex);
+		while (lastsig == pva->sig) {
+			pvdraw = 2;
+			pthread_cond_wait(&pvcond, &pvmutex);
+		}
+		lastsig = pva->sig;
+		lines = pva->lines;
+		cols = pva->cols;
+		setenv("SFF_PV_PATH", pva->path, 1);
+		pthread_mutex_unlock(&pvmutex);
 
-	for (int i = 1; i < xlines - 2; ++i)
-		for (int j = cols; j < xcols; ++j)
-			tb_set_cell(j, i, ' ', C_DEF, C_DEF);
+		if (lastsig == 0)
+			break;
+		nanosleep(&ts, NULL);
+		if (pvdraw == 1) {
+			lastsig = -1;
+			continue;
+		}
+		pvdraw = 3;
+		snprintf(cmd + len, 60, "%d %d 2>/dev/null", lines, cols);
+		if (!(fp = popen(cmd, "r")))
+			continue;
 
-	while (fgets(rbuf, sizeof(rbuf), fp) != NULL && line < xlines - 2) {
-		if ((pn = strchr(rbuf, '\n')))
+		pbuf = pvbuf;
+		for (int i = 0; i < lines && i < PV_CACHE_Y - 1; ++i, pbuf += PV_CACHE_X) {
+			if (fgets(pbuf, PV_CACHE_X, fp) != NULL) {
+				if (!(pn = strchr(pbuf, '\n'))) {
+					pn = pbuf + PV_CACHE_X - 1;
+					while (fgets(pn + 1, PV_CACHE_X, fp) != NULL && !strchr(pn + 1, '\n'));
+				}
+			} else
+				pn = pbuf;
 			*pn = '\0';
-		printstr(cols + 1, line++, C_DEF, rbuf, pvcols - 1);
-		if (!pn)
-			while (fgets(rbuf, sizeof(rbuf), fp) != NULL && !strchr(rbuf, '\n'));
+		}
+		pclose(fp);
 	}
-	pclose(fp);
+	return NULL;
 }
 
 static int setpreview(int op, char *path)
 {
-	static char script[PATH_MAX] = {0};
+	static char pvpath[PATH_MAX] = {0};
+	static Pvargs pva = {0};
+	static pthread_t pvthid;
 
 	switch (op) {
 	case 1: // open preview
 		if (!path || (access(path, X_OK) != 0 && seterrnum(__LINE__, errno)))
 			return GO_STATBAR;
-		memccpy(script, path, '\0', PATH_MAX - 1);
+		if (!pvbuf && !(pvbuf = calloc(PV_CACHE_X * PV_CACHE_Y, 1)) && seterrnum(__LINE__, errno))
+			return GO_STATBAR;
+		pva = (Pvargs){.script = path, .path = pvpath, .sig = -1};
 		gcfg.showpvp = 1;
-		timeout = 1;
+		pthread_create(&pvthid, NULL, runpvscript, &pva);
 
 		break;
 	case 0: // close preview
 		gcfg.showpvp = 0;
+		if (pva.sig == 0)
+			return GO_NONE;
+		pthread_mutex_lock(&pvmutex);
+		pva.sig = 0;
+		pthread_cond_signal(&pvcond);
+		pthread_mutex_unlock(&pvmutex);
+		pthread_join(pvthid, NULL);
 
 		break;
-	case 2: // draw preview
-		if (!gcfg.showpvp || gcfg.redrawn == 0 || ndents == 0)
+	case 2: // refresh
+		if (ndents == 0)
 			return GO_NONE;
+		pthread_mutex_lock(&pvmutex);
+		pva.sig = cursel + ((intptr_t)ptab->hp->stat ^ ndents);
+		pva.lines = xlines - 2;
+		pva.cols = pvcols - 1;
+		makepath(ptab->hp->path, pdents[cursel].name, pvpath);
+		pthread_cond_signal(&pvcond);
+		pthread_mutex_unlock(&pvmutex);
+
+		break;
+	case 3: // draw preview
+		if (!gcfg.showpvp || ndents == 0 || pvdraw == 3)
+			return GO_NONE;
+		pvdraw = 1;
+		cleararea(xcols - pvcols, 1, pvcols, xlines - 3);
+		for (int i = 1, j = 0; i < xlines - 2 && i < PV_CACHE_Y - 1; ++i, j += PV_CACHE_X)
+			printstr(xcols - pvcols + 1, i, C_DEF, &pvbuf[j], pvcols - 1);
+		pvdraw = 0;
 		gcfg.redrawn = 0;
-		drawpreview(script);
 		return GO_NONE;
 	}
 	return GO_REDRAW;
@@ -1656,7 +1720,6 @@ static int callextfunc(int c)
 #else
 #define STVNSEC(X)  X##tim.tv_nsec
 #endif
-
 static void fillentry(int fd, Entry *ent, struct stat *sb)
 {
 	switch (ptab->cfg.timetype) {
@@ -2195,6 +2258,7 @@ static void browse(void)
 			// fallthrough
 		case GO_FASTDRAW:
 			fastredraw();
+			setpreview(2, NULL);
 
 			// fallthrough
 		case GO_STATBAR:
@@ -2203,8 +2267,7 @@ static void browse(void)
 			// fallthrough
 		case GO_NONE:
 			tb_present();
-			c = getinput(timeout);
-			timeout = (gcfg.showpvp && c != KEY_TIMEOUT) ? PREVIEW_DELAY_MS : -1;
+			c = getinput(gcfg.showpvp && gcfg.redrawn ? 25 : -1);
 
 			if ((ctl = filterinput(c)) != GO_NONE)
 				break;
@@ -2216,7 +2279,7 @@ static void browse(void)
 					if ((c == keys[i].keysym1 || c == keys[i].keysym2) && keys[i].func)
 						ctl = keys[i].func(keys[i].arg);
 			} else if (c == KEY_TIMEOUT) {
-				ctl = setpreview(2, NULL);
+				ctl = setpreview(3, NULL);
 			} else if (c == KEY_RESIZE) {
 				ctl = GO_REDRAW;
 			} else if (c < -31)
@@ -2305,6 +2368,7 @@ static int initsff(char *arg0, char *argx)
 
 static void cleanup(void)
 {
+	setpreview(0, NULL);
 	if (pipepath)
 		unlink(pipepath);
 	for (int i = 0; i <= TABS_MAX; ++i)
@@ -2315,6 +2379,7 @@ static void cleanup(void)
 	free(cfgpath);
 	free(extfunc);
 	free(pipepath);
+	free(pvbuf);
 }
 
 int main(int argc, char *argv[])
