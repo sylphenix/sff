@@ -244,18 +244,15 @@ static int makepath(const char *path, const char *name, char *buf)
 {
 	char *p = NULL;
 
-	if (!path || !name || !buf)
-		return 0;
-
 	if (path == buf)
-		p = memchr(buf, '\0', PATH_MAX - 2);
-	else if ((p = memccpy(buf, path, '\0', PATH_MAX - 2)))
+		p = memchr(buf, '\0', PATH_MAX - 3);
+	else if ((p = memccpy(buf, path, '\0', PATH_MAX - 3)))
 		--p;
 
 	if (p) {
 		if (p > buf && *(p - 1) != '/')
 			*p++ = '/';
-		p = memccpy(p, name, '\0', PATH_MAX - (p - buf) - 1);
+		p = memccpy(p, name, '\0', PATH_MAX - (p - buf) - 2);
 	}
 	return p ? p - buf : 0;
 }
@@ -309,7 +306,6 @@ static char *abspath(const char *src, char *buf)
 			src = (src[2] == '\0') ? src + 2 : src + 3;
 			continue;
 		}
-
 		if (++len == PATH_MAX - 1) {
 			errno = ENAMETOOLONG;
 			return NULL;
