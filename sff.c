@@ -123,14 +123,12 @@ typedef struct {
 	Histstat hs[HSTAT_MAX];
 } Histpath;
 
-struct selstat {
-	struct selstat *prev;
-	struct selstat *next;
-	char path[PATH_MAX];
-	char *nbuf;
+typedef struct {
+	char *buf;
 	char *end;
+	size_t plen;
 	size_t buflen;
-};
+} Selstat;
 
 typedef struct {
 	char cols[8];  // Columns: 't'ime, 'o'wner, 'p'erm, 's'ize, 'n'ame, Uppercase for placeholders
@@ -141,7 +139,6 @@ typedef struct {
 	unsigned int natural    : 1;  // Natural numeric sorting
 	unsigned int reverse    : 1;  // Reverse sort
 	unsigned int timetype   : 2;  // (0: access, 1: modify, 2: change)
-	unsigned int havesel    : 1;  // Have selection in current path
 	unsigned int mansel     : 1;  // Manual select mode
 	// global settings
 	unsigned int ct         : 3;  // Current tab
@@ -157,13 +154,15 @@ typedef struct {
 
 typedef struct {
 	Histpath *hp;
-	struct selstat *ss;
+	Selstat *ssa;
+	Selstat *ss;
 	char filt[FILT_MAX];
 	char find[FILT_MAX];
 	int ftlen;
 	int fdlen;
 	int nde;
 	int nsel;
+	int nss;
 	Settings cfg;
 } Tabs;
 
@@ -734,110 +733,86 @@ static int refreshview(int n)
 	return GO_RELOAD;
 }
 
-static struct selstat *addselstat(struct selstat *ss, const char *path)
+static Selstat *getselstat(Tabs *tab)
 {
-	struct selstat *n = malloc(sizeof(struct selstat));
-
-	if (!n && seterrnum(__LINE__, errno))
-		return NULL;
-
-	n->nbuf = calloc(NAME_INCR, 1);
-	if (!n->nbuf && seterrnum(__LINE__, errno)) {
-		free(n);
-		return NULL;
-	}
-
-	if (ss) {
-		while (ss->next)
-			ss = ss->next;
-		ss->next = n;
-	}
-	n->prev = ss;
-	n->next = NULL;
-
-	memccpy(n->path, path, '\0', PATH_MAX);
-	n->end = n->nbuf;
-	n->buflen = NAME_INCR;
-	return n;
-}
-
-static void deleteselstat(struct selstat *ss)
-{
-	if (!ss)
-		return;
-
-	ptab->ss = NULL;
-	if (ss->prev) {
-		ss->prev->next = ss->next;
-		ptab->ss = ss->prev;
-	}
-	if (ss->next) {
-		ss->next->prev = ss->prev;
-		ptab->ss = ss->next;
-	}
-
-	free(ss->nbuf);
-	free(ss);
-	ptab->cfg.havesel = 0;
-	if (!ptab->ss)
-		ptab->cfg.mansel = 0;
-}
-
-static void deleteallselstat(struct selstat *ss)
-{
-	struct selstat *tmp;
-
-	if (!ss)
-		return;
-
-	while (ss->next)
-		ss = ss->next;
-
-	while (ss) {
-		tmp = ss->prev;
-		free(ss->nbuf);
-		free(ss);
-		ss = tmp;
-	}
-}
-
-static struct selstat *getselstat(void)
-{
-	struct selstat *ss = ptab->ss;
+	Selstat *ss = NULL;
 
 	if (ndents == 0)
 		return NULL;
+	if (tab->ss && tab->ss->plen != 0)
+		return tab->ss;
 
-	if (!ptab->cfg.havesel) {
-		ss = addselstat(ss, ptab->hp->path);
-		if (ss)
-			ptab->cfg.havesel = 1;
-		ptab->ss = ss;
+	if (tab->ssa) {
+		for (int i = 0; i < tab->nss; ++i)
+			if (tab->ssa[i].plen == 0)
+				ss = tab->ssa + i;
 	}
+	if (!ss) {
+		if (!(ss = realloc(tab->ssa, sizeof(Selstat) * ++tab->nss)) && seterrnum(__LINE__, errno)) {
+			--tab->nss;
+			return NULL;
+		}
+		tab->ssa = ss;
+		ss = tab->ssa + (tab->nss - 1);
+		memset(ss, 0, sizeof(Selstat));
+	}
+
+	if (!ss->buf) {
+		if (!(ss->buf = calloc(PATH_MAX, 1)) && seterrnum(__LINE__, errno))
+			return NULL;
+		ss->buflen = PATH_MAX;
+	}
+	ss->end = memccpy(ss->buf, tab->hp->path, '\0', PATH_MAX); // Buffer layout: dir path, then selected file names
+	ss->plen = ss->end - ss->buf;
+	tab->ss = ss;
 	return ss;
+}
+
+static void deleteselstat(Tabs *tab, int all, int setfree)
+{
+	int sel = 0;
+
+	for (int i = 0; i < tab->nss; ++i) {
+		if (all || tab->ss == tab->ssa + i) {
+			tab->ssa[i].plen = 0;
+			if (setfree) {
+				free(tab->ssa[i].buf);
+				memset(tab->ssa + i, 0, sizeof(Selstat));
+			}
+			tab->ssa[i].end = tab->ssa[i].buf;
+		}
+		if (tab->ssa[i].plen != 0)
+			sel = 1;
+	}
+
+	if (all && setfree) {
+		free(tab->ssa);
+		tab->ssa = NULL;
+		tab->nss = 0;
+	}
+	tab->ss = NULL;
+	if (!sel)
+		tab->cfg.mansel = 0;
 }
 
 static int appendselection(Entry *ent)
 {
-	size_t len;
-	struct selstat *ss = getselstat();
+	Selstat *ss = getselstat(ptab);
 
 	if (!ss)
 		return FALSE;
 
-	len = ss->end - ss->nbuf;
-	if (ent->nlen >= ss->buflen - len) {
-		char *tmp = realloc(ss->nbuf, ss->buflen += NAME_INCR);
+	if (ent->nlen >= ss->buflen - (ss->end - ss->buf)) {
+		char *tmp = realloc(ss->buf, ss->buflen += NAME_INCR);
 		if (!tmp && seterrnum(__LINE__, errno)) {
 			ss->buflen -= NAME_INCR;
 			return FALSE;
 		}
-		ss->nbuf = tmp;
-		ss->end = len + ss->nbuf;
+		ss->end = tmp + (ss->end - ss->buf);
+		ss->buf = tmp;
 	}
 
-	memccpy(ss->end, ent->name, '\0', ent->nlen);
-	ss->end += ent->nlen;
+	ss->end = memccpy(ss->end, ent->name, '\0', ent->nlen);
 	ent->flag |= (E_SELECTED | E_SCANED);
 	++ptab->nsel;
 	ptab->cfg.mansel = 1;
@@ -855,21 +830,20 @@ static char *findinbuf(const char *buf, const char *end, const char *name)
 
 static void removeselection(Entry *ent)
 {
+	Selstat *ss = getselstat(ptab);
 	char *dst, *src;
-	struct selstat *ss = ptab->ss;
 
-	if (!ss || !ptab->cfg.havesel)
+	if (!ss)
 		return;
-
-	dst = findinbuf(ss->nbuf, ss->end, ent->name);
+	dst = findinbuf(ss->buf + ss->plen, ss->end, ent->name);
 	if (!dst)
 		return;
 
 	src = dst + ent->nlen;
 	memmove(dst, src, ss->end - src);
 	ss->end -= ent->nlen;
-	if (ss->end <= ss->nbuf)
-		deleteselstat(ss);
+	if (ss->end <= ss->buf + ss->plen)
+		deleteselstat(ptab, FALSE, FALSE);
 
 	ent->flag &= ~E_SELECTED;
 	--ptab->nsel;
@@ -897,13 +871,13 @@ static int selectall(int n __attribute__((unused)))
 
 static int invertselection(int n __attribute__((unused)))
 {
-	struct selstat *ss = getselstat();
+	Selstat *ss = getselstat(ptab);
 	int mansel = ptab->cfg.mansel;
 
 	if (!ss)
 		return GO_STATBAR;
 
-	ss->end = ss->nbuf;
+	ss->end = ss->buf + ss->plen;
 	for (int i = 0; i < ndents; ++i) {
 		if (pdents[i].flag & E_SELECTED) {
 			pdents[i].flag &= ~E_SELECTED;
@@ -912,8 +886,8 @@ static int invertselection(int n __attribute__((unused)))
 			appendselection(&pdents[i]);
 	}
 
-	if (ss->end == ss->nbuf)
-		deleteselstat(ss);
+	if (ss->end <= ss->buf + ss->plen)
+		deleteselstat(ptab, FALSE, FALSE);
 	return GO_REDRAW;
 }
 
@@ -923,7 +897,6 @@ static int selectrange(int n)
 
 	if (ndents == 0)
 		return GO_NONE;
-
 	if (markent == -1) {
 		markent = cursel;
 		ptab->cfg.mansel = 1;
@@ -939,19 +912,14 @@ static int selectrange(int n)
 			if (pdents[i].flag & E_SELECTED)
 				removeselection(&pdents[i]);
 	}
-
 	markent = -1;
-	if (!ptab->ss)
-		ptab->cfg.mansel = 0;
 	return GO_REDRAW;
 }
 
 static int clearselection(int n __attribute__((unused)))
 {
-	deleteallselstat(ptab->ss);
-	ptab->ss = NULL;
+	deleteselstat(ptab, TRUE, FALSE);
 	ptab->nsel = 0;
-	ptab->cfg.havesel = 0;
 	ptab->cfg.mansel = 0;
 	markent = -1;
 	for (int i = 0; i < ptab->nde; ++i)
@@ -1013,16 +981,13 @@ static int qfindnext(int n)
 
 static int inittab(const char *path, int n)
 {
-	deleteallselstat(gtab[n].ss);
-	gtab[n].ss = NULL;
-
 	gtab[n].hp = inithistpath(&ghpath[n * 2], path);
 	if (!gtab[n].hp || !inithistpath(&ghpath[n * 2 + 1], path))
 		return FALSE;
-
 	if (n == TABS_MAX)
 		gtab[n].hp->stat->flag = S_ROOT;
 
+	deleteselstat(&gtab[n], TRUE, FALSE);
 	gtab[n].ftlen = gtab[n].fdlen = 0;
 	gtab[n].nde = gtab[n].nsel = 0;
 	gtab[n].cfg = gcfg;
@@ -1077,8 +1042,7 @@ static int closetab(int n __attribute__((unused)))
 	} else
 		gcfg.lt = ct;
 
-	deleteallselstat(gtab[ct].ss);
-	gtab[ct].ss = NULL;
+	deleteselstat(&gtab[ct], TRUE, FALSE);
 	gtab[ct].cfg.enabled = 0;
 	return GO_RELOAD;
 }
@@ -1553,24 +1517,20 @@ static int setpreview(int op, char *path)
 
 static int writeselection(int fd)
 {
+	Selstat *ss;
 	ssize_t len;
-	struct selstat *ss;
 	int selcur = !ptab->cfg.mansel && ndents > 0;
 
 	if (selcur && !appendselection(&pdents[cursel]))
 		return FALSE;
 
-	ss = ptab->ss;
-	while (ss && ss->prev)
-		ss = ss->prev;
-
-	while (ss && errline == 0) {
-		for (char *pos = ss->nbuf, *end; pos < ss->end && (end = memchr(pos, '\0', PATH_MAX)); pos = end + 1) {
-			len = makepath(ss->path, pos, gpbuf);
+	for (int i = 0; i < ptab->nss && errline == 0; ++i) {
+		ss = &ptab->ssa[i];
+		for (char *p = ss->buf + ss->plen, *end; p < ss->end && (end = memchr(p, '\0', PATH_MAX)); p = end + 1) {
+			len = makepath(ss->buf, p, gpbuf);
 			if (write(fd, gpbuf, len) != len && seterrnum(__LINE__, errno))
 				break;
 		}
-		ss = ss->next;
 	}
 
 	if (selcur)
@@ -1859,9 +1819,10 @@ static void loadentries(const char *path)
 	ptab->nde = ndents;
 }
 
-static void setcurrentstat(Histpath *hp, struct selstat *ss)
+static void setcurrentstat(Tabs *tab)
 {
-	Histstat *hs = hp->stat;
+	Histstat *hs = tab->hp->stat;
+	Selstat *ss;
 
 	// Find current entry, and set cursel
 	if (findname) {
@@ -1880,20 +1841,15 @@ static void setcurrentstat(Histpath *hp, struct selstat *ss)
 	curscroll = hs->scrl;
 
 	// Find corresponding selstat, and set selection status
-	ptab->cfg.havesel = 0;
+	tab->ss = NULL;
 	markent = -1;
-	if (!ss)
-		return;
-	while (ss->next)
-		ss = ss->next;
-
-	do {
-		if (strcmp(ss->path, hp->path) == 0) {
-			ptab->cfg.havesel = 1;
-			ptab->ss = ss;
+	for (int i = 0; i < tab->nss; ++i) {
+		ss = &tab->ssa[i];
+		if (ss->plen != 0 && strcmp(ss->buf, tab->hp->path) == 0) {
+			tab->ss = ss;
 			break;
 		}
-	} while ((ss = ss->prev));
+	}
 }
 
 static int printpath(int x, int y, int fg, const char *str, int maxcols)
@@ -2047,8 +2003,8 @@ static void redraw(const char *path)
 	cleararea(0, 1, xcols - pvcols - 1, xlines - 3);
 	n = MIN(onscr + curscroll, ndents);
 	for (int i = curscroll, j = 2; i < n; ++i, ++j) {
-		if (ptab->cfg.havesel && !(pdents[i].flag & E_SCANED)) {
-			if (findinbuf(ptab->ss->nbuf, ptab->ss->end, pdents[i].name))
+		if (ptab->ss && !(pdents[i].flag & E_SCANED)) {
+			if (findinbuf(ptab->ss->buf + ptab->ss->plen, ptab->ss->end, pdents[i].name))
 				pdents[i].flag |= E_SELECTED;
 			pdents[i].flag |= E_SCANED;
 		}
@@ -2239,7 +2195,7 @@ static void browse(void)
 		case GO_SORT:
 			filterentry();
 			qsort(pdents, ndents, sizeof(*pdents), ptab->cfg.reverse ? &reventrycmp : &entrycmp);
-			setcurrentstat(ptab->hp, ptab->ss);
+			setcurrentstat(ptab);
 
 			// fallthrough
 		case GO_REDRAW:
@@ -2362,7 +2318,7 @@ static void cleanup(void)
 	if (pipepath)
 		unlink(pipepath);
 	for (int i = 0; i <= TABS_MAX; ++i)
-		deleteallselstat(gtab[i].ss);
+		deleteselstat(&gtab[i], TRUE, TRUE);
 	free(pdents);
 	free(pnamebuf);
 	free(pfindbuf);
