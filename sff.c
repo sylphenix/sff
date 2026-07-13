@@ -73,7 +73,7 @@
 
 enum entryflag {
 	E_REG_FILE = 0x01, E_DIR_DIRLNK = 0x02,
-	E_SELECTED = 0x04, E_SCANED = 0x08, E_NEW = 0x10
+	E_SELECTED = 0x04, E_UNSELECT = 0x08, E_SCANED = 0x10, E_NEW = 0x20
 };
 
 enum filetypes {
@@ -835,6 +835,7 @@ static void removeselection(Entry *ent)
 
 	if (!ss)
 		return;
+
 	dst = findinbuf(ss->buf + ss->plen, ss->end, ent->name);
 	if (!dst)
 		return;
@@ -846,6 +847,7 @@ static void removeselection(Entry *ent)
 		deleteselstat(ptab, FALSE, FALSE);
 
 	ent->flag &= ~E_SELECTED;
+	ent->flag |= E_SCANED;
 	--ptab->nsel;
 }
 
@@ -863,40 +865,59 @@ static int toggleselection(int n)
 
 static int selectall(int n __attribute__((unused)))
 {
+	Selstat *ss = getselstat(ptab);
+
+	if (!ss)
+		return GO_STATBAR;
+
+	for (char *p = ss->buf + ss->plen; p < ss->end; p += strlen(p) + 1)
+		--ptab->nsel;
+	ss->end = ss->buf + ss->plen;
+
 	for (int i = 0; i < ndents; ++i)
-		if (!(pdents[i].flag & E_SELECTED))
-			appendselection(&pdents[i]);
+		appendselection(&pdents[i]);
 	return GO_REDRAW;
 }
 
 static int invertselection(int n __attribute__((unused)))
 {
 	Selstat *ss = getselstat(ptab);
-	int mansel = ptab->cfg.mansel;
+	char *sp, *tp;
 
 	if (!ss)
 		return GO_STATBAR;
 
-	ss->end = ss->buf + ss->plen;
+	sp = ss->buf + ss->plen;
 	for (int i = 0; i < ndents; ++i) {
-		if (pdents[i].flag & E_SELECTED) {
-			pdents[i].flag &= ~E_SELECTED;
+		if ((tp = findinbuf(sp, ss->end, pdents[i].name))) {
 			--ptab->nsel;
-		} else if (i != cursel || mansel)
+			pdents[i].flag |= (E_UNSELECT | E_SCANED);
+			pdents[i].flag &= ~E_SELECTED;
+			if (tp == sp)
+				sp += pdents[i].nlen;
+		}
+	}
+	if (!ptab->cfg.mansel)
+		pdents[cursel].flag |= (E_UNSELECT | E_SCANED);
+	ss->end = ss->buf + ss->plen;
+
+	for (int i = 0; i < ndents; ++i) {
+		if ((pdents[i].flag & E_UNSELECT))
+			pdents[i].flag &= ~E_UNSELECT;
+		else
 			appendselection(&pdents[i]);
 	}
-
-	if (ss->end <= ss->buf + ss->plen)
-		deleteselstat(ptab, FALSE, FALSE);
 	return GO_REDRAW;
 }
 
 static int selectrange(int n)
 {
+	Selstat *ss = getselstat(ptab);
 	int step = (cursel >= markent) ? 1 : -1;
 
-	if (ndents == 0)
-		return GO_NONE;
+	if (!ss)
+		return GO_STATBAR;
+
 	if (markent == -1) {
 		markent = cursel;
 		ptab->cfg.mansel = 1;
@@ -905,11 +926,13 @@ static int selectrange(int n)
 
 	if (n > 0) {
 		for (int i = markent; (step == 1) ? i <= cursel : i >= cursel; i += step)
-			if (!(pdents[i].flag & E_SELECTED))
+			if ((!(pdents[i].flag & E_SELECTED) && (pdents[i].flag & E_SCANED))
+			|| (!(pdents[i].flag & E_SCANED) && !findinbuf(ss->buf + ss->plen, ss->end, pdents[i].name)))
 				appendselection(&pdents[i]);
 	} else {
 		for (int i = markent; (step == 1) ? i <= cursel : i >= cursel; i += step)
-			if (pdents[i].flag & E_SELECTED)
+			if ((pdents[i].flag & E_SELECTED)
+			|| (!(pdents[i].flag & E_SCANED) && findinbuf(ss->buf + ss->plen, ss->end, pdents[i].name)))
 				removeselection(&pdents[i]);
 	}
 	markent = -1;
@@ -2003,8 +2026,8 @@ static void redraw(const char *path)
 	cleararea(0, 1, xcols - pvcols - 1, xlines - 3);
 	n = MIN(onscr + curscroll, ndents);
 	for (int i = curscroll, j = 2; i < n; ++i, ++j) {
-		if (ptab->ss && !(pdents[i].flag & E_SCANED)) {
-			if (findinbuf(ptab->ss->buf + ptab->ss->plen, ptab->ss->end, pdents[i].name))
+		if (!(pdents[i].flag & E_SCANED)) {
+			if (ptab->ss && findinbuf(ptab->ss->buf + ptab->ss->plen, ptab->ss->end, pdents[i].name))
 				pdents[i].flag |= E_SELECTED;
 			pdents[i].flag |= E_SCANED;
 		}
