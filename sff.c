@@ -1540,12 +1540,12 @@ static int readfindresult(int fd)
 
 	while (len > 0) {
 		if (buflen - reslen < NAME_INCR) {
-			char *tmp = realloc(pfindbuf, buflen += NAME_INCR);
-			if (!tmp && seterrnum(__LINE__, errno)) {
+			char *p = realloc(pfindbuf, buflen += NAME_INCR);
+			if (!p && seterrnum(__LINE__, errno)) {
 				len = -1;
 				break;
 			}
-			pfindbuf = tmp;
+			pfindbuf = p;
 		}
 
 		len = read(fd, pfindbuf + reslen, NAME_INCR);
@@ -1722,7 +1722,7 @@ static void loaddirentry(DIR *dirp, int fd)
 	size_t off = 0;
 	struct dirent *dp;
 	struct stat sb;
-	Entry *ent, *tmpent;
+	Entry *ent;
 
 	while ((dp = readdir(dirp))) {
 		name = dp->d_name;
@@ -1735,12 +1735,12 @@ static void loaddirentry(DIR *dirp, int fd)
 			continue;
 
 		if (ndents == tdents) {
-			tmpent = realloc(pdents, (tdents += ENTRY_INCR) * sizeof(Entry));
-			if (!tmpent && seterrnum(__LINE__, errno)) {
+			Entry *p = realloc(pdents, (tdents += ENTRY_INCR) * sizeof(Entry));
+			if (!p && seterrnum(__LINE__, errno)) {
 				tdents -= ENTRY_INCR;
 				return;
 			}
-			pdents = tmpent;
+			pdents = p;
 		}
 
 		if (namebuflen - off <= NAME_MAX) {
@@ -1772,19 +1772,19 @@ static void loaddirentry(DIR *dirp, int fd)
 static void loadsrchentry(int fd)
 {
 	struct stat sb;
-	Entry *ent, *tmpent;
+	Entry *ent;
 
 	for (char *name = pfindbuf, *end; name < pfindend && (end = memchr(name, '\0', PATH_MAX)); name = end + 1) {
 		if (fstatat(fd, name, &sb, AT_SYMLINK_NOFOLLOW) == -1)
 			continue;
 
 		if (ndents == tdents) {
-			tmpent = realloc(pdents, (tdents += ENTRY_INCR) * sizeof(Entry));
-			if (!tmpent && seterrnum(__LINE__, errno)) {
+			Entry *p = realloc(pdents, (tdents += ENTRY_INCR) * sizeof(Entry));
+			if (!p && seterrnum(__LINE__, errno)) {
 				tdents -= ENTRY_INCR;
 				return;
 			}
-			pdents = tmpent;
+			pdents = p;
 		}
 
 		ent = pdents + ndents;
