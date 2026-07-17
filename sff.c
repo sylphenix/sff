@@ -173,7 +173,7 @@ typedef struct {
 	int keysym2;
 	int (*func)(int);
 	int arg;
-	char cmnt[40];
+	const char *cmnt;
 } Key;
 
 typedef struct {

@@ -31,7 +31,7 @@ static Settings gcfg = {
 #define SHIFT_DOWN   604
 
 static const Key keys[] = {
-	// key1                key2    function      argument   comment(Up to 39 characters)
+	// key1                key2    function      argument     comment
 	{ TB_KEY_ARROW_UP,     'k',   movecursor,      -1,    "     Up, k  Move up" },
 	{ TB_KEY_ARROW_DOWN,   'j',   movecursor,       1,    "   Down, j  Move down" },
 	{ TB_KEY_ARROW_LEFT,   'h',   gotoparent,       0,    "   Left, h  Go to parent dir" },
