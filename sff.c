@@ -1251,7 +1251,7 @@ static void usage(void)
 		"Options:\n"
 		" -d        use ls-style date format\n"
 		" -H        show hidden files\n"
-		" -l <keys> set column order: (uppercase to hide)\n"
+		" -l <keys> set columns: (use uppercase to hide)\n"
 		"           't'ime, 'o'wner, 'p'erm, 's'ize, 'n'ame\n"
 		" -m        mix directories and files when sorting\n"
 		" -o        open files on right arrow or 'l' key\n"
@@ -1387,7 +1387,7 @@ static int xmbtowc(wchar_t *wc, const char *str, int *cols)
 	return (n < 1) ? 1 : n;
 }
 
-static int printstr(int x, int y, int fg, const char *str, int maxcols)
+static int printnstr(int x, int y, int fg, const char *str, int maxcols)
 {
 	int w = 0, x2 = x;
 	wchar_t wc;
@@ -1502,7 +1502,7 @@ static int setpreview(int op, char *path)
 		pvdraw = 1;
 		cleararea(xcols - pvcols, 1, pvcols, xlines - 3);
 		for (int i = 1, j = 0; i < xlines - 2 && i < PV_CACHE_Y - 1; ++i, j += PV_CACHE_X)
-			printstr(xcols - pvcols + 1, i, C_DEF, &pvbuf[j], pvcols - 1);
+			printnstr(xcols - pvcols + 1, i, C_DEF, &pvbuf[j], pvcols - 1);
 		pvdraw = 0;
 		gcfg.redrawn = 0;
 		return GO_NONE;
@@ -1940,7 +1940,7 @@ static void printent(int y, const Entry *ent, int sel, int mark)
 		switch (*p) {
 		case 'n': tb_set_cell(x += w, y, sel ? '>' : ' ', fg2, C_DEF);
 			if (ptab->hp->stat->flag != S_ROOT)
-				printstr(x + 1, y, fg3, ent->name, ncols);
+				printnstr(x + 1, y, fg3, ent->name, ncols);
 			else
 				printpath(x + 1, y, fg3, ent->name, ncols);
 			w = ncols;
