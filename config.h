@@ -58,7 +58,7 @@ static const Key keys[] = {
  	{ SHIFT_UP,            'K',   toggleselection, -1,    "  Sh-Up, K  (Un)select and move up" },
 	{ SHIFT_DOWN,          'J',   toggleselection,  1,    "Sh-Down, J  (Un)select and move down" },
 	{ CTRL_('A'),           0,    selectall,        0,    "        ^A  Select all" },
-	{ 'A',                  0,    invertselection,  0,    "         A  Invert selection" },
+	{ 'A',                  0,    selectall,       -1,    "         A  Invert selection" },
 	{ TB_KEY_ESC,          '[',   clearselection,   0,    "    Esc, [  Clear selection" },
 	{ 'm',                  0,    selectrange,      1,    "         m  Select range" },
 	{ 'M',                  0,    selectrange,     -1,    "         M  Deselect range" },
