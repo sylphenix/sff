@@ -31,6 +31,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <stdint.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -97,14 +98,14 @@ typedef struct {
 	char *name; // 8 bytes
 	off_t size; // 8 bytes
 	time_t sec; // 8 bytes
-	unsigned int nsec; // 4 bytes
+	uint32_t nsec; // 4 bytes
 	mode_t mode; // 4 bytes
 	uid_t uid; // 4 bytes
 	gid_t gid; // 4 bytes
-	unsigned short type; // 2 bytes
-	unsigned short flag; // 2 bytes
-	unsigned short nlen; // 2 bytes
-	unsigned short misc; // 2 bytes
+	uint16_t type; // 2 bytes
+	uint16_t flag; // 2 bytes
+	uint16_t nlen; // 2 bytes
+	uint16_t misc; // 2 bytes
 } Entry;
 
 typedef struct {
@@ -134,25 +135,25 @@ typedef struct {
 } Selstat;
 
 typedef struct {
-	char cols[8];  // Columns: 't'ime, 'o'wner, 'p'erm, 's'ize, 'n'ame, Uppercase for placeholders
-	unsigned int enabled    : 1;
-	unsigned int showhidden : 1;  // Show hidden files
-	unsigned int dirontop   : 1;  // Sort directories on the top
-	unsigned int sortby     : 3;  // (0: name, 1: size, 2: time, 3: extension)
-	unsigned int natural    : 1;  // Natural numeric sorting
-	unsigned int reverse    : 1;  // Reverse sort
-	unsigned int timetype   : 2;  // (0: access, 1: modify, 2: change)
-	unsigned int mansel     : 1;  // Manual select mode
+	char cols[8]; // Columns: 't'ime, 'o'wner, 'p'erm, 's'ize, 'n'ame, Uppercase for placeholders
+	uint32_t enabled    : 1;
+	uint32_t showhidden : 1; // Show hidden files
+	uint32_t dirontop   : 1; // Sort directories on the top
+	uint32_t sortby     : 3; // (0: name, 1: size, 2: time, 3: extension)
+	uint32_t natural    : 1; // Natural numeric sorting
+	uint32_t reverse    : 1; // Reverse sort
+	uint32_t timetype   : 2; // (0: access, 1: modify, 2: change)
+	uint32_t mansel     : 1; // Manual select mode
 	// global settings
-	unsigned int ct         : 3;  // Current tab
-	unsigned int lt         : 3;  // Last tab
-	unsigned int runmode    : 2;  // (0: normal mode, 1: sudo mode, 2: permanent sudo mode)
-	unsigned int marknew    : 1;  // Show marks for new file
-	unsigned int redrawn    : 2;  // Screen has been redrawn
-	unsigned int openfile   : 1;  // Open files on right arrow or 'l' key
-	unsigned int symbperm   : 1;  // Show permissions as symbolic strings
-	unsigned int abbrdate   : 1;  // Use ls-style date format
-	unsigned int showpvp    : 1;  // Show preview pane
+	uint32_t ct         : 3; // Current tab
+	uint32_t lt         : 3; // Last tab
+	uint32_t runmode    : 2; // (0: normal mode, 1: sudo mode, 2: permanent sudo mode)
+	uint32_t marknew    : 1; // Show marks for new file
+	uint32_t redrawn    : 2; // Screen has been redrawn
+	uint32_t openfile   : 1; // Open files on right arrow or 'l' key
+	uint32_t symbperm   : 1; // Show permissions as symbolic strings
+	uint32_t abbrdate   : 1; // Use ls-style date format
+	uint32_t showpvp    : 1; // Show preview pane
 } Settings;
 
 typedef struct {
@@ -323,7 +324,7 @@ static char *abspath(const char *src, char *buf)
 
 /* Convert unsigned integer to string. The maximum value it can handle is 4,294,967,295.
    This is a modified version of xitoa() from nnn. https://github.com/jarun/nnn */
-static char *xitoa(unsigned int val)
+static char *xitoa(uint32_t val)
 {
 	static char dst[24] = {0};
 	static const char digits[] =
@@ -332,7 +333,7 @@ static char *xitoa(unsigned int val)
 		"4041424344454647484950515253545556575859"
 		"6061626364656667686970717273747576777879"
 		"8081828384858687888990919293949596979899";
-	unsigned int i, j, quo;
+	uint32_t i, j, quo;
 
 	for (i = 21; val >= 100; --i) { // Fill digits backward from dst[21]
 		quo = val / 100;
@@ -1116,7 +1117,7 @@ static int viewoptions(int n __attribute__((unused)))
 		tb_print(x + 2, y +  5, C_DEF, C_DEF, "  (n)name  (s)size  (t)time  (e)extension");
 		tb_print(x + 2, y +  7, C_DEF, C_DEF, "  [v]natural  [r]reverse");
 		tb_print(x + 2, y +  9, C_DEF, C_DEF, "Detail info:");
-		tb_print(x + 2, y + 10, C_DEF, C_DEF, "  [i]time  [u]owner  [p]permissions  [y]size ");
+		tb_print(x + 2, y + 10, C_DEF, C_DEF, "  [i]time  [u]owner  [p]permissions  [y]size");
 		tb_print(x + 2, y + 12, C_DEF, C_DEF, "  (d)default  (x)none");
 		tb_print(x + 2, y + 14, C_DEF, C_DEF, "Time type:");
 		tb_print(x + 2, y + 15, C_DEF, C_DEF, "  (a)access  (m)modify  (c)change");
@@ -1669,13 +1670,13 @@ static void fillentry(int fd, Entry *ent, struct stat *sb)
 {
 	switch (ptab->cfg.timetype) {
 	case 0: ent->sec = sb->st_atime;
-		ent->nsec = (unsigned int)STVNSEC(sb->st_a);
+		ent->nsec = (uint32_t)STVNSEC(sb->st_a);
 		break;
 	case 1: ent->sec = sb->st_mtime;
-		ent->nsec = (unsigned int)STVNSEC(sb->st_m);
+		ent->nsec = (uint32_t)STVNSEC(sb->st_m);
 		break;
 	case 2: ent->sec = sb->st_ctime;
-		ent->nsec = (unsigned int)STVNSEC(sb->st_c);
+		ent->nsec = (uint32_t)STVNSEC(sb->st_c);
 	}
 
 	ent->size = sb->st_size;
