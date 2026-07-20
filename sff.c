@@ -611,9 +611,13 @@ static Histpath *inithistpath(Histpath *hp, const char *path)
 
 	memset(hp->hs, 0, sizeof(Histstat) * HSTAT_MAX);
 	hp->stat = hp->hs;
-	for (char *p = hp->pa + 2; p < hp->end; ++p) { // Each level of path corresponds to a histstat
-		if ((*p == '/' || *p == '\0') && hp->stat - hp->hs < HSTAT_MAX - 1)
-			++hp->stat;
+	for (char *p = hp->pa + 2; p < hp->end; ++p) {
+		if (*p == '/' || *p == '\0') { // Each level of path corresponds to a histstat
+			if (hp->stat - hp->hs < HSTAT_MAX - 1)
+				++hp->stat;
+			else
+				++hp->stat->pend;
+		}
 	}
 	return hp;
 }
@@ -1822,20 +1826,20 @@ static void restoredirstat(Tabs *tab)
 	uint64_t hash;
 
 	// Find current entry, and set cursel
+	cursel = hs->cur;
+	curscroll = hs->scrl;
 	if (findname) {
 		if (hs->cur >= ndents || strcmp(findname, pdents[hs->cur].name) != 0) {
 			for (int i = 0; i < ndents; ++i) {
 				if (strcmp(findname, pdents[i].name) == 0) {
-					hs->cur = i;
-					hs->scrl = MAX(i - (onscr * 3 >> 2), MIN(i - (onscr >> 2), hs->scrl));
+					cursel = i;
+					curscroll = MAX(i - (onscr * 3 >> 2), MIN(i - (onscr >> 2), hs->scrl));
 					break;
 				}
 			}
 		}
 		findname = NULL;
 	}
-	cursel = hs->cur;
-	curscroll = hs->scrl;
 
 	// Find corresponding selstat, and restore selection
 	markent = -1;
