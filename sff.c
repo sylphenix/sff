@@ -592,13 +592,13 @@ static Histpath *inithistpath(Histpath *hp, const char *path)
 	const char *name = NULL;
 	struct stat sb;
 
-	if (lstat(path, &sb) == -1 && seterrnum(__LINE__, errno))
+	if ((path[0] != '/' || lstat(path, &sb) == -1) && seterrnum(__LINE__, errno))
 		return NULL;
 	if (!S_ISDIR(sb.st_mode)
 	&& !((sb.st_mode & S_IFMT) == S_IFLNK && stat(path, &sb) == 0 && S_ISDIR(sb.st_mode)))
 		name = xbasename(path);
 
-	if (path[0] == '/' && path[1] == '\0')
+	if (path[1] == '\0')
 		path = "";
 	hp->end = (path == hp->pa) ? hp->pa + strlen(hp->pa) + 1 : memccpy(hp->pa, path, '\0', PATH_MAX - 1);
 	if (name) {
@@ -1587,9 +1587,7 @@ static int handlepipedata(int fd, int n)
 		if ((n = read(fd, gpbuf, PATH_MAX)) == -1 && seterrnum(__LINE__, errno))
 			return GO_STATBAR;
 		gpbuf[n] = '\0';
-		if (gpbuf[0] == '/')
-			return newhistpath(gpbuf, FALSE);
-		break;
+		return newhistpath(gpbuf, FALSE);
 
 	case '?': // load search result
 		if (!readfindresult(fd))
