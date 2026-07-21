@@ -622,37 +622,13 @@ static Histpath *inithistpath(Histpath *hp, const char *path)
 	return hp;
 }
 
-static Selstat *getselstat(Tabs *tab)
-{
-	Selstat *ss = NULL;
-
-	if (!tab)
-		return NULL;
-
-	if (tab->ss) {
-		for (int i = 0; i < tab->nss && !ss; ++i)
-			if (tab->ss[i].plen == 0)
-				ss = tab->ss + i;
-	}
-	if (!ss) {
-		if (!(ss = realloc(tab->ss, sizeof(Selstat) * ++tab->nss)) && seterrnum(__LINE__, errno)) {
-			--tab->nss;
-			return NULL;
-		}
-		tab->ss = ss;
-		ss = tab->ss + (tab->nss - 1);
-		memset(ss, 0, sizeof(Selstat));
-	}
-	return ss;
-}
-
 static void saveselection(Tabs *tab)
 {
-	Selstat *ss = getselstat(tab);
-	size_t nsel = 0, len = 0, n = 64;
+	Selstat *ss = NULL;
+	size_t nsel = 0, len = 0, n = 32;
 	uint64_t hash;
 
-	if (!ss)
+	if (!tab || tab->nsel == 0)
 		return;
 
 	for (int i = 0; i < tab->nde; ++i) {
@@ -663,8 +639,23 @@ static void saveselection(Tabs *tab)
 	}
 	if (nsel == 0)
 		return;
-	len += PATH_MAX;
 
+	if (tab->ss) {
+		for (int i = 0; i < tab->nss && !ss; ++i)
+			if (tab->ss[i].plen == 0)
+				ss = tab->ss + i;
+	}
+	if (!ss) {
+		if (!(ss = realloc(tab->ss, sizeof(Selstat) * ++tab->nss)) && seterrnum(__LINE__, errno)) {
+			--tab->nss;
+			return;
+		}
+		tab->ss = ss;
+		ss = tab->ss + (tab->nss - 1);
+		memset(ss, 0, sizeof(Selstat));
+	}
+
+	len += PATH_MAX;
 	if (len > ss->buflen) {
 		char *p = realloc(ss->buf, len);
 		if (!p && seterrnum(__LINE__, errno))
@@ -1843,7 +1834,7 @@ static void restoredirstat(Tabs *tab)
 
 	// Find corresponding selstat, and restore selection
 	markent = -1;
-	for (int i = 0; i < tab->nss && !ss; ++i)
+	for (int i = 0; tab->nsel > 0 && i < tab->nss && !ss; ++i)
 		if (tab->ss[i].plen != 0 && strcmp(tab->ss[i].buf, tab->hp->path) == 0)
 			ss = &tab->ss[i];
 	if (ss) {
