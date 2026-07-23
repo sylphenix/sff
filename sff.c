@@ -1529,34 +1529,28 @@ static int writeselection(int fd)
 	return (errline == 0) ? TRUE : FALSE;
 }
 
-static int readfindresult(int fd)
+static void readfindresult(int fd)
 {
-	ssize_t len = 1;
-	size_t buflen = 0, reslen = 0;
+	static size_t buflen = 0;
+	ssize_t len = 0;
 
-	while (len > 0) {
-		if (buflen - reslen < NAME_INCR) {
+	if (!pfindbuf)
+		buflen = 0;
+
+	for (ssize_t rlen = 1; rlen > 0; len += rlen) {
+		if (buflen - len < NAME_INCR) {
 			char *p = realloc(pfindbuf, buflen += NAME_INCR);
 			if (!p && seterrnum(__LINE__, errno)) {
-				len = -1;
+				buflen -= NAME_INCR;
 				break;
 			}
 			pfindbuf = p;
 		}
-
-		len = read(fd, pfindbuf + reslen, NAME_INCR);
-		reslen += len;
+		if ((rlen = read(fd, pfindbuf + len, NAME_INCR)) == -1 && seterrnum(__LINE__, errno))
+			break;
 	}
-
-	if (len == -1 && seterrnum(__LINE__, errno)) {
-		free(pfindbuf);
-		pfindbuf = NULL;
-		return FALSE;
-	}
-
-	pfindend = pfindbuf + reslen;
+	pfindend = pfindbuf + len;
 	*pfindend = '\0';
-	return TRUE;
 }
 
 static int handlepipedata(int fd, int n)
@@ -1579,8 +1573,8 @@ static int handlepipedata(int fd, int n)
 		gpbuf[n] = '\0';
 		memccpy(gnbuf, xbasename(gpbuf), '\0', NAME_MAX);
 		findname = gnbuf;
-		savedirstat(ptab);
 		clearselection(0);
+		savedirstat(ptab);
 		return GO_RELOAD;
 
 	case '>': // enter specified path
@@ -1590,8 +1584,7 @@ static int handlepipedata(int fd, int n)
 		return newhistpath(gpbuf, FALSE);
 
 	case '?': // load search result
-		if (!readfindresult(fd))
-			return GO_STATBAR;
+		readfindresult(fd);
 		if (!inittab(ptab->hp->path, TABS_MAX))
 			return GO_STATBAR;
 		switchtab(TABS_MAX);
@@ -1632,7 +1625,7 @@ static int readpipe(void)
 		}
 	} else if (errno != EINTR)
 		seterrnum(__LINE__, errno);
-	return ctl;
+	return (ctl == GO_RELOAD) ? ctl : GO_REDRAW;;
 }
 
 static int callextfunc(int c)
