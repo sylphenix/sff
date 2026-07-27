@@ -187,7 +187,7 @@ typedef struct {
 
 /*** Global Variables ***/
 
-static int ndents = 0, tdents = 0, cursel = 0, lastsel = -1, curscroll = 0;
+static int ndents = 0, cursel = 0, lastsel = -1, curscroll = 0;
 static int markent = -1, errline = 0, errnum = 0;
 static int xlines, xcols, onscr, ncols, pvcols;
 static size_t namebuflen = 0;
@@ -1703,99 +1703,86 @@ static void fillentry(int fd, Entry *ent, struct stat *sb)
 	}
 }
 
-static void loaddirentry(DIR *dirp, int fd)
+static void loadentries(const char *path)
 {
-	char *name, *tmp;
+	static int tdents = 0;
+	int fd;
+	char *name, *end, *tmp;
 	size_t off = 0;
 	struct dirent *dp;
 	struct stat sb;
 	Entry *ent;
+	DIR *dirp = opendir(path);
 
-	while ((dp = readdir(dirp))) {
-		name = dp->d_name;
-
-		if (name[0] == '.' && (name[1] == '\0' || (name[1] == '.' && name[2] == '\0')))
-			continue;  // Skip self and parent
-		if (name[0] == '.' && !ptab->cfg.showhidden)
-			continue;
-		if (fstatat(fd, name, &sb, AT_SYMLINK_NOFOLLOW) == -1)
-			continue;
-
-		if (ndents == tdents) {
-			Entry *p = realloc(pdents, (tdents += ENTRY_INCR) * sizeof(Entry));
-			if (!p && seterrnum(__LINE__, errno)) {
-				tdents -= ENTRY_INCR;
-				return;
-			}
-			pdents = p;
-		}
-
-		if (namebuflen - off <= NAME_MAX) {
-			tmp = realloc(pnamebuf, namebuflen += NAME_INCR);
-			if (!tmp && seterrnum(__LINE__, errno)) {
-				namebuflen -= NAME_INCR;
-				return;
-			}
-
-			// Reset entry names if realloc() causes memory move
-			if (pnamebuf != tmp) {
-				pnamebuf = tmp;
-				for (int i = 0; i < ndents; tmp += pdents[i].nlen, ++i)
-					pdents[i].name = tmp;
-			}
-		}
-
-		ent = pdents + ndents;
-		ent->name = pnamebuf + off;
-		tmp = memccpy(ent->name, name, '\0', NAME_MAX + 1);
-		ent->nlen = tmp - ent->name; // include terminational '\0'
-		off += ent->nlen;
-
-		fillentry(fd, ent, &sb);
-		++ndents;
-	}
-}
-
-static void loadsrchentry(int fd)
-{
-	struct stat sb;
-	Entry *ent;
-
-	for (char *name = pfindbuf, *end; name < pfindend && (end = memchr(name, '\0', PATH_MAX)); name = end + 1) {
-		if (fstatat(fd, name, &sb, AT_SYMLINK_NOFOLLOW) == -1)
-			continue;
-
-		if (ndents == tdents) {
-			Entry *p = realloc(pdents, (tdents += ENTRY_INCR) * sizeof(Entry));
-			if (!p && seterrnum(__LINE__, errno)) {
-				tdents -= ENTRY_INCR;
-				return;
-			}
-			pdents = p;
-		}
-
-		ent = pdents + ndents;
-		ent->name = name;
-		ent->nlen = end - name + 1;
-
-		fillentry(fd, ent, &sb);
-		++ndents;
-	}
-}
-
-static void loadentries(const char *path)
-{
 	ndents = 0;
 	curtime = time(NULL);
-	DIR *dirp = opendir(path);
 	if (!dirp && seterrnum(__LINE__, errno))
 		return;
+	fd = dirfd(dirp);
 
-	int fd = dirfd(dirp);
-	if (ptab->hp->stat->flag != S_ROOT)
-		loaddirentry(dirp, fd); // Load dir entry
-	else if (pfindbuf)
-		loadsrchentry(fd); // Load search result
+	if (ptab->hp->stat->flag != S_ROOT) { // Load dir entry
+		while ((dp = readdir(dirp))) {
+			name = dp->d_name;
+			if (name[0] == '.' && (name[1] == '\0' || (name[1] == '.' && name[2] == '\0')))
+				continue;  // Skip self and parent
+			if (name[0] == '.' && !ptab->cfg.showhidden)
+				continue;
+			if (fstatat(fd, name, &sb, AT_SYMLINK_NOFOLLOW) == -1)
+				continue;
+
+			if (ndents >= tdents) {
+				Entry *p = realloc(pdents, (tdents += ENTRY_INCR) * sizeof(Entry));
+				if (!p && seterrnum(__LINE__, errno)) {
+					tdents -= ENTRY_INCR;
+					break;
+				}
+				pdents = p;
+			}
+
+			if (namebuflen - off <= NAME_MAX) {
+				tmp = realloc(pnamebuf, namebuflen += NAME_INCR);
+				if (!tmp && seterrnum(__LINE__, errno)) {
+					namebuflen -= NAME_INCR;
+					break;
+				}
+				// Reset entry names if realloc() causes memory move
+				if (pnamebuf != tmp) {
+					pnamebuf = tmp;
+					for (int i = 0; i < ndents; tmp += pdents[i].nlen, ++i)
+						pdents[i].name = tmp;
+				}
+			}
+
+			ent = pdents + ndents;
+			ent->name = pnamebuf + off;
+			tmp = memccpy(ent->name, name, '\0', NAME_MAX + 1);
+			ent->nlen = tmp - ent->name; // include terminational '\0'
+			off += ent->nlen;
+			fillentry(fd, ent, &sb);
+			++ndents;
+		}
+
+	} else if (pfindbuf) { // Load search result
+		for (name = pfindbuf; name < pfindend && (end = memchr(name, '\0', PATH_MAX)); name = end + 1) {
+			if (fstatat(fd, name, &sb, AT_SYMLINK_NOFOLLOW) == -1)
+				continue;
+
+			if (ndents >= tdents) {
+				Entry *p = realloc(pdents, (tdents += ENTRY_INCR) * sizeof(Entry));
+				if (!p && seterrnum(__LINE__, errno)) {
+					tdents -= ENTRY_INCR;
+					break;
+				}
+				pdents = p;
+			}
+
+			ent = pdents + ndents;
+			ent->name = name;
+			ent->nlen = end - name + 1;
+			fillentry(fd, ent, &sb);
+			++ndents;
+		}
+	}
 
 	closedir(dirp);
 	ptab->nde = ndents;
