@@ -996,8 +996,7 @@ static int switchtab(int n)
 		return GO_STATBAR;
 
 	savedirstat(ptab);
-	if (gcfg.ct < TABS_MAX)
-		gcfg.lt = gcfg.ct;
+	gcfg.lt = gcfg.ct;
 	gcfg.ct = n;
 	if (chdir(gtab[n].hp->path) == -1)
 		seterrnum(__LINE__, errno);
@@ -1011,7 +1010,6 @@ static int closetab(int n __attribute__((unused)))
 	for (int i = 0; i < TABS_MAX; ++i)
 		if (i != ct && gtab[i].cfg.enabled)
 			lt = i;
-
 	if (gcfg.lt != ct && gtab[gcfg.lt].cfg.enabled)
 		lt = gcfg.lt;
 
@@ -1030,10 +1028,9 @@ static int closetab(int n __attribute__((unused)))
 	if (ct == TABS_MAX) {
 		free(pfindbuf);
 		pfindbuf = pfindend = NULL;
-	} else
-		gcfg.lt = ct;
-
-	clearselstat(&gtab[ct], -1, FALSE);
+	}
+	gcfg.lt = ct;
+	clearselstat(&gtab[ct], -1, TRUE);
 	gtab[ct].cfg.enabled = 0;
 	return GO_RELOAD;
 }
