@@ -1529,13 +1529,13 @@ static int writeselection(int fd)
 static void readfindresult(int fd)
 {
 	static size_t buflen = 0;
-	ssize_t len = 0;
+	size_t len = 0;
 
 	if (!pfindbuf)
 		buflen = 0;
 
 	for (ssize_t rlen = 1; rlen > 0; len += rlen) {
-		if (buflen - len < NAME_INCR) {
+		if (len >= buflen) {
 			char *p = realloc(pfindbuf, buflen += NAME_INCR);
 			if (!p && seterrnum(__LINE__, errno)) {
 				buflen -= NAME_INCR;
@@ -1543,11 +1543,13 @@ static void readfindresult(int fd)
 			}
 			pfindbuf = p;
 		}
-		if ((rlen = read(fd, pfindbuf + len, NAME_INCR)) == -1 && seterrnum(__LINE__, errno))
+		if ((rlen = read(fd, pfindbuf + len, buflen - len)) == -1 && seterrnum(__LINE__, errno))
 			break;
 	}
-	pfindend = pfindbuf + len;
-	*pfindend = '\0';
+	if (pfindbuf) {
+		pfindend = pfindbuf + len;
+		*pfindend = '\0';
+	}
 }
 
 static int handlepipedata(int fd, int n)
