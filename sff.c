@@ -2155,9 +2155,7 @@ static int qfindinput(int c)
 
 static void browse(void)
 {
-	int c, ctl = GO_RELOAD;
-
-	for (;;) {
+	for (int c, ctl = GO_RELOAD; ctl != GO_QUIT;) {
 		switch (ctl) {
 		case GO_RELOAD:
 			ptab = &gtab[gcfg.ct];
@@ -2202,10 +2200,6 @@ static void browse(void)
 				ctl = GO_REDRAW;
 			} else if (c < -31)
 				ctl = callextfunc(-c);
-
-			break;
-		case GO_QUIT:
-			return;
 		}
 	}
 }
