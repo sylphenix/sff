@@ -4,8 +4,6 @@ sff (simple file finder) is a simple, fast, and feature-rich terminal
 file manager inspired by nnn and guided by the suckless philosophy.
 It aims to provide a reliable, efficient, and user-friendly file management
 experience with high extensibility.
-sff is fully compatible with POSIX-compliant systems.
-It has been extensively tested on GNU/Linux and FreeBSD.
 
 ## Screenshots
 
@@ -13,7 +11,6 @@ It has been extensively tested on GNU/Linux and FreeBSD.
 
 ## Features
 
-- POSIX-compliant and highly optimized
 - Fast startup and low memory footprint
 - Extensible with shell scripts
 - Customizable detail columns
@@ -45,9 +42,6 @@ Plugin Dependencies (Optional):
 | archive  | tar, gzip, bzip2, xz, 7zip              | Archive handling             |
 | fzf-find | fzf                                     | Fuzzy file search            |
 | preview  | chafa, poppler-utils, ffmpegthumbnailer | Image, PDF, video thumbnails |
-
-> [!NOTE]
-> Almost all commands require `sudo`/`doas`.
 
 You can install all dependencies using the following commands:
 
