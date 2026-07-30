@@ -1787,6 +1787,23 @@ static void loadentries(const char *path)
 	ptab->nde = ndents;
 }
 
+static void filterentry(void)
+{
+	Entry tmpent;
+
+	if (ptab->ftlen == 0 || setfilter(2) == GO_REDRAW)
+		return;
+
+	for (int i = 0; i < ndents; ++i) {
+		if (!strcasestr(pdents[i].name, ptab->filt) && i != --ndents) {
+			tmpent = pdents[i];
+			pdents[i] = pdents[ndents];
+			pdents[ndents] = tmpent;
+			--i;
+		}
+	}
+}
+
 static void restoredirstat(Tabs *tab)
 {
 	Histstat *hs = tab->hp->stat;
@@ -2059,23 +2076,6 @@ static void statusbar(void)
 		tb_print(x + w, xlines - 1, color[u], C_DEF, p); // Show file extension
 }
 
-static void filterentry(void)
-{
-	Entry tmpent;
-
-	if (ptab->ftlen == 0 || setfilter(2) == GO_REDRAW)
-		return;
-
-	for (int i = 0; i < ndents; ++i) {
-		if (!strcasestr(pdents[i].name, ptab->filt) && i != --ndents) {
-			tmpent = pdents[i];
-			pdents[i] = pdents[ndents];
-			pdents[ndents] = tmpent;
-			--i;
-		}
-	}
-}
-
 static int filterinput(int c)
 {
 	if (ptab->ftlen <= 0) // ftlen=0 no filter, ftlen<0 inactive, ftlen>0 active
@@ -2116,7 +2116,7 @@ static int qfindinput(int c)
 
 	} else if (c == '/' && ptab->find[0] == '\0') { // go to root dir
 		ptab->fdlen = 1;
-		newhistpath("/", FALSE);
+		newhistpath(root, FALSE);
 		return GO_RELOAD;
 
 	} else if (c == '\t' || c == '/') { // enter dir
@@ -2316,7 +2316,6 @@ int main(int argc, char *argv[])
 			return EXIT_FAILURE;
 		}
 	}
-
 	atexit(cleanup);
 
 	if (!initsff(argv[0], argc == optind ? "" : argv[optind]))
