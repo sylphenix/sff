@@ -6,34 +6,36 @@
 ### Added
 
 * `-o` option to open files on right arrow or `l` key ([#35][35])
-* `-l` option to specify columns in order; supersedes the previous `-d`
-* `-p` option to show permissions as symbolic strings ([#34][34])
-* Prefix key `u` for extension functions
-* `-d` option to use ls-style date display format ([#39][39])
+* `-l` option to specify columns in order; supersedes previous `-d` option
+* `-p` option to show permissions as symbolic notation ([#34][34])
+* Prefix key `u` for invoking extension functions
 * New 'shell' extension function to open a shell within sff
 * New 'sfopen' plugin, providing both 'open with' functionality and a standalone opener
 
 [35]: https://codeberg.org/sylphenix/sff/issues/35
 [34]: https://codeberg.org/sylphenix/sff/issues/34
-[39]: https://codeberg.org/sylphenix/sff/issues/39
 
 
 ### Changed
 
 * Moved version info from `-v` to `-h` and removed `-v` option
-* Display current entry details in foreground color and removed cursor at line start
+* Current entry details now display in foreground color without leading cursor
 * In manual selection mode, current entry details are no longer reversed
-* Preview plugin: Enabled colors in directory preview
-* Removed forced new-file marking; extended new-file time threshold to 300s
 * Remapped View Options keys: `z`->`y`, `h`->`c`
 * Default size sort is now ascending
 * Advanced search now uses smart case sensitivity
 * Natural sort now uses locale collation for non-ASCII characters ([#44][44])
-* Rename path visibility changed from automatic to user-selectable
-* 'copy-paste' now always keeps buffer and removes `Alt`+`P` keybinding
-* 'copy-paste' and 'cut-paste' now fully support undo/redo
+* `-d` option now displays dates in ls-style format ([#39][39])
+* Path visibility during renaming changed from automatic to manual
+* 'Copy-paste' now always keeps buffer and removes `Alt`+`P` keybinding
+* 'Copy-paste' and 'Cut-paste' now fully support undo/redo
+* Preview plugin: displays in embedded pane instead of external terminal window ([#48][48])
+* Detail columns now auto-hide when name column is too narrow
+* Switched terminal I/O library from curses to termbox
 
 [44]: https://codeberg.org/sylphenix/sff/issues/44
+[39]: https://codeberg.org/sylphenix/sff/issues/39
+[48]: https://codeberg.org/sylphenix/sff/issues/48
 
 
 ### Removed
@@ -43,12 +45,12 @@
 
 ### Fixed
 
-* Preview plugin: TUI layout corruption in Ghostty ([#38][38])
 * Unexpected jump to another file when renaming fails
 * Editor invocation to support commands with arguments ([#40][40])
 * Non-ASCII character display issues in extension functions and plugins
+* Incorrect handling of directory symlinks during path initialization
+* 'Select all' / 'Invert selection' not working properly after re-entering directory
 
-[38]: https://codeberg.org/sylphenix/sff/issues/38
 [40]: https://codeberg.org/sylphenix/sff/issues/40
 
 
