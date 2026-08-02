@@ -506,7 +506,7 @@ static int spawn(char *arg0, char *arg1, char *arg2, int detach, int (*callbackf
 		seterrnum(__LINE__, errno);
 	if (!detach)
 		inittermbox();
-	return ctl;
+	return (detach || ctl > GO_REDRAW) ? ctl : GO_REDRAW;
 }
 
 /*** Key Functions ***/
@@ -1196,7 +1196,7 @@ static int prefixkey(int n __attribute__((unused)))
 	tb_present();
 	if ((c = getinput(2000)) > 31)
 		ctl = callextfunc(c);
-	return (ctl < GO_REDRAW) ? GO_REDRAW : ctl;
+	return (ctl > GO_REDRAW) ? ctl : GO_REDRAW;
 }
 
 static int showhelp(int n __attribute__((unused)))
@@ -1601,7 +1601,7 @@ static int handlepipedata(int fd, int n)
 static int readpipe(void)
 {
 	pid_t gpid = 0;
-	int fd, len, ctl = GO_REDRAW;
+	int fd, len, ctl = GO_STATBAR;
 
 	if ((fd = open(pipepath, O_RDONLY)) != -1) { // Blocking can be interrupted by SIGCHLD (set in initsff)
 		if (read(fd, gpbuf, 1) == 1) {
@@ -1624,7 +1624,7 @@ static int readpipe(void)
 		}
 	} else if (errno != EINTR)
 		seterrnum(__LINE__, errno);
-	return (ctl == GO_RELOAD) ? ctl : GO_REDRAW;;
+	return ctl;
 }
 
 static int callextfunc(int c)
