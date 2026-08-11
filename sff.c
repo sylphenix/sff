@@ -1464,8 +1464,8 @@ static int setpreview(int op, char *path)
 		pva = (Pvargs){.script = path, .path = pvpath, .sig = -1};
 		gcfg.showpvp = 1;
 		pthread_create(&pvthid, NULL, runpvscript, &pva);
-
 		break;
+
 	case 0: // close preview
 		gcfg.showpvp = 0;
 		if (pva.sig == 0)
@@ -1475,20 +1475,20 @@ static int setpreview(int op, char *path)
 		pthread_cond_signal(&pvcond);
 		pthread_mutex_unlock(&pvmutex);
 		pthread_join(pvthid, NULL);
-
 		break;
+
 	case 2: // refresh
 		if (ndents == 0)
 			return GO_NONE;
 		pthread_mutex_lock(&pvmutex);
 		pva.sig = cursel + ((intptr_t)ptab->hp->stat ^ ndents);
-		pva.lines = xlines - 2;
+		pva.lines = xlines - 3;
 		pva.cols = pvcols - 1;
 		makepath(ptab->hp->path, pdents[cursel].name, pvpath);
 		pthread_cond_signal(&pvcond);
 		pthread_mutex_unlock(&pvmutex);
-
 		break;
+
 	case 3: // draw preview
 		if (!gcfg.showpvp || ndents == 0 || pvdraw == 3)
 			return GO_NONE;
