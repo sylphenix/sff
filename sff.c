@@ -1478,10 +1478,10 @@ static int setpreview(int op, char *path)
 		break;
 
 	case 2: // refresh
-		if (ndents == 0)
+		if (!gcfg.showpvp || ndents == 0)
 			return GO_NONE;
 		pthread_mutex_lock(&pvmutex);
-		pva.sig = cursel + ((intptr_t)ptab->hp->stat ^ ndents);
+		pva.sig = (intptr_t)ptab->hp->stat ^ (ndents << 5) ^ (cursel << 3);
 		pva.lines = xlines - 3;
 		pva.cols = pvcols - 1;
 		makepath(ptab->hp->path, pdents[cursel].name, pvpath);
