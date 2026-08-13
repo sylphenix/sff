@@ -1398,8 +1398,8 @@ static int printnstr(int x, int y, int fg, const char *str, int maxcols)
 	return w;
 }
 
-#define PV_CACHE_X  256  // maximum columns for text preview
-#define PV_CACHE_Y  128  // maximum lines for text preview
+#define PV_BUF_X  256  // maximum columns for text preview
+#define PV_BUF_Y  128  // maximum lines for text preview
 static void *runpvscript(void *args)
 {
 	char *pbuf, *pn, cmd[PATH_MAX + 64];
@@ -1436,11 +1436,11 @@ static void *runpvscript(void *args)
 		}
 
 		pbuf = pvbuf;
-		for (int i = 0; i < lines && i < PV_CACHE_Y - 1; ++i, pbuf += PV_CACHE_X) {
-			if (fgets(pbuf, PV_CACHE_X, fp) != NULL) {
+		for (int i = 0; i < lines && i < PV_BUF_Y - 1; ++i, pbuf += PV_BUF_X) {
+			if (fgets(pbuf, PV_BUF_X, fp) != NULL) {
 				if (!(pn = strchr(pbuf, '\n'))) {
-					pn = pbuf + PV_CACHE_X - 1;
-					while (fgets(pn + 1, PV_CACHE_X, fp) != NULL && !strchr(pn + 1, '\n'));
+					pn = pbuf + PV_BUF_X - 1;
+					while (fgets(pn + 1, PV_BUF_X, fp) != NULL && !strchr(pn + 1, '\n'));
 				}
 			} else
 				pn = pbuf;
@@ -1461,7 +1461,7 @@ static int setpreview(int op, char *path)
 	case 1: // open preview
 		if (!path || (access(path, X_OK) != 0 && seterrnum(__LINE__, errno)))
 			return GO_STATBAR;
-		if (!pvbuf && !(pvbuf = calloc(PV_CACHE_X * PV_CACHE_Y, 1)) && seterrnum(__LINE__, errno))
+		if (!pvbuf && !(pvbuf = calloc(PV_BUF_X * PV_BUF_Y, 1)) && seterrnum(__LINE__, errno))
 			return GO_STATBAR;
 		pva = (Pvargs){.script = path, .path = pvpath, .sig = -1};
 		gcfg.showpvp = 1;
@@ -1496,7 +1496,7 @@ static int setpreview(int op, char *path)
 			return GO_NONE;
 		pvdraw = 1;
 		cleararea(xcols - pvcols, 1, pvcols, xlines - 3);
-		for (int i = 1, j = 0; i < xlines - 2 && i < PV_CACHE_Y - 1; ++i, j += PV_CACHE_X)
+		for (int i = 1, j = 0; i < xlines - 2 && i < PV_BUF_Y - 1; ++i, j += PV_BUF_X)
 			printnstr(xcols - pvcols + 1, i, C_DEF, &pvbuf[j], pvcols - 1);
 		pvdraw = 0;
 		gcfg.redrawn = 0;
