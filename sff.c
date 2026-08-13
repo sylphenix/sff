@@ -1430,8 +1430,10 @@ static void *runpvscript(void *args)
 		}
 		pvdraw = 3;
 		snprintf(cmd + len, 60, "%d %d 2>/dev/null", lines, cols);
-		if (!(fp = popen(cmd, "r")))
+		if (!(fp = popen(cmd, "r"))) {
+			snprintf(pvbuf, 128, "popen failed: %s", strerror(errno));
 			continue;
+		}
 
 		pbuf = pvbuf;
 		for (int i = 0; i < lines && i < PV_CACHE_Y - 1; ++i, pbuf += PV_CACHE_X) {
