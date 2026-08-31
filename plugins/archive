@@ -126,7 +126,7 @@ extract_archive()
 			*?.gz) gunzip -k "$_path";;
 			*?.bz2) bunzip2 -k "$_path";;
 			*?.xz) unxz -k "$_path";;
-			*?.?*) cd "$_tdir" && LC_ALL= $_7z x -aoa -bso0 "$_path";;
+			*?.?*) cd "$_tdir" && LC_ALL= $_7z x -aoa "$_path";;
 			esac && _selfile="$_bname" || { printf "Press Enter to continue "; read -r _x2; }
 
 			_num=$(find "$_tdir"/ -mindepth 1 -maxdepth 1 ! -name . ! -name .. -print0 | tr '\n\0' '\035\n' | wc -l)
