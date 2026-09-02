@@ -1403,7 +1403,7 @@ static int printnstr(int x, int y, int fg, const char *str, int maxcols)
 static void *runpvscript(void *args)
 {
 	char *pbuf, *pn, cmd[PATH_MAX + 64];
-	int lines, cols, lastsig = -1;
+	int lines, cols, lastsig = 1;
 	struct timespec ts = {0, 10 * 1000000L};
 	Pvargs *pva = (Pvargs *)args;
 	FILE *fp;
@@ -1463,7 +1463,7 @@ static int setpreview(int op, char *path)
 			return GO_STATBAR;
 		if (!pvbuf && !(pvbuf = calloc(PV_BUF_X * PV_BUF_Y, 1)) && seterrnum(__LINE__, errno))
 			return GO_STATBAR;
-		pva = (Pvargs){.script = path, .path = pvpath, .sig = -1};
+		pva = (Pvargs){.script = path, .path = pvpath, .sig = 1};
 		gcfg.showpvp = 1;
 		pthread_create(&pvthid, NULL, runpvscript, &pva);
 		break;
@@ -1483,7 +1483,7 @@ static int setpreview(int op, char *path)
 		if (!gcfg.showpvp || ndents == 0)
 			return GO_NONE;
 		pthread_mutex_lock(&pvmutex);
-		pva.sig = (intptr_t)ptab->hp->stat ^ (ndents << 5) ^ (cursel << 3);
+		pva.sig = ((uintptr_t)ptab->hp->stat << 18) ^ (cursel << 8) ^ pdents[cursel].nsec;
 		pva.lines = xlines - 3;
 		pva.cols = pvcols - 1;
 		makepath(ptab->hp->path, pdents[cursel].name, pvpath);
