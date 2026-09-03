@@ -9,14 +9,13 @@ EXTFNPREFIX = ${PREFIX}/lib/sff
 
 # includes and libs
 INCS =
-LIBS = -lncursesw
-STATIC_LIBS = -lncursesw -ltinfo
+LIBS = -pthread
 
 # flags
-CPPFLAGS =
-CFLAGS   = -std=c11 -O2 -Wall -Wextra -fstack-protector-strong ${INCS} ${CPPFLAGS}
+CPPFLAGS = -D_GNU_SOURCE
+CFLAGS   = -std=c11 -O2 -Wall -Wextra -fstack-protector-strong -pthread ${INCS} ${CPPFLAGS}
 LDFLAGS  = ${LIBS}
-STATIC_LDFLAGS = -static ${STATIC_LIBS}
+STATIC_LDFLAGS = -static ${LIBS}
 
 # compiler and linker
 CC = cc
@@ -29,6 +28,9 @@ OBJ = ${SRC:.c=.o}
 all: options sff
 
 static: options sff-static
+
+debug: clean
+	${MAKE} sff CFLAGS="${CFLAGS} -Wpedantic -Wshadow -DDEBUG"
 
 options:
 	@echo sff build options:
@@ -74,4 +76,4 @@ uninstall:
 		"${DESTDIR}${EXTFNPREFIX}" \
 		"${DESTDIR}${MANPREFIX}/man1/sff.1.gz"
 
-.PHONY: all static options clean dist install uninstall
+.PHONY: all static debug options clean dist install uninstall

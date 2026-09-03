@@ -53,13 +53,12 @@ fi
 
 sffpipe_refresh()
 {
-	[ "$1" = '-c' ] && _x='.' || _x=''
-	[ -p "$sffpipe" ] && printf "*%s" "$_x" >"$sffpipe"
+	[ -p "$sffpipe" ] && printf "*%s" "$1" >"$sffpipe"
 }
 
 sffpipe_sel_file()
 {
-	[ -p "$sffpipe" ] && printf "@%s\0" "$1" >"$sffpipe"
+	[ -p "$sffpipe" ] && printf "@%s" "$1" >"$sffpipe"
 }
 
 sffpipe_get_sel()
@@ -80,16 +79,17 @@ list_archive()
 {
 	for _path in "$@"; do
 		_name=${_path##*/}
-		echo "======== $_name ========"
+		echo "  -- $_name --"
 		case "$(printf "%s" "$_name" | tr 'A-Z' 'a-z')" in
-		*?.tar.?*|*?.t?*) LC_ALL= tar -tvf "$_path";;
+		*?.tar.?*|*?.t?*) LC_ALL= tar -tf "$_path" ;;
 		*?.gz) LC_ALL= zcat "$_path";;
 		*?.bz2) LC_ALL= bzcat "$_path";;
 		*?.xz) LC_ALL= xzcat "$_path";;
-		*?.?*) LC_ALL= $_7z l "$_path" | sed -n '/Date[[:space:]]*Time.*Name/,$p';;
+		*?.?*) LC_ALL= $_7z l "$_path" | sed -n '/Date[[:space:]]*Time.*Name/,$p' | cut -c 54- ;;
 		esac
 		echo ""
 	done
+	true
 }
 
 extract_archive()
@@ -126,7 +126,7 @@ extract_archive()
 			*?.gz) gunzip -k "$_path";;
 			*?.bz2) bunzip2 -k "$_path";;
 			*?.xz) unxz -k "$_path";;
-			*?.?*) cd "$_tdir" && LC_ALL= $_7z x -aoa -bso0 "$_path";;
+			*?.?*) cd "$_tdir" && LC_ALL= $_7z x -aoa "$_path";;
 			esac && _selfile="$_bname" || { printf "Press Enter to continue "; read -r _x2; }
 
 			_num=$(find "$_tdir"/ -mindepth 1 -maxdepth 1 ! -name . ! -name .. -print0 | tr '\n\0' '\035\n' | wc -l)

@@ -26,17 +26,11 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 # SUCH DAMAGE.
 
-EDITOR=${EDITOR:-vi}
-export LC_ALL=C
-unset LESS
-cwd=$(pwd)
-lmax=24
-
-sffpipe=$1
+[ ! -e "$SFF_PIPE" ] && [ ! -e "$2" ] && { echo "SFF_PIPE: no such file"; exit 0; }
+[ "$SFF_PIPE" ] && sffpipe=$SFF_PIPE || sffpipe=$2
 sffdir=${sffpipe%/*}
 tmpdir=${TMPDIR:-/tmp}
 [ ! -w "$tmpdir" ] && tmpdir=$sffdir
-
 exbuf1="${sffdir}/.exec-buf1"
 exbuf2="${sffdir}/.exec-buf2"
 lastop="${sffdir}/.last-operation"
@@ -47,6 +41,22 @@ tsel=$(mktemp -u "${tmpdir}/sff-tsel-XXXXXX")
 tbuf1=$(mktemp -u "${tmpdir}/sff-tbuf1-XXXXXX")
 tbuf2=$(mktemp -u "${tmpdir}/sff-tbuf2-XXXXXX")
 
+if [ "$2" = 'su' ]; then
+	_supr=$SFF_SUDOER
+	[ -z "$_supr" ] && command -v doas >/dev/null 2>&1 && _supr='doas'
+	[ -z "$_supr" ] && _supr='sudo'
+	touch -a "$exbuf1" "$exbuf2" "$lastop" "$cmbuf"
+	exec $_supr "$0" "$1" "$sffpipe"
+	exit 0
+fi
+
+EDITOR=${EDITOR:-vi}
+export LC_ALL=C
+unset LESS
+cwd=$(pwd)
+lmax=24
+: | xargs -r >/dev/null 2>&1 && _r='-r' || _r=''
+
 # === sff extension functions ===
 
 sffpipe_clear_sel()
@@ -56,51 +66,46 @@ sffpipe_clear_sel()
 
 sffpipe_refresh()
 {
-	[ "$1" = '-c' ] && _x='.' || _x=''
-	[ -p "$sffpipe" ] && printf "*%s" "$_x" >"$sffpipe"
+	[ -p "$sffpipe" ] && printf "*%s" "$1" >"$sffpipe"
 }
 
 sffpipe_sel_file()
 {
-	[ -p "$sffpipe" ] && printf "@%s\0" "$1" >"$sffpipe"
+	[ -p "$sffpipe" ] && printf "@%s" "$1" >"$sffpipe"
 }
 
 sffpipe_enter_dir()
 {
-	[ -p "$sffpipe" ] && printf ">%s\0" "$1" >"$sffpipe"
+	[ -p "$sffpipe" ] && printf ">%s" "$1" >"$sffpipe"
 }
 
 sffpipe_get_sel()
 {
 	[ -p "$sffpipe" ] && printf "%s" "$$" >"$sffpipe" \
-	|| { printf "\n%s: invalid FIFO file\n" "$sffpipe"; exit 1; }
+	|| { printf "\n%s: invalid FIFO file\n" "$sffpipe"; return 1; }
 }
 
 sff_cleanup()
 {
-	_ecode=$?
 	rm -f "$tsel" "$tbuf1" "$tbuf2" "$tlist"
-	[ "$_ecode" -gt 0 ] && { printf "Press Enter to continue "; read -r _x; }
+	exit 0
 }
 trap sff_cleanup EXIT HUP INT QUIT TERM
 
-sff_init_bufs()
+sff_hold()
 {
-	[ -e "$exbuf1" ] && [ -e "$exbuf2" ] && [ -e "$lastop" ] && [ -e "$cmbuf" ] && return 0
-	touch -a "$exbuf1" "$exbuf2" "$lastop" "$cmbuf"
-	chmod 600 "$exbuf1" "$exbuf2" "$lastop" "$cmbuf"
-	[ "$(id -u)" -eq 0 ] && chown $(ps -o uid= -p "$PPID") "$exbuf1" "$exbuf2" "$lastop" "$cmbuf"
+	printf "Press Enter to continue "; read -r _x
 }
 
 sff_pwd_perm()
 {
-	[ ! -w "$cwd" ] && { printf "\n%s: Permission denied\n" "$cwd"; exit 1; }
+	[ ! -w "$cwd" ] && { printf "\n%s: Permission denied\n" "$cwd"; return 1; }
+	return 0
 }
 
 sff_new()
 {
-	sff_pwd_perm
-	sff_init_bufs
+	sff_pwd_perm || return 1
 	tlist="${tmpdir}/sff-create-files-$(id -u)"
 	: >"$tlist"
 
@@ -134,18 +139,13 @@ sff_do_new()
 
 	printf "\nCreating...\n"
 	tr '\0' '\n' <"$exbuf1" | sed '/^$/d'
-	_err=0
-	[ "$(head -c 1 "$exbuf1" | tr -d '\n')" ] \
-	&& { head -n 1 "$exbuf1" | tr -d '\n' | tr '\035' '\n' | LC_ALL= xargs -0 mkdir -p || _err=1; }
 
-	[ "$(tail -c 1 "$exbuf1" | tr -d '\n' | tr '\0' 'A')" ] \
-	&& { tail -n +2 "$exbuf1" | tr '\035' '\n' | LC_ALL= xargs -0 touch || _err=1; }
-	return $_err
+	head -n 1 "$exbuf1" | tr -d '\n' | tr '\035' '\n' | LC_ALL= xargs $_r -0 mkdir -p \
+	&& tail -n +2 "$exbuf1" | tr '\035' '\n' | LC_ALL= xargs $_r -0 touch
 }
 
 sff_undo_new()
 {
-	[ ! -s "$exbuf2" ] && exit 0
 	_op=$(cat "$lastop")
 	printf "\nUndo %s? (y/n) [n]: " "$_op"; read -r _x
 	case "$_x" in [yY]) :;; *) exit 0;; esac
@@ -153,13 +153,12 @@ sff_undo_new()
 	sffpipe_refresh
 
 	echo "Deleting..."
-	LC_ALL= xargs -0 sh -c 'find "$@" -prune -cnewer "$0" -exec rm -rf {} +' "$exbuf2" <"$exbuf2"
+	LC_ALL= xargs $_r -0 sh -c 'find "$@" -prune -cnewer "$0" -exec rm -rf {} +' "$exbuf2" <"$exbuf2"
 }
 
 sff_write_cbuf()
 {
-	sff_init_bufs
-	sffpipe_get_sel
+	sffpipe_get_sel || return 1
 	tr '\n\0' '\035\n' <"$sffpipe" >"$cmbuf"
 	case "$1" in
 	'cp') [ -e "$mvbuf" ] && mv -f "$mvbuf" "$cpbuf";;
@@ -187,7 +186,7 @@ sff_clear_cbuf()
 sff_paste()
 {
 	[ ! -s "$cmbuf" ] || [ "$(find "$cmbuf" -mmin +30)" ] && exit 0
-	sff_pwd_perm
+	sff_pwd_perm || return 1
 
 	_pwd=$(printf "%s" "$cwd" | tr '\n' '\035' | sed 's/[\|&]/\\&/g')
 	sed "G;s|$|$_pwd/|" "$cmbuf" | tr '\n\035' '\0\n' >"$exbuf1"
@@ -195,8 +194,7 @@ sff_paste()
 	_op=${cmbuf##*-}
 	case "$_op" in
 	'copy') sed "s|^.*/|$_pwd/|" "$cmbuf" | tr '\n\035' '\0\n' >"$exbuf2";;
-	'move') sed "s|^.*/|$_pwd/|" "$cmbuf" | paste -d '\n' - "$cmbuf" | tr '\n\035' '\0\n' >"$exbuf2"
-		touch -mt 202310011200 "$cmbuf";;
+	'move') sed "s|^.*/|$_pwd/|" "$cmbuf" | paste -d '\n' - "$cmbuf" | tr '\n\035' '\0\n' >"$exbuf2";;
 	esac
 	sff_do_paste "$_op"
 }
@@ -204,17 +202,13 @@ sff_paste()
 sff_do_paste()
 {
 	_cks=$(cksum "$exbuf1")
-	case "$1" in
-	'copy') _exf=$(xargs -0 sh -c 'for f; do [ -e "$f" ] && printf "%s\n" "$f"; done' _ <"$exbuf2" | head -n $lmax);;
-	'move') _exf=$(tr '\n\0' '\035\n' <"$exbuf2" | sed 'n;d' | tr '\n\035' '\0\n' \
-			| xargs -0 sh -c 'for f; do [ -e "$f" ] && printf "%s\n" "$f"; done' _ | head -n $lmax);;
-	*) _exf='';;
-	esac
+	_exf=$({ [ "$1" = 'move' ] && tr '\n\0' '\035\n' <"$exbuf2" | sed 'n;d' | tr '\n\035' '\0\n' || cat "$exbuf2"; } \
+		| xargs -0 sh -c 'for f; do [ -e "$f" ] && printf "%s\n" "$f"; done' _ | head -n $lmax)
 	_x='o'
 	if [ "$_exf" ]; then
 		printf "\n%s\n... file(s) exist\n" "$_exf"
 		printf "(s)kip all / (i)nteractive / (o)verwrite all / (c)ancel [c]: "; read -r _x
-		case "$_x" in [sSiIoO]) :;; *) touch "$cmbuf"; exit 0;; esac
+		case "$_x" in [sSiIoO]) :;; *) exit 0;; esac
 	fi
 	[ "$_cks" != "$(cksum "$exbuf1")" ] && set -- 'null'
 	printf "$1" >"$lastop"
@@ -229,6 +223,7 @@ sff_do_paste()
 		esac
 		;;
 	'move') printf "\nMoving...\n"
+		touch -mt 202310011200 "$cmbuf"
 		case "$_x" in
 		[oO]) LC_ALL= xargs -0 -n 2 mv -fv <"$exbuf1";;
 		[sS]) LC_ALL= xargs -0 -n 2 mv -nv <"$exbuf1";;
@@ -242,8 +237,7 @@ sff_do_paste()
 
 sff_rename()
 {
-	sff_init_bufs
-	sffpipe_get_sel
+	sffpipe_get_sel || return 1
 	tr '\n\0' '\035\n' <"$sffpipe" >"$tsel"
 	[ ! -s "$tsel" ] && exit 0
 
@@ -291,7 +285,6 @@ sff_do_rename()
 
 sff_undo_move()
 {
-	[ ! -s "$exbuf2" ] && exit 0
 	_op=$(cat "$lastop")
 	printf "\nUndo %s? (y/n) [n]: " "$_op"; read -r _x
 	case "$_x" in [yY]) :;; *) exit 0;; esac
@@ -299,13 +292,12 @@ sff_undo_move()
 	sffpipe_sel_file "$(tr '\n\0' '\035\n' <"$exbuf1" | head -n 1 | tr '\035' '\n')"
 
 	echo "Moving..."
-	LC_ALL= xargs -0 -n 2 mv -n <"$exbuf2"
+	LC_ALL= xargs $_r -0 -n 2 mv -n <"$exbuf2"
 }
 
 sff_duplicate()
 {
-	sff_init_bufs
-	sffpipe_get_sel
+	sffpipe_get_sel || return 1
 	tr '\n\0' '\035\n' <"$sffpipe" >"$tsel"
 	[ ! -s "$tsel" ] && exit 0
 
@@ -346,7 +338,7 @@ sff_do_duplicate()
 
 sff_delete()
 {
-	sffpipe_get_sel
+	sffpipe_get_sel || return 1
 	tr '\n\0' '\035\n' <"$sffpipe" >"$tsel"
 	[ ! -s "$tsel" ] && exit 0
 
@@ -356,7 +348,7 @@ sff_delete()
 	[ "$_lines" -gt $lmax ] && echo "..."
 	printf "Permanently delete %d file(s)? (y/n) [n]: " $_lines; read -r _x
 	case "$_x" in [yY]) :;; *) exit 0;; esac
-	sffpipe_refresh -c
+	sffpipe_refresh 'c'
 
 	echo "Deleting..."
 	tr '\n\035' '\0\n' <"$tsel" | LC_ALL= xargs -0 rm -rf
@@ -364,9 +356,11 @@ sff_delete()
 
 sff_exec()
 {
-	_cmd=$1
-	sffpipe_get_sel
+	sffpipe_get_sel || return 1
 	tr '\n\0' '\035\n' <"$sffpipe" >"$tsel"
+	[ ! -s "$tsel" ] && exit 0
+
+	_cmd=$1
 	set --
 	while IFS= read -r _path; do
 		set -- "$@" "$(printf "%s" "$_path" | tr '\035' '\n')"
@@ -391,10 +385,10 @@ sff_chmod_chown()
 	printf "Apply recursively? (y/n) [n]: "; read -r _x2
 	case "$_x2" in [yY]) _x2='-R';; *) _x2='';; esac
 
-	sffpipe_get_sel
+	sffpipe_get_sel || return 1
 	case "$_x" in
-	*:*) LC_ALL= xargs -0 chown $_x2 $_x <"$sffpipe";;
-	*) LC_ALL= xargs -0 chmod $_x2 $_x <"$sffpipe";;
+	*:*) LC_ALL= xargs $_r -0 chown $_x2 $_x <"$sffpipe";;
+	*) LC_ALL= xargs $_r -0 chmod $_x2 $_x <"$sffpipe";;
 	esac || return 1
 	sffpipe_refresh
 }
@@ -415,7 +409,7 @@ sff_find()
 
 sff_file_stat()
 {
-	sffpipe_get_sel
+	sffpipe_get_sel || return 1
 	tr '\n\0' '\035\n' <"$sffpipe" | while IFS= read -r _path; do
 		echo ""
 		_path=$(printf "%s" "$_path" | tr '\035' '\n')
@@ -427,7 +421,7 @@ sff_file_stat()
 
 sff_disk_usage()
 {
-	sffpipe_get_sel
+	sffpipe_get_sel || return 1
 	echo ""
 	LC_ALL= xargs -0 du -shc <"$sffpipe" | sort -h
 	echo ""
@@ -479,7 +473,7 @@ run_pl()
 
 
 # === key bindings ===
-case "$2" in                  #?> Extension functions:
+case "$1" in                  #?> Extension functions:
 'n') sff_new;;                #?>     n  Create new file (append '/' for dir)
 'd') sff_delete;;             #?>     d  Delete
 'y') sff_write_cbuf 'cp';;    #?>     y  Copy
@@ -502,9 +496,9 @@ case "$2" in                  #?> Extension functions:
                               #?> Plugins:
 'o') run_pl 'sfopen' 'o';;    #?>     o  Open with
 'F') run_pl 'fzf-find';;      #?>     F  Search via 'fzf'
-'=') run_pl 'preview' 'tui';; #?>     =  Toggle preview
+'=') run_pl 'preview' 'sw';;  #?>     =  Toggle preview
 'z') run_pl 'archive' 'e';;   #?>     z  Extract archive
 'Z') run_pl 'archive' 'c';;   #?>     Z  Create archive
-esac                          #?>
+esac || sff_hold              #?>
                               #?>Use Alt+<Key> or 'u'-<Key> to invoke
                               #?>Press 'q' to leave this page

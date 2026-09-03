@@ -29,8 +29,8 @@
 #
 #     For CLI programs, "EDITOR" resolves to the $EDITOR environment variable
 #     (falling back to "vi"). You can append '|' to pipe the program's output
-#     through $PAGER (falling back to "less") for viewing. You can also append
-#     '!' to hold the output and wait for confirmation before returning to sff.
+#     through $PAGER (falling back to "less") for viewing, or append '!' to
+#     hold the output and wait for confirmation before returning to sff.
 #
 #   2. "Open With" functionality:
 #     Enter a program name to open the selected file. If multiple files are
@@ -107,11 +107,11 @@ else
 	esac
 
 	_cmd=''
-	[ "$_fext2" ] && _tmp=$(grep -Fi -m1 "$_fext2 " "$opencfg") && _cmd=${_tmp#*=}
-	[ -z "$_cmd" ] && [ "$_fext1" ] && _tmp=$(grep -Fi -m1 "$_fext1 " "$opencfg") && _cmd=${_tmp#*=}
-	[ -z "$_cmd" ] && _tmp=$(grep -Fi -m1 "$_fmime " "$opencfg") && _cmd=${_tmp#*=}
-	[ -z "$_cmd" ] && _tmp=$(grep -Fi -m1 "$_fmime2 " "$opencfg") && _cmd=${_tmp#*=}
-	[ -z "$_cmd" ] && _tmp=$(grep -m1 '^[[:space:]]*\* ' "$opencfg") && _cmd=${_tmp#*=}
+	[ "$_fext2" ] && _tmp=$(grep -Fi -m1 "$_fext2 " "$opencfg") && _cmd=${_tmp##*=}
+	[ -z "$_cmd" ] && [ "$_fext1" ] && _tmp=$(grep -Fi -m1 "$_fext1 " "$opencfg") && _cmd=${_tmp##*=}
+	[ -z "$_cmd" ] && _tmp=$(grep -Fi -m1 "$_fmime " "$opencfg") && _cmd=${_tmp##*=}
+	[ -z "$_cmd" ] && _tmp=$(grep -Fi -m1 "$_fmime2 " "$opencfg") && _cmd=${_tmp##*=}
+	[ -z "$_cmd" ] && _tmp=$(grep -m1 '^[[:space:]]*\* ' "$opencfg") && _cmd=${_tmp##*=}
 	_cmd=${_cmd#"${_cmd%%[![:space:]]*}"}
 	_cmd=${_cmd%"${_cmd##*[![:space:]]}"}
 	[ -z "$_cmd" ] && exit 0
@@ -169,9 +169,14 @@ if [ "$OS" = 'Darwin' ]; then
 	open $_opt "$_cmd" "$@" >/dev/null 2>&1 && exit 0
 fi
 
+if ! command -v "$_cmdp" >/dev/null 2>&1; then
+	echo "$_cmdp: not found"
+	printf "Press Enter to continue "; read -r _x
+	exit 0
+fi
+
 if [ "$_cli" ]; then
-	type "$_cmdp" >/dev/null \
-	&& case "$_clipost" in
+	case "$_clipost" in
 	'page') $_cmd "$@" | $PAGER;;
 	'hold') printf "\033[2J\033[H"
 		$_cmd "$@"
@@ -182,4 +187,4 @@ elif [ "$_swallow" ]; then
 	exec $_cmd "$@" >/dev/null 2>&1
 else
 	($_cmd "$@" >/dev/null 2>&1 &)
-fi || { printf "Press Enter to continue "; read -r _x; }
+fi

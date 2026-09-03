@@ -12,7 +12,7 @@ sffpipe=$1
 
 sffpipe_enter_dir()
 {
-	[ -p "$sffpipe" ] && printf ">%s\0" "$1" >"$sffpipe"
+	[ -p "$sffpipe" ] && printf ">%s" "$1" >"$sffpipe"
 }
 
 if ! fzf --version >/dev/null; then

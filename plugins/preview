@@ -1,140 +1,50 @@
 #!/bin/sh
 
-# Description: File preview
+# Description: sff preview script
 #
 # Dependencies:
-#   - Image preview: chafa
-#   - PDF preview: poppler-utils
-#   - Video thumbnail preview: ffmpegthumbnailertar
 #
 # Usage:
-#   When sff is running inside tmux:
-#     Enabling preview will split a new pane for display.
-#
-#   When sff is running outside tmux:
-#     If SFF_PV_TERM is set, enabling preview will launch the terminal emulator
-#     specified by this variable as the previewer.
-#
-#     If SFF_PV_TERM is not set, enabling preview will prompt you to enter
-#     the name of a terminal emulator to use temporarily as the previewer.
-#
-#   The SFF_PV_TERM environment variable defines the default terminal emulator
-#   to be used as the previewer. You can set SFF_PV_TERM like this:
-#     $ export SFF_PV_TERM=xterm
-#
-#   Note: This plugin cannot handle paths containing line breaks.
+#   This script is executed for each preview. Its output is displayed in sff preview pane.
+#   You can customize file types and their preview methods within the 'case' block.
+#   NOTE: Do not use interactive commands to produce output.
 #
 # Shell: POSIX compliant
 #
 # Author: Shi Yanling
 
-sffpipe=$1
-sffdir=${sffpipe%/*}
-pvfifo="${sffpipe}.pv"
-tmpdir=${TMPDIR:-/tmp}
-[ ! -w "$tmpdir" ] && tmpdir=$sffdir
-tmppvfile="${tmpdir}/sff-tmppv-$(id -u)"
-ls --color=always >/dev/null 2>&1 && _ls='ls -1Ap --color=always' || _ls='ls -1Ap'
+if [ "$2" = 'sw' ]; then
+	sffpipe=$1
+	[ -p "$sffpipe" ] && printf "#%s" "$0" >"$sffpipe"
+	exit 0
+fi
+
 archivepl="${0%/*}/archive"
+lines=$1 # preview pane height
+cols=$2 # preview pane width
+path=$SFF_PV_PATH
+mime=$(file -bL --mime-type "$path")
 
-preview_loop_tui()
-{
-	mkfifo "$pvfifo" || exit 0
-	while IFS= read -r _path; do
-		while _x=$(timeout 0.01 sh -c 'IFS= read -r _x; printf "%s" "$_x"'); do
-			_path=$_x
-		done
-		clear
-		_dest=''
-		_mime=$(file -bL --mime-type "$_path")
+case "$mime" in
+text/*|application/json) echo ""
+	head -n $lines "$path" | tr -d '\r' | expand -t 4
+	;;
 
-		case "$_mime" in
-		image/*) _dest=$_path
-			;;
-		video/*) _dest="${tmppvfile}.jpg"
-			ffmpegthumbnailer -m -s 0 -i "$_path" -o "$_dest" >/dev/null 2>&1 \
-			|| _dest=''
-			;;
-		application/pdf) _dest=$tmppvfile
-			pdftoppm -jpeg -f 1 -singlefile -scale-to 800 "$_path" "$_dest" >/dev/null 2>&1 \
-			&& _dest="${_dest}.jpg" || _dest=''
-			;;
+application/*-tar|application/*-compressed*|application/*[!+]zip*|application/zip|\
+application/x-xz|application/vnd.rar|application/x-iso9660-image) "$archivepl" "$path"
+	;;
 
-		application/*-tar|application/*-compressed*|application/*[!+]zip*|application/zip|\
-		application/x-xz|application/vnd.rar|application/x-iso9660-image)
-			"$archivepl" "$_path" | less -fXSR -x4 +gq
-			continue
-			;;
-		text/*)
-			less -fXS -x4 +gq "$_path"
-			continue
-			;;
-		inode/directory) { printf "    --- %s --- (%s files)\n" "$_mime" \
-				$(find "$_path"/ -mindepth 1 -maxdepth 1 ! -name . ! -name .. 2>/dev/null | wc -l); \
-				$_ls "$_path"; } | less -fXSR~ +gq
-			continue
-			;;
-		esac
-
-		if [ "$_dest" ]; then
-			chafa "$_dest"
-			tput civis
-		else
-			printf "    --- %s ---" "$_mime"
-		fi
-	done <"$pvfifo"
-}
-
-check_fifo()
-{
-	if [ -p "$pvfifo" ]; then
-		rm -f "$pvfifo"
-		[ -p "$sffpipe" ] && printf "#q" >"$sffpipe"
-		exit 0
-	fi
-}
-
-wait_for_fifo()
-{
-	_i=1
-	while [ ! -p "$pvfifo" ]; do
-		sleep 0.1
-		_i=$((_i + 1))
-		[ "$_i" -gt 20 ] && exit 0
-	done
-}
-
-case "$2" in
-'tui') check_fifo
-	if [ "$TMUX" ]; then
-		[ $(($(tput lines) * 2)) -gt "$(tput cols)" ] && _layout='v' || _layout='h'
-		tmux split-window -d"$_layout" "$0" "$sffpipe" 'loop'
+inode/directory) _cou=$(find -L "$path" -mindepth 1 -maxdepth 1 -printf '.' 2>/dev/null | wc -c)
+	printf "  -- directory -- (%s files)\n" $_cou
+	if [ "$_cou" -gt 75000 ]; then
+		LC_COLLATE=C ls -1fAp "$path" | head -n $lines
+	elif [ "$_cou" -gt 15000 ]; then
+		LC_COLLATE=C ls -1Ap "$path" | head -n $lines
 	else
-		if [ -z "$SFF_PV_TERM" ]; then
-			printf "\nSFF_PV_TERM: not set\n"
-			printf "Terminal emulator for preview: "; read -r _x
-			[ -z "$_x" ] && exit 0
-			SFF_PV_TERM=$_x
-		fi
-
-		command -v "$SFF_PV_TERM" >/dev/null 2>&1 || echo "$SFF_PV_TERM: not found"
-
-		case "$SFF_PV_TERM" in
-		'kitty'|'gnome-terminal') "$SFF_PV_TERM" -- "$0" "$sffpipe" 'loop' >/dev/null 2>&1 &
-			;;
-		'xfce4-terminal'|'terminator') "$SFF_PV_TERM" -e "\"$0\" \"$sffpipe\" loop" >/dev/null 2>&1 &
-			;;
-		*) "$SFF_PV_TERM" -e "$0" "$sffpipe" 'loop' >/dev/null 2>&1 &
-			;;
-		esac
+		ls -1Ap "$path" | head -n $lines
 	fi
-	wait_for_fifo
-	[ -p "$sffpipe" ] && printf "#p" >"$sffpipe"
 	;;
 
-'gui') :
-	;;
-'loop') tput civis
-	preview_loop_tui
+*) printf "  -- %s --\n" "$mime"
 	;;
 esac
