@@ -259,15 +259,16 @@ static int makepath(const char *path, const char *name, char *buf)
 	return p ? p - buf : 0;
 }
 
-/* Get file extension. Ignore extensions > 8 chars. len includes terminating '\0'. */
+/* Get file extension (includes dot). 'len' includes terminating '\0'. */
+#define EXT_MAX  10 // maximum extension length
 static const char *getextension(const char *name, size_t len)
 {
 	const char *p;
 
 	if (len < 4)
 		return NULL;
-	p = name + len - 2; // skip last char (before '\0')
-	len = (len > 11) ? 9 : len - 2; // If name length exceeds 8+2+1, check max 8+1 times
+	p = name + len - 2; // Point to last char before '\0'
+	len = (len > EXT_MAX + 3) ? EXT_MAX + 1 : len - 2; // Limit scan to EXT_MAX
 
 	 while (--len > 0)
 		if (*(--p) == '.')
