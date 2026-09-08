@@ -436,12 +436,12 @@ static int seterrnum(int line, int err)
 	return TRUE;
 }
 
-static uint64_t fnv1ahash(const char *str, size_t len)
+static uint64_t fnv1ahash(const char *str)
 {
 	uint64_t hash = 0xcbf29ce484222325ULL;
 
-	for (size_t i = 0; i < len; i++) {
-		hash ^= (const uint8_t)str[i];
+	for (; *str; ++str) {
+		hash ^= (const uint8_t)*str;
 		hash *= 0x100000001b3ULL;
 	}
 	return hash;
@@ -680,7 +680,7 @@ static void saveselection(Tabs *tab)
 
 	for (size_t idx, i = 0; i < (size_t)tab->nde; ++i) {
 		if ((pdents[i].flag & E_SELECTED)) {
-			hash = fnv1ahash(pdents[i].name, pdents[i].nlen);
+			hash = fnv1ahash(pdents[i].name);
 			idx = (hash ^ (hash >> 33)) & ss->mask;
 			while (ss->hash[idx] != 0)
 				idx = (idx + 1) & ss->mask;
@@ -1836,7 +1836,7 @@ static void restoredirstat(Tabs *tab)
 			ss = &tab->ss[i];
 	if (ss) {
 		for (size_t idx, i = 0; i < (size_t)tab->nde; ++i) {
-			hash = fnv1ahash(pdents[i].name, pdents[i].nlen);
+			hash = fnv1ahash(pdents[i].name);
 			idx = (hash ^ (hash >> 33)) & ss->mask;
 			while (ss->hash[idx] != 0) {
 				if (ss->hash[idx] == hash) {
