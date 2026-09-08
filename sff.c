@@ -1933,9 +1933,9 @@ static void printent(int y, const Entry *ent, int sel, int mark)
 		switch (*p) {
 		case 'n': tb_set_cell(x += w, y, sel ? '>' : ' ', fg2, C_DEF);
 			if (ptab->hp->stat->flag != S_ROOT)
-				printnstr(x + 1, y, fg3, ent->name, ncols);
+				printnstr(++x, y, fg3, ent->name, ncols);
 			else
-				printpath(x + 1, y, fg3, ent->name, ncols);
+				printpath(++x, y, fg3, ent->name, ncols);
 			w = ncols;
 			break;
 		case 's': tb_printf_ex(x += w, y, fg1, C_DEF, &w, "%7s ",
