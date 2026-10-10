@@ -259,15 +259,16 @@ static int makepath(const char *path, const char *name, char *buf)
 	return p ? p - buf : 0;
 }
 
-/* Get file extension. Ignore extensions > 8 chars. len includes terminating '\0'. */
+/* Get file extension (includes dot). 'len' includes terminating '\0'. */
+#define EXT_MAX  10 // maximum extension length
 static const char *getextension(const char *name, size_t len)
 {
 	const char *p;
 
 	if (len < 4)
 		return NULL;
-	p = name + len - 2; // skip last char (before '\0')
-	len = (len > 11) ? 9 : len - 2; // If name length exceeds 8+2+1, check max 8+1 times
+	p = name + len - 2; // Point to last char before '\0'
+	len = (len > EXT_MAX + 3) ? EXT_MAX + 1 : len - 2; // Limit scan to EXT_MAX
 
 	 while (--len > 0)
 		if (*(--p) == '.')
@@ -435,12 +436,12 @@ static int seterrnum(int line, int err)
 	return TRUE;
 }
 
-static uint64_t fnv1ahash(const char *str, size_t len)
+static uint64_t fnv1ahash(const char *str)
 {
 	uint64_t hash = 0xcbf29ce484222325ULL;
 
-	for (size_t i = 0; i < len; i++) {
-		hash ^= (const uint8_t)str[i];
+	for (; *str; ++str) {
+		hash ^= (const uint8_t)*str;
 		hash *= 0x100000001b3ULL;
 	}
 	return hash;
@@ -679,7 +680,7 @@ static void saveselection(Tabs *tab)
 
 	for (size_t idx, i = 0; i < (size_t)tab->nde; ++i) {
 		if ((pdents[i].flag & E_SELECTED)) {
-			hash = fnv1ahash(pdents[i].name, pdents[i].nlen);
+			hash = fnv1ahash(pdents[i].name);
 			idx = (hash ^ (hash >> 33)) & ss->mask;
 			while (ss->hash[idx] != 0)
 				idx = (idx + 1) & ss->mask;
@@ -1835,7 +1836,7 @@ static void restoredirstat(Tabs *tab)
 			ss = &tab->ss[i];
 	if (ss) {
 		for (size_t idx, i = 0; i < (size_t)tab->nde; ++i) {
-			hash = fnv1ahash(pdents[i].name, pdents[i].nlen);
+			hash = fnv1ahash(pdents[i].name);
 			idx = (hash ^ (hash >> 33)) & ss->mask;
 			while (ss->hash[idx] != 0) {
 				if (ss->hash[idx] == hash) {
@@ -1932,9 +1933,9 @@ static void printent(int y, const Entry *ent, int sel, int mark)
 		switch (*p) {
 		case 'n': tb_set_cell(x += w, y, sel ? '>' : ' ', fg2, C_DEF);
 			if (ptab->hp->stat->flag != S_ROOT)
-				printnstr(x + 1, y, fg3, ent->name, ncols);
+				printnstr(++x, y, fg3, ent->name, ncols);
 			else
-				printpath(x + 1, y, fg3, ent->name, ncols);
+				printpath(++x, y, fg3, ent->name, ncols);
 			w = ncols;
 			break;
 		case 's': tb_printf_ex(x += w, y, fg1, C_DEF, &w, "%7s ",
