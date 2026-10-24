@@ -642,9 +642,12 @@ static void saveselection(Tabs *tab)
 		return;
 
 	if (tab->ss) {
-		for (int i = 0; i < tab->nss && !ss; ++i)
-			if (tab->ss[i].plen == 0)
+		for (int i = 0; i < tab->nss; ++i) {
+			if (tab->ss[i].plen == 0) {
 				ss = tab->ss + i;
+				break;
+			}
+		}
 	}
 	if (!ss) {
 		if (!(ss = realloc(tab->ss, sizeof(Selstat) * ++tab->nss)) && seterrnum(__LINE__, errno)) {
@@ -1807,7 +1810,7 @@ static void filterentry(void)
 	}
 }
 
-static void restoredirstat(Tabs *tab)
+static void applydirstat(Tabs *tab)
 {
 	Histstat *hs = tab->hp->stat;
 	Selstat *ss = NULL;
@@ -1831,9 +1834,12 @@ static void restoredirstat(Tabs *tab)
 
 	// Find corresponding selstat, and restore selection
 	markent = -1;
-	for (int i = 0; tab->nsel > 0 && i < tab->nss && !ss; ++i)
-		if (tab->ss[i].plen != 0 && strcmp(tab->ss[i].buf, tab->hp->path) == 0)
+	for (int i = 0; tab->nsel > 0 && i < tab->nss; ++i) {
+		if (tab->ss[i].plen != 0 && strcmp(tab->ss[i].buf, tab->hp->path) == 0) {
 			ss = &tab->ss[i];
+			break;
+		}
+	}
 	if (ss) {
 		for (size_t idx, i = 0; i < (size_t)tab->nde; ++i) {
 			hash = fnv1ahash(pdents[i].name);
@@ -2168,7 +2174,7 @@ static void browse(void)
 		case GO_SORT:
 			filterentry();
 			qsort(pdents, ndents, sizeof(*pdents), ptab->cfg.reverse ? &reventrycmp : &entrycmp);
-			restoredirstat(ptab);
+			applydirstat(ptab);
 
 			// fallthrough
 		case GO_REDRAW:
