@@ -792,8 +792,10 @@ static int gotoparent(int n __attribute__((unused)))
 
 	savedirstat(ptab);
 	do {
-		hp->stat -= (hp->stat == hp->hs || hp->stat->pend > 0) ? 0 : 1;
-		hp->stat->pend -= (hp->stat->pend > 0) ? 1 : 0;
+		if (hp->stat->pend > 0)
+			--hp->stat->pend;
+		else if (hp->stat > hp->hs)
+			--hp->stat;
 		hp->stub = strrchr(hp->pa, '/');
 		*hp->stub = '\0';
 		hp->path = (hp->stub == hp->pa) ? root : hp->pa;
@@ -1811,7 +1813,7 @@ static void filterentry(void)
 	}
 }
 
-static void applydirstat(Tabs *tab)
+static void restoredirstat(Tabs *tab)
 {
 	Histstat *hs = tab->hp->stat;
 	Selstat *ss = NULL;
@@ -2175,7 +2177,7 @@ static void browse(void)
 		case GO_SORT:
 			filterentry();
 			qsort(pdents, ndents, sizeof(*pdents), ptab->cfg.reverse ? &reventrycmp : &entrycmp);
-			applydirstat(ptab);
+			restoredirstat(ptab);
 
 			// fallthrough
 		case GO_REDRAW:
