@@ -169,13 +169,9 @@ sff_write_cbuf()
 
 sff_view_cbuf()
 {
-	if [ -s "$cmbuf" ]; then
-		cat "$cmbuf"
-		[ "$(find "$cmbuf" -mmin +30)" ] && _exp='[EXPIRED]' || _exp=''
-		printf "%s: %s file(s) %s\n" "${cmbuf##*-}" $(wc -l <"$cmbuf") "$_exp"
-	else
-		echo "Buffer is empty"
-	fi | LC_ALL= less -~ +G
+	[ ! -s "$cmbuf" ] && { printf "\nBuffer is empty\n"; return 1; }
+	[ "$(find "$cmbuf" -mmin +30)" ] && _exp='[EXPIRED]' || _exp=''
+	{ cat "$cmbuf"; printf "%s: %s file(s) %s\n" "${cmbuf##*-}" $(wc -l <"$cmbuf") "$_exp"; } | LC_ALL= less -~ +G
 }
 
 sff_clear_cbuf()
@@ -185,7 +181,8 @@ sff_clear_cbuf()
 
 sff_paste()
 {
-	[ ! -s "$cmbuf" ] || [ "$(find "$cmbuf" -mmin +30)" ] && exit 0
+	[ ! -s "$cmbuf" ] && { printf "\nBuffer is empty\n"; return 1; }
+	[ "$(find "$cmbuf" -mmin +30)" ] && { printf "\nBuffer expired\n"; return 1; }
 	sff_pwd_perm || return 1
 
 	_pwd=$(printf "%s" "$cwd" | tr '\n' '\035' | sed 's/[\|&]/\\&/g')
