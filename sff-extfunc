@@ -55,6 +55,8 @@ export LC_ALL=C
 unset LESS
 cwd=$(pwd)
 lmax=24
+cbufttl=30
+undottl=360
 : | xargs -r >/dev/null 2>&1 && _r='-r' || _r=''
 
 # === sff extension functions ===
@@ -170,7 +172,7 @@ sff_write_cbuf()
 sff_view_cbuf()
 {
 	[ ! -s "$cmbuf" ] && { printf "\nBuffer is empty\n"; return 1; }
-	[ "$(find "$cmbuf" -mmin +30)" ] && _exp='[EXPIRED]' || _exp=''
+	[ "$(find "$cmbuf" -mmin +$cbufttl)" ] && _exp='[EXPIRED]' || _exp=''
 	{ cat "$cmbuf"; printf "%s: %s file(s) %s\n" "${cmbuf##*-}" $(wc -l <"$cmbuf") "$_exp"; } | LC_ALL= less -~ +G
 }
 
@@ -182,7 +184,7 @@ sff_clear_cbuf()
 sff_paste()
 {
 	[ ! -s "$cmbuf" ] && { printf "\nBuffer is empty\n"; return 1; }
-	[ "$(find "$cmbuf" -mmin +30)" ] && { printf "\nBuffer expired\n"; return 1; }
+	[ "$(find "$cmbuf" -mmin +$cbufttl)" ] && { printf "\nBuffer expired\n"; return 1; }
 	sff_pwd_perm || return 1
 
 	_pwd=$(printf "%s" "$cwd" | tr '\n' '\035' | sed 's/[\|&]/\\&/g')
@@ -428,7 +430,7 @@ sff_disk_usage()
 
 sff_undo()
 {
-	[ ! -s "$lastop" ] || [ "$(find "$lastop" -mmin +360)" ] && exit 0
+	[ ! -s "$lastop" ] || [ "$(find "$lastop" -mmin +$undottl)" ] && exit 0
 	case "$(cat "$lastop")" in
 	'new'|'copy'|'duplicate') sff_undo_new;;
 	'move'|'rename') sff_undo_move;;
@@ -437,7 +439,7 @@ sff_undo()
 
 sff_redo()
 {
-	[ ! -s "$lastop" ] && exit 0
+	[ ! -s "$lastop" ] || [ "$(find "$lastop" -mmin +$undottl)" ] && exit 0
 	case "$(cat "$lastop")" in
 	'unnew') sff_do_new;;
 	'uncopy') sff_do_paste 'copy';;
