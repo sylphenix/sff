@@ -761,10 +761,11 @@ static int enterdir(int n)
 		return GO_STATBAR;
 
 	savedirstat(ptab);
-	if (hp->stub < hp->end && strcmp(ent->name, hp->stub) != 0) {
-		if ((strcmp(hp->path, hp2->path) == 0 && strcmp(ent->name, hp2->stub) == 0)
-		|| (gcfg.ct < TABS_MAX && inithistpath(hp2, hp->path)))
-			hp = hp2;
+	if (hp->stub < hp->end && strcmp(ent->name, hp->stub) != 0 && gcfg.ct < TABS_MAX) {
+		if (strcmp(hp->path, hp2->path) != 0 || strcmp(ent->name, hp2->stub) != 0)
+			inithistpath(hp2, hp->path);
+		memcpy(hp2->hs, hp->hs, sizeof(Histstat) * (hp->stat - hp->hs + 1));
+		hp = hp2;
 	}
 	hp->path = hp->pa;
 	*(hp->stub - 1) = '/';
