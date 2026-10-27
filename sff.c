@@ -614,10 +614,10 @@ static Histpath *inithistpath(Histpath *hp, const char *path)
 	hp->stat = hp->hs;
 	for (char *p = hp->pa + 2; p < hp->end; ++p) {
 		if (*p == '/' || *p == '\0') { // Each level of path corresponds to a histstat
-			if (hp->stat - hp->hs < HSTAT_MAX - 1)
-				++hp->stat;
-			else
+			if (hp->stat - hp->hs >= HSTAT_MAX - 1)
 				++hp->stat->pend;
+			else
+				++hp->stat;
 		}
 	}
 	return hp;
@@ -695,7 +695,7 @@ static void saveselection(Tabs *tab)
 
 static void savedirstat(Tabs *tab)
 {
-	if (ndents > 0 && tab->hp->stat->pend == 0) {
+	if (ndents > 0) {
 		tab->hp->stat->cur = cursel;
 		tab->hp->stat->scrl = curscroll;
 	}
@@ -729,7 +729,8 @@ static int switchhistpath(int n)
 		return GO_NONE;
 
 	savedirstat(ptab);
-	findname = hp2->stub;
+	if (n == 2)
+		findname = hp2->stub;
 	ptab->hp = hp2;
 	return GO_RELOAD;
 }
@@ -760,7 +761,6 @@ static int enterdir(int n)
 	if (chdir(newpath) == -1 && seterrnum(__LINE__, errno))
 		return GO_STATBAR;
 
-	savedirstat(ptab);
 	if (hp->stub < hp->end && strcmp(ent->name, hp->stub) != 0 && gcfg.ct < TABS_MAX) {
 		if (strcmp(hp->path, hp2->path) != 0 || strcmp(ent->name, hp2->stub) != 0)
 			inithistpath(hp2, hp->path);
@@ -773,10 +773,12 @@ static int enterdir(int n)
 	if (hp->end < hp->stub)
 		hp->end = hp->stub;
 
-	if (hp->stat - hp->hs < HSTAT_MAX - 1)
-		++hp->stat;
-	else
+	savedirstat(ptab);
+	if (hp->stat - hp->hs >= HSTAT_MAX - 1) {
 		++hp->stat->pend;
+		hp->stat->cur = hp->stat->scrl = 0;
+	} else
+		++hp->stat;
 	ptab->hp = hp;
 	return GO_RELOAD;
 }
@@ -788,13 +790,16 @@ static int gotoparent(int n __attribute__((unused)))
 	if (hp->path == root || hp->stat->flag == S_ROOT)
 		return GO_NONE;
 	if (hp->stat->flag == S_SUBROOT)
-		return switchhistpath(1);
+		return switchhistpath(2);
 
 	savedirstat(ptab);
+	if (gcfg.ct == TABS_MAX)
+		hp->stat->cur = hp->stat->scrl = 0;
 	do {
-		if (hp->stat->pend > 0)
+		if (hp->stat->pend > 0) {
 			--hp->stat->pend;
-		else if (hp->stat > hp->hs)
+			hp->stat->cur = hp->stat->scrl = 0;
+		} else if (hp->stat > hp->hs)
 			--hp->stat;
 		hp->stub = strrchr(hp->pa, '/');
 		*hp->stub = '\0';
