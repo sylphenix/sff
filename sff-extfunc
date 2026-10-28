@@ -429,11 +429,11 @@ sff_file_stat()
 sff_disk_usage()
 {
 	sffpipe_get_sel || return 1
-	echo ""
-	LC_ALL= xargs -0 du -shc <"$sffpipe" | sort -h
-	echo ""
-	df -h "$cwd"
-	return 1
+	{
+		LC_ALL= xargs -0 du -shc <"$sffpipe" | sort -h
+		echo ""
+		df -h "$cwd"
+	} | LC_ALL= less -~ +G
 }
 
 sff_undo()
