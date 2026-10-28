@@ -1226,7 +1226,7 @@ static int showhelp(int n __attribute__((unused)))
 
 		tb_print(0, y += 2, C_DEF, C_DEF, "Note: File operations are implemented by extension functions");
 		tb_print(0, ++y, C_DEF, C_DEF, "For help with that, press Alt+'/' or 'u'-'/' in main view");
-		tb_print(0, ++y, C_DEF, C_DEF, "Press 'q' or Esc to leave this page");
+		tb_print(0, ++y, C_DEF, C_DEF, "Press 'q' or Esc to close");
 
 		tb_present();
 		c = getinput(-1);

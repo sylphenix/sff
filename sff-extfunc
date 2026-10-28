@@ -508,4 +508,4 @@ case "$1" in                  #?> Extension functions:
 'Z') run_pl 'archive' 'c';;   #?>     Z  Create archive
 esac || sff_hold              #?>
                               #?>Use Alt+<Key> or 'u'-<Key> to invoke
-                              #?>Press 'q' to leave this page
+                              #?>Press 'q' to close
