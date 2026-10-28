@@ -749,8 +749,8 @@ static int enterdir(int n)
 
 	if (!(ent->flag & E_DIR_DIRLNK)) {
 		if (n == 1 || gcfg.openfile)
-			spawn(opener, newpath, NULL, *opener != '/', NULL);
-		return GO_STATBAR;
+			return spawn(opener, newpath, NULL, *opener != '/', NULL);
+		return GO_NONE;
 	}
 	if (hp->stat->flag == S_ROOT) {
 		if (strcmp(newpath, hp2->path) == 0)
