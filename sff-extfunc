@@ -171,9 +171,17 @@ sff_write_cbuf()
 
 sff_view_cbuf()
 {
-	[ ! -s "$cmbuf" ] && { printf "\nBuffer is empty\n"; return 1; }
-	[ "$(find "$cmbuf" -mmin +$cbufttl)" ] && _exp='[EXPIRED]' || _exp=''
-	{ cat "$cmbuf"; printf "%s: %s file(s) %s\n" "${cmbuf##*-}" $(wc -l <"$cmbuf") "$_exp"; } | LC_ALL= less -~ +G
+	_exp=''
+	if [ -s "$cmbuf" ]; then
+		_ops=${cmbuf##*-}
+		_ln=$(wc -l <"$cmbuf")
+		[ "$(find "$cmbuf" -mmin +$cbufttl)" ] && _exp='[EXPIRED]'
+	else
+		_ops='none'
+		_ln=0
+	fi
+	{ [ "$_ops" != 'none' ] && cat "$cmbuf"; \
+		printf "%s: %d file(s) %s \n" "$_ops" "$_ln" "$_exp"; } | LC_ALL= less -~ +G
 }
 
 sff_clear_cbuf()
@@ -345,7 +353,7 @@ sff_delete()
 	echo ""
 	head -n $lmax "$tsel"
 	[ "$_lines" -gt $lmax ] && echo "..."
-	printf "Permanently delete %d file(s)? (y/n) [n]: " $_lines; read -r _x
+	printf "Permanently delete %d file(s)? (y/n) [n]: " "$_lines"; read -r _x
 	case "$_x" in [yY]) :;; *) exit 0;; esac
 	sffpipe_refresh 'c'
 
