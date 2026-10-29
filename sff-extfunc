@@ -377,11 +377,18 @@ sff_exec()
 
 	case "$_cmd" in
 	'ed') [ -z "$1" ] && return 0
-		LC_ALL= exec $EDITOR "$@";;
+		LC_ALL= exec $EDITOR "$@"
+		;;
 	'sh') echo ""
 		export Q='exit'
-		command -v bash >/dev/null 2>&1 && _sh='bash' || _sh='sh'
-		LC_ALL= exec $_sh -s "$@";;
+		command -v "$SHELL" >/dev/null 2>&1 && _sh=$SHELL || _sh=''
+		[ -z "$_sh" ] && command -v 'bash' >/dev/null 2>&1 && _sh='bash'
+		[ -z "$_sh" ] && _sh='sh'
+		case "${_sh##*/}" in
+		ash|bash|dash|ksh|zsh|sh) LC_ALL= exec $_sh -s "$@";;
+		*) LC_ALL= exec $_sh;;
+		esac
+		;;
 	esac
 }
 
