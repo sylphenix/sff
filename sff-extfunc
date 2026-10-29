@@ -26,8 +26,8 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 # SUCH DAMAGE.
 
-[ ! -e "$SFF_PIPE" ] && [ ! -e "$2" ] && { echo "SFF_PIPE: no such file"; exit 0; }
 [ "$SFF_PIPE" ] && sffpipe=$SFF_PIPE || sffpipe=$2
+[ ! -e "$sffpipe" ] && { echo "SFF_PIPE: no such file"; exit 0; }
 sffdir=${sffpipe%/*}
 tmpdir=${TMPDIR:-/tmp}
 [ ! -w "$tmpdir" ] && tmpdir=$sffdir
@@ -55,6 +55,8 @@ export LC_ALL=C
 unset LESS
 cwd=$(pwd)
 lmax=24
+cbufttl=30
+undottl=360
 : | xargs -r >/dev/null 2>&1 && _r='-r' || _r=''
 
 # === sff extension functions ===
@@ -169,13 +171,17 @@ sff_write_cbuf()
 
 sff_view_cbuf()
 {
+	_exp=''
 	if [ -s "$cmbuf" ]; then
-		cat "$cmbuf"
-		[ "$(find "$cmbuf" -mmin +30)" ] && _exp='[EXPIRED]' || _exp=''
-		printf "%s: %s file(s) %s\n" "${cmbuf##*-}" $(wc -l <"$cmbuf") "$_exp"
+		_ops=${cmbuf##*-}
+		_ln=$(wc -l <"$cmbuf")
+		[ "$(find "$cmbuf" -mmin +$cbufttl)" ] && _exp='[EXPIRED]'
 	else
-		echo "Buffer is empty"
-	fi | LC_ALL= less -~ +G
+		_ops='none'
+		_ln=0
+	fi
+	{ [ "$_ops" != 'none' ] && cat "$cmbuf"; \
+		printf "%s: %d file(s) %s \n" "$_ops" "$_ln" "$_exp"; } | LC_ALL= less -~ +G
 }
 
 sff_clear_cbuf()
@@ -185,7 +191,8 @@ sff_clear_cbuf()
 
 sff_paste()
 {
-	[ ! -s "$cmbuf" ] || [ "$(find "$cmbuf" -mmin +30)" ] && exit 0
+	[ ! -s "$cmbuf" ] && { printf "\nBuffer is empty\n"; return 1; }
+	[ "$(find "$cmbuf" -mmin +$cbufttl)" ] && { printf "\nBuffer expired\n"; return 1; }
 	sff_pwd_perm || return 1
 
 	_pwd=$(printf "%s" "$cwd" | tr '\n' '\035' | sed 's/[\|&]/\\&/g')
@@ -346,7 +353,7 @@ sff_delete()
 	echo ""
 	head -n $lmax "$tsel"
 	[ "$_lines" -gt $lmax ] && echo "..."
-	printf "Permanently delete %d file(s)? (y/n) [n]: " $_lines; read -r _x
+	printf "Permanently delete %d file(s)? (y/n) [n]: " "$_lines"; read -r _x
 	case "$_x" in [yY]) :;; *) exit 0;; esac
 	sffpipe_refresh 'c'
 
@@ -370,11 +377,18 @@ sff_exec()
 
 	case "$_cmd" in
 	'ed') [ -z "$1" ] && return 0
-		LC_ALL= exec $EDITOR "$@";;
+		LC_ALL= exec $EDITOR "$@"
+		;;
 	'sh') echo ""
 		export Q='exit'
-		command -v bash >/dev/null 2>&1 && _sh='bash' || _sh='sh'
-		LC_ALL= exec $_sh -s "$@";;
+		command -v "$SHELL" >/dev/null 2>&1 && _sh=$SHELL || _sh=''
+		[ -z "$_sh" ] && command -v 'bash' >/dev/null 2>&1 && _sh='bash'
+		[ -z "$_sh" ] && _sh='sh'
+		case "${_sh##*/}" in
+		ash|bash|dash|ksh|zsh|sh) LC_ALL= exec $_sh -s "$@";;
+		*) LC_ALL= exec $_sh;;
+		esac
+		;;
 	esac
 }
 
@@ -422,16 +436,16 @@ sff_file_stat()
 sff_disk_usage()
 {
 	sffpipe_get_sel || return 1
-	echo ""
-	LC_ALL= xargs -0 du -shc <"$sffpipe" | sort -h
-	echo ""
-	df -h "$cwd"
-	return 1
+	{
+		LC_ALL= xargs -0 du -shc <"$sffpipe" | sort -h
+		echo ""
+		df -h "$cwd"
+	} | LC_ALL= less -~ +G
 }
 
 sff_undo()
 {
-	[ ! -s "$lastop" ] || [ "$(find "$lastop" -mmin +360)" ] && exit 0
+	[ ! -s "$lastop" ] || [ "$(find "$lastop" -mmin +$undottl)" ] && exit 0
 	case "$(cat "$lastop")" in
 	'new'|'copy'|'duplicate') sff_undo_new;;
 	'move'|'rename') sff_undo_move;;
@@ -440,7 +454,7 @@ sff_undo()
 
 sff_redo()
 {
-	[ ! -s "$lastop" ] && exit 0
+	[ ! -s "$lastop" ] || [ "$(find "$lastop" -mmin +$undottl)" ] && exit 0
 	case "$(cat "$lastop")" in
 	'unnew') sff_do_new;;
 	'uncopy') sff_do_paste 'copy';;
@@ -501,4 +515,4 @@ case "$1" in                  #?> Extension functions:
 'Z') run_pl 'archive' 'c';;   #?>     Z  Create archive
 esac || sff_hold              #?>
                               #?>Use Alt+<Key> or 'u'-<Key> to invoke
-                              #?>Press 'q' to leave this page
+                              #?>Press 'q' to close

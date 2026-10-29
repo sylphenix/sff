@@ -614,10 +614,10 @@ static Histpath *inithistpath(Histpath *hp, const char *path)
 	hp->stat = hp->hs;
 	for (char *p = hp->pa + 2; p < hp->end; ++p) {
 		if (*p == '/' || *p == '\0') { // Each level of path corresponds to a histstat
-			if (hp->stat - hp->hs < HSTAT_MAX - 1)
-				++hp->stat;
-			else
+			if (hp->stat - hp->hs >= HSTAT_MAX - 1)
 				++hp->stat->pend;
+			else
+				++hp->stat;
 		}
 	}
 	return hp;
@@ -642,9 +642,12 @@ static void saveselection(Tabs *tab)
 		return;
 
 	if (tab->ss) {
-		for (int i = 0; i < tab->nss && !ss; ++i)
-			if (tab->ss[i].plen == 0)
+		for (int i = 0; i < tab->nss; ++i) {
+			if (tab->ss[i].plen == 0) {
 				ss = tab->ss + i;
+				break;
+			}
+		}
 	}
 	if (!ss) {
 		if (!(ss = realloc(tab->ss, sizeof(Selstat) * ++tab->nss)) && seterrnum(__LINE__, errno)) {
@@ -692,7 +695,7 @@ static void saveselection(Tabs *tab)
 
 static void savedirstat(Tabs *tab)
 {
-	if (ndents > 0 && tab->hp->stat->pend == 0) {
+	if (ndents > 0) {
 		tab->hp->stat->cur = cursel;
 		tab->hp->stat->scrl = curscroll;
 	}
@@ -726,7 +729,8 @@ static int switchhistpath(int n)
 		return GO_NONE;
 
 	savedirstat(ptab);
-	findname = hp2->stub;
+	if (n == 2)
+		findname = hp2->stub;
 	ptab->hp = hp2;
 	return GO_RELOAD;
 }
@@ -745,8 +749,8 @@ static int enterdir(int n)
 
 	if (!(ent->flag & E_DIR_DIRLNK)) {
 		if (n == 1 || gcfg.openfile)
-			spawn(opener, newpath, NULL, *opener != '/', NULL);
-		return GO_STATBAR;
+			return spawn(opener, newpath, NULL, *opener != '/', NULL);
+		return GO_NONE;
 	}
 	if (hp->stat->flag == S_ROOT) {
 		if (strcmp(newpath, hp2->path) == 0)
@@ -757,11 +761,11 @@ static int enterdir(int n)
 	if (chdir(newpath) == -1 && seterrnum(__LINE__, errno))
 		return GO_STATBAR;
 
-	savedirstat(ptab);
-	if (hp->stub < hp->end && strcmp(ent->name, hp->stub) != 0) {
-		if ((strcmp(hp->path, hp2->path) == 0 && strcmp(ent->name, hp2->stub) == 0)
-		|| (gcfg.ct < TABS_MAX && inithistpath(hp2, hp->path)))
-			hp = hp2;
+	if (hp->stub < hp->end && strcmp(ent->name, hp->stub) != 0 && gcfg.ct < TABS_MAX) {
+		if (strcmp(hp->path, hp2->path) != 0 || strcmp(ent->name, hp2->stub) != 0)
+			inithistpath(hp2, hp->path);
+		memcpy(hp2->hs, hp->hs, sizeof(Histstat) * (hp->stat - hp->hs + 1));
+		hp = hp2;
 	}
 	hp->path = hp->pa;
 	*(hp->stub - 1) = '/';
@@ -769,10 +773,12 @@ static int enterdir(int n)
 	if (hp->end < hp->stub)
 		hp->end = hp->stub;
 
-	if (hp->stat - hp->hs < HSTAT_MAX - 1)
-		++hp->stat;
-	else
+	savedirstat(ptab);
+	if (hp->stat - hp->hs >= HSTAT_MAX - 1) {
 		++hp->stat->pend;
+		hp->stat->cur = hp->stat->scrl = 0;
+	} else
+		++hp->stat;
 	ptab->hp = hp;
 	return GO_RELOAD;
 }
@@ -784,12 +790,17 @@ static int gotoparent(int n __attribute__((unused)))
 	if (hp->path == root || hp->stat->flag == S_ROOT)
 		return GO_NONE;
 	if (hp->stat->flag == S_SUBROOT)
-		return switchhistpath(1);
+		return switchhistpath(2);
 
 	savedirstat(ptab);
+	if (gcfg.ct == TABS_MAX)
+		hp->stat->cur = hp->stat->scrl = 0;
 	do {
-		hp->stat -= (hp->stat == hp->hs || hp->stat->pend > 0) ? 0 : 1;
-		hp->stat->pend -= (hp->stat->pend > 0) ? 1 : 0;
+		if (hp->stat->pend > 0) {
+			--hp->stat->pend;
+			hp->stat->cur = hp->stat->scrl = 0;
+		} else if (hp->stat > hp->hs)
+			--hp->stat;
 		hp->stub = strrchr(hp->pa, '/');
 		*hp->stub = '\0';
 		hp->path = (hp->stub == hp->pa) ? root : hp->pa;
@@ -1215,7 +1226,7 @@ static int showhelp(int n __attribute__((unused)))
 
 		tb_print(0, y += 2, C_DEF, C_DEF, "Note: File operations are implemented by extension functions");
 		tb_print(0, ++y, C_DEF, C_DEF, "For help with that, press Alt+'/' or 'u'-'/' in main view");
-		tb_print(0, ++y, C_DEF, C_DEF, "Press 'q' or Esc to leave this page");
+		tb_print(0, ++y, C_DEF, C_DEF, "Press 'q' or Esc to close");
 
 		tb_present();
 		c = getinput(-1);
@@ -1831,9 +1842,12 @@ static void restoredirstat(Tabs *tab)
 
 	// Find corresponding selstat, and restore selection
 	markent = -1;
-	for (int i = 0; tab->nsel > 0 && i < tab->nss && !ss; ++i)
-		if (tab->ss[i].plen != 0 && strcmp(tab->ss[i].buf, tab->hp->path) == 0)
+	for (int i = 0; tab->nsel > 0 && i < tab->nss; ++i) {
+		if (tab->ss[i].plen != 0 && strcmp(tab->ss[i].buf, tab->hp->path) == 0) {
 			ss = &tab->ss[i];
+			break;
+		}
+	}
 	if (ss) {
 		for (size_t idx, i = 0; i < (size_t)tab->nde; ++i) {
 			hash = fnv1ahash(pdents[i].name);

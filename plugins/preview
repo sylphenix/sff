@@ -34,11 +34,9 @@ application/*-tar|application/*-compressed*|application/*[!+]zip*|application/zi
 application/x-xz|application/vnd.rar|application/x-iso9660-image) "$archivepl" "$path"
 	;;
 
-inode/directory) _cou=$(find -L "$path" -mindepth 1 -maxdepth 1 -printf '.' 2>/dev/null | wc -c)
+inode/directory) _cou=$(find -L "$path" -mindepth 1 -maxdepth 1 2>/dev/null | wc -l)
 	printf "  -- directory -- (%s files)\n" $_cou
-	if [ "$_cou" -gt 75000 ]; then
-		LC_COLLATE=C ls -1fAp "$path" | head -n $lines
-	elif [ "$_cou" -gt 15000 ]; then
+	if [ "$_cou" -gt 15000 ]; then
 		LC_COLLATE=C ls -1Ap "$path" | head -n $lines
 	else
 		ls -1Ap "$path" | head -n $lines

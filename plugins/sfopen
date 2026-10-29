@@ -164,13 +164,16 @@ fi
 
 unset LC_ALL
 if [ "$OS" = 'Darwin' ]; then
-	_opt='-a'
-	[ "$_cmd" = 'open' ] && { _opt=''; _cmd=''; }
-	open $_opt "$_cmd" "$@" >/dev/null 2>&1 && exit 0
+	if [ "$_cmd" = 'open' ]; then
+		open "$@" >/dev/null 2>&1
+		exit 0
+	else
+		open -a "$_cmd" "$@" >/dev/null 2>&1 && exit 0
+	fi
 fi
 
 if ! command -v "$_cmdp" >/dev/null 2>&1; then
-	echo "$_cmdp: not found"
+	echo "$_cmd: command not found"
 	printf "Press Enter to continue "; read -r _x
 	exit 0
 fi
