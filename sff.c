@@ -2297,8 +2297,8 @@ static int initsff(char *arg0, char *argx)
 		extfunc = strdup(gpbuf);
 
 	// Set pipepath and SFF_PIPE environment variable
-	if (cfgpath && makepath(cfgpath, ".sff-pipe.", gpbuf))
-		pipepath = strdup(strcat(gpbuf, xitoa(getpid())));
+	if (cfgpath && snprintf(gpbuf, PATH_MAX, "%s/.sff-pipe.%d", cfgpath, getpid()) > 0)
+		pipepath = strdup(gpbuf);
 	if (!cfgpath || !extfunc || !pipepath || setenv("SFF_PIPE", pipepath, 1) == -1)
 		seterrnum(__LINE__, errno);
 
