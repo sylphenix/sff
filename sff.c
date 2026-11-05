@@ -2304,11 +2304,9 @@ static int initsff(char *arg0, char *argx)
 
 	// Initialize first tab
 	for (char *p = gcfg.cols; *p; ++p)
-		if (*p == 'n')
+		if (p != gcfg.cols && *p == 'n')
 			*p = '@';
-	if (gcfg.cols[0] == '@')
-		gcfg.cols[0] = 'n';
-	else
+	if (gcfg.cols[0] != 'n')
 		memccpy(gcfg.cols + MIN(strlen(gcfg.cols), 4), "n", '\0', 2);
 	if (!abspath(argx, gpbuf) || !inittab(gpbuf, 0) || chdir(ghpath[0].path) == -1) {
 		perror(xitoa(__LINE__));
