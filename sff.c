@@ -875,14 +875,16 @@ static void removeselection(Entry *ent)
 
 static int toggleselection(int n)
 {
+	int ret;
+
 	if (ndents == 0)
 		return GO_NONE;
-
 	if (pdents[cursel].flag & E_SELECTED)
 		removeselection(&pdents[cursel]);
 	else
 		appendselection(&pdents[cursel]);
-	return shiftcursor(n, 0);
+	ret = shiftcursor(n, 0);
+	return (ret == GO_NONE) ? GO_FASTDRAW : ret;
 }
 
 static int selectall(int n)
