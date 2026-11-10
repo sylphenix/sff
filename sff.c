@@ -771,13 +771,13 @@ static int enterdir(int n)
 		memcpy(hp2->hs, hp->hs, sizeof(Histstat) * (hp->stat - hp->hs + 1));
 		hp = hp2;
 	}
+	savedirstat(ptab);
 	hp->path = hp->pa;
 	*(hp->stub - 1) = '/';
 	hp->stub = memccpy(hp->stub, ent->name, '\0', NAME_MAX + 1);
 	if (hp->end < hp->stub)
 		hp->end = hp->stub;
 
-	savedirstat(ptab);
 	if (hp->stat - hp->hs >= HSTAT_MAX - 1) {
 		++hp->stat->pend;
 		hp->stat->cur = hp->stat->scrl = 0;
