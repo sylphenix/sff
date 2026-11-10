@@ -177,13 +177,17 @@ typedef struct {
 	const char *cmnt;
 } Key;
 
+#define PV_BUF_X  256  // maximum columns for text preview
+#define PV_BUF_Y  128  // maximum lines for text preview
 typedef struct {
-	char *script;
-	char *path;
+	char buf[PV_BUF_X * PV_BUF_Y];
+	char script[PATH_MAX];
+	char path[PATH_MAX];
+	char tbuf[PATH_MAX];
 	int sig;
 	int lines;
 	int cols;
-} Pvargs;
+} Pvctx;
 
 /*** Global Variables ***/
 
@@ -194,11 +198,11 @@ static size_t namebuflen = 0;
 static time_t curtime;
 static char *home, *opener, *root = "/";
 static char *cfgpath = NULL, *extfunc = NULL, *pipepath = NULL;
-static char *pnamebuf = NULL, *pfindbuf = NULL, *pfindend = NULL, *findname = NULL, *pvbuf = NULL;
+static char *pnamebuf = NULL, *pfindbuf = NULL, *pfindend = NULL, *findname = NULL;
 static Entry *pdents = NULL;
 static Tabs *ptab = NULL;
-static _Atomic int pvdraw = 0;
-static pthread_mutex_t pvmutex = PTHREAD_MUTEX_INITIALIZER;
+static _Atomic int pvready = 0;
+static pthread_mutex_t pvmutex = PTHREAD_MUTEX_INITIALIZER, pvmutex2 = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t pvcond = PTHREAD_COND_INITIALIZER;
 
 alignas(max_align_t) static char gnbuf[NAME_MAX + 1] = {0};
@@ -557,7 +561,7 @@ static int shiftcursor(int step, int scrl)
 	curscroll = MAX(curscroll, MAX(cursel - (onscr - 1), 0));
 
 	if (lastscroll == curscroll)
-		return GO_FASTDRAW;
+		return (lastsel == cursel) ? GO_NONE : GO_FASTDRAW;
 	return GO_REDRAW;
 }
 
@@ -767,13 +771,13 @@ static int enterdir(int n)
 		memcpy(hp2->hs, hp->hs, sizeof(Histstat) * (hp->stat - hp->hs + 1));
 		hp = hp2;
 	}
+	savedirstat(ptab);
 	hp->path = hp->pa;
 	*(hp->stub - 1) = '/';
 	hp->stub = memccpy(hp->stub, ent->name, '\0', NAME_MAX + 1);
 	if (hp->end < hp->stub)
 		hp->end = hp->stub;
 
-	savedirstat(ptab);
 	if (hp->stat - hp->hs >= HSTAT_MAX - 1) {
 		++hp->stat->pend;
 		hp->stat->cur = hp->stat->scrl = 0;
@@ -871,14 +875,16 @@ static void removeselection(Entry *ent)
 
 static int toggleselection(int n)
 {
+	int ret;
+
 	if (ndents == 0)
 		return GO_NONE;
-
 	if (pdents[cursel].flag & E_SELECTED)
 		removeselection(&pdents[cursel]);
 	else
 		appendselection(&pdents[cursel]);
-	return shiftcursor(n, 0);
+	ret = shiftcursor(n, 0);
+	return (ret == GO_NONE) ? GO_FASTDRAW : ret;
 }
 
 static int selectall(int n)
@@ -1410,107 +1416,130 @@ static int printnstr(int x, int y, int fg, const char *str, int maxcols)
 	return w;
 }
 
-#define PV_BUF_X  256  // maximum columns for text preview
-#define PV_BUF_Y  128  // maximum lines for text preview
 static void *runpvscript(void *args)
 {
-	char *pbuf, *pn, cmd[PATH_MAX + 64];
-	int lines, cols, lastsig = 1;
-	struct timespec ts = {0, 10 * 1000000L};
-	Pvargs *pva = (Pvargs *)args;
+	char *plin, *pn, *rd, size[32] = {0};
+	int err, pfd[2], lines, cols, lastsig = 1;
+	Pvctx *pv = (Pvctx *)args;
+	pid_t pid;
 	FILE *fp;
-	int len = snprintf(cmd, PATH_MAX + 4, "\"%s\" ", pva->script);
 
 	for (;;) {
 		pthread_mutex_lock(&pvmutex);
-		while (lastsig == pva->sig) {
-			pvdraw = 2;
+		while (lastsig == pv->sig) {
+			pvready = 1;
 			pthread_cond_wait(&pvcond, &pvmutex);
 		}
-		lastsig = pva->sig;
-		lines = pva->lines;
-		cols = pva->cols;
-		setenv("SFF_PV_PATH", pva->path, 1);
+		lastsig = pv->sig;
+		lines = pv->lines;
+		cols = pv->cols;
+		memccpy(pv->tbuf, pv->path, '\0', PATH_MAX);
+		snprintf(size, 31, "%d-%d", lines, cols);
 		pthread_mutex_unlock(&pvmutex);
-
 		if (lastsig == 0)
 			break;
-		nanosleep(&ts, NULL);
-		if (pvdraw == 1) {
-			lastsig = -1;
-			continue;
-		}
-		pvdraw = 3;
-		snprintf(cmd + len, 60, "%d %d 2>/dev/null", lines, cols);
-		if (!(fp = popen(cmd, "r"))) {
-			snprintf(pvbuf, 128, "popen failed: %s", strerror(errno));
-			continue;
+
+		err = 0;
+		if (pipe(pfd) != 0) {
+			err = __LINE__;
+			pid = -1;
+		} else {
+			pid = fork();
+			if (pid < 0) {
+				err = __LINE__;
+				close(pfd[0]);
+			} else if (pid == 0) {
+				close(pfd[0]);
+				dup2(pfd[1], STDOUT_FILENO);
+				dup2(pfd[1], STDERR_FILENO);
+				close(pfd[1]);
+				execl(pv->script, pv->script, pv->tbuf, size, NULL);
+				_exit(EXIT_FAILURE);
+			}
+			close(pfd[1]);
+			if (!err && !(fp = fdopen(pfd[0], "r"))) {
+				err = __LINE__;
+				close(pfd[0]);
+			}
 		}
 
-		pbuf = pvbuf;
-		for (int i = 0; i < lines && i < PV_BUF_Y - 1; ++i, pbuf += PV_BUF_X) {
-			if (fgets(pbuf, PV_BUF_X, fp) != NULL) {
-				if (!(pn = strchr(pbuf, '\n'))) {
-					pn = pbuf + PV_BUF_X - 1;
-					while (fgets(pn + 1, PV_BUF_X, fp) != NULL && !strchr(pn + 1, '\n'));
+		pvready = 0;
+		pthread_mutex_lock(&pvmutex2);
+		if (err) {
+			snprintf(pv->buf, PV_BUF_X, "failed (%d): %s", err, strerror(errno));
+			pv->buf[PV_BUF_X] = 1;
+		} else {
+			rd = plin = pv->buf;
+			for (int i = 0; i < lines && rd && fgets(plin, PV_BUF_X, fp) != NULL; ++i, plin += PV_BUF_X) {
+				if (!(pn = strchr(plin, '\n'))) {
+					pn = plin + PV_BUF_X - 1;
+					while ((rd = fgets(pv->tbuf, PATH_MAX, fp)) != NULL && !strchr(pv->tbuf, '\n'));
 				}
-			} else
-				pn = pbuf;
-			*pn = '\0';
+				*pn = '\0';
+			}
+			*plin = 1;
 		}
-		pclose(fp);
+		pthread_mutex_unlock(&pvmutex2);
+		if (!err)
+			fclose(fp);
+		if (pid > 0)
+			waitpid(pid, NULL, 0);
 	}
 	return NULL;
 }
 
 static int setpreview(int op, char *path)
 {
-	static char pvpath[PATH_MAX] = {0};
-	static Pvargs pva = {0};
+	static Pvctx *pv = NULL;
 	static pthread_t pvthid;
 
 	switch (op) {
 	case 1: // open preview
-		if (!path || (access(path, X_OK) != 0 && seterrnum(__LINE__, errno)))
+		if (!path || (access(path, X_OK) != 0 && seterrnum(__LINE__, errno))
+		|| pv || (!(pv = calloc(1, sizeof(Pvctx))) && seterrnum(__LINE__, errno)))
 			return GO_STATBAR;
-		if (!pvbuf && !(pvbuf = calloc(PV_BUF_X * PV_BUF_Y, 1)) && seterrnum(__LINE__, errno))
+		*pv = (Pvctx){.sig = 1};
+		memccpy(pv->script, path, '\0', PATH_MAX);
+		if (pthread_create(&pvthid, NULL, runpvscript, pv) != 0 && seterrnum(__LINE__, EAGAIN)) {
+			free(pv);
+			pv = NULL;
 			return GO_STATBAR;
-		pva = (Pvargs){.script = path, .path = pvpath, .sig = 1};
+		}
 		gcfg.showpvp = 1;
-		pthread_create(&pvthid, NULL, runpvscript, &pva);
 		break;
 
 	case 0: // close preview
 		gcfg.showpvp = 0;
-		if (pva.sig == 0)
+		if (!pv)
 			return GO_NONE;
 		pthread_mutex_lock(&pvmutex);
-		pva.sig = 0;
+		pv->sig = 0;
 		pthread_cond_signal(&pvcond);
 		pthread_mutex_unlock(&pvmutex);
 		pthread_join(pvthid, NULL);
+		free(pv);
+		pv = NULL;
 		break;
 
 	case 2: // refresh
-		if (!gcfg.showpvp || ndents == 0)
+		if (!gcfg.showpvp || !pv || ndents == 0)
 			return GO_NONE;
 		pthread_mutex_lock(&pvmutex);
-		pva.sig = ((uintptr_t)ptab->hp->stat << 18) ^ (cursel << 8) ^ pdents[cursel].nsec;
-		pva.lines = xlines - 3;
-		pva.cols = pvcols - 1;
-		makepath(ptab->hp->path, pdents[cursel].name, pvpath);
+		pv->sig = (pv->sig > 9999) ? 2 : pv->sig + 1;
+		pv->lines = MIN(xlines - 3, PV_BUF_Y - 1);
+		pv->cols = MIN(pvcols - 1, PV_BUF_X - 1);
+		makepath(ptab->hp->path, pdents[cursel].name, pv->path);
 		pthread_cond_signal(&pvcond);
 		pthread_mutex_unlock(&pvmutex);
 		break;
 
 	case 3: // draw preview
-		if (!gcfg.showpvp || ndents == 0 || pvdraw == 3)
+		if (!gcfg.showpvp || !pv || !pvready || pthread_mutex_trylock(&pvmutex2) != 0)
 			return GO_NONE;
-		pvdraw = 1;
 		cleararea(xcols - pvcols, 1, pvcols, xlines - 3);
-		for (int i = 1, j = 0; i < xlines - 2 && i < PV_BUF_Y - 1; ++i, j += PV_BUF_X)
-			printnstr(xcols - pvcols + 1, i, C_DEF, &pvbuf[j], pvcols - 1);
-		pvdraw = 0;
+		for (int i = 0, j = 0; pv->buf[j] != 1 && i < pv->lines && ndents > 0; ++i, j += PV_BUF_X)
+			printnstr(xcols - pv->cols, i + 1, C_DEF, pv->buf + j, pv->cols);
+		pthread_mutex_unlock(&pvmutex2);
 		gcfg.redrawn = 0;
 		return GO_NONE;
 	}
@@ -2270,18 +2299,16 @@ static int initsff(char *arg0, char *argx)
 		extfunc = strdup(gpbuf);
 
 	// Set pipepath and SFF_PIPE environment variable
-	if (cfgpath && makepath(cfgpath, ".sff-pipe.", gpbuf))
-		pipepath = strdup(strcat(gpbuf, xitoa(getpid())));
+	if (cfgpath && snprintf(gpbuf, PATH_MAX, "%s/.sff-pipe.%d", cfgpath, getpid()) > 0)
+		pipepath = strdup(gpbuf);
 	if (!cfgpath || !extfunc || !pipepath || setenv("SFF_PIPE", pipepath, 1) == -1)
 		seterrnum(__LINE__, errno);
 
 	// Initialize first tab
 	for (char *p = gcfg.cols; *p; ++p)
-		if (*p == 'n')
+		if (p != gcfg.cols && *p == 'n')
 			*p = '@';
-	if (gcfg.cols[0] == '@')
-		gcfg.cols[0] = 'n';
-	else
+	if (gcfg.cols[0] != 'n')
 		memccpy(gcfg.cols + MIN(strlen(gcfg.cols), 4), "n", '\0', 2);
 	if (!abspath(argx, gpbuf) || !inittab(gpbuf, 0) || chdir(ghpath[0].path) == -1) {
 		perror(xitoa(__LINE__));
@@ -2308,7 +2335,6 @@ static void cleanup(void)
 	free(cfgpath);
 	free(extfunc);
 	free(pipepath);
-	free(pvbuf);
 }
 
 int main(int argc, char *argv[])

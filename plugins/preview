@@ -19,11 +19,14 @@ if [ "$2" = 'sw' ]; then
 	exit 0
 fi
 
-archivepl="${0%/*}/archive"
-lines=$1 # preview pane height
-cols=$2 # preview pane width
-path=$SFF_PV_PATH
+exec 0</dev/null
+exec 2>/dev/null
+
+path=$1
+lines=${2%-*} # preview pane height
+cols=${2#*-} # preview pane width
 mime=$(file -bL --mime-type "$path")
+archivepl="${0%/*}/archive"
 
 case "$mime" in
 text/*|application/json) echo ""
@@ -31,16 +34,13 @@ text/*|application/json) echo ""
 	;;
 
 application/*-tar|application/*-compressed*|application/*[!+]zip*|application/zip|\
-application/x-xz|application/vnd.rar|application/x-iso9660-image) "$archivepl" "$path"
+application/x-xz|application/vnd.rar|application/x-iso9660-image) "$archivepl" "$path" | head -n $lines
 	;;
 
 inode/directory) _cou=$(find -L "$path" -mindepth 1 -maxdepth 1 2>/dev/null | wc -l)
 	printf "  -- directory -- (%s files)\n" $_cou
-	if [ "$_cou" -gt 15000 ]; then
-		LC_COLLATE=C ls -1Ap "$path" | head -n $lines
-	else
-		ls -1Ap "$path" | head -n $lines
-	fi
+	[ "$_cou" -gt 20000 ] && export LC_COLLATE=C
+	ls -1Ap "$path" | head -n $lines
 	;;
 
 *) printf "  -- %s --\n" "$mime"
